@@ -48,8 +48,24 @@ const BEARER = /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi
 
 // A generic "<sensitive name><separator><value>" assignment, for keys that
 // don't match a known vendor shape (e.g. a plain DB_PASSWORD env dump).
+//
+// The rule set must be idempotent: findSecrets(redactString(x)) must always
+// be []. CREDENTIAL_ASSIGNMENT runs first during redaction (so it never
+// sees another rule's output), but findSecrets applies every rule —
+// including this one — to already-redacted text. Without the lookahead
+// below, a later rule's own replacement token (e.g. "[REDACTED:bearer]",
+// 17 characters with no spaces) would itself satisfy \S{8,} on that second
+// pass, manufacturing a phantom "credential" leak out of fully clean text
+// such as "auth token: Bearer abcdefghij" -> "auth token:
+// [REDACTED:bearer]". The `(?!\[REDACTED:)` guard rejects a value that is
+// (the start of) one of this module's own replacement tokens, which is
+// simpler and more robust than special-casing every current and future
+// rule individually: every bracketed replacement this module emits shares
+// that exact prefix, so one lookahead covers all of them. The `~`
+// home-path replacement needs no equivalent guard — at one character, it
+// can never satisfy \S{8,} in the first place.
 const CREDENTIAL_ASSIGNMENT =
-  /(?:api[_-]?key|token|secret|password|credential)\s*[:=]\s*\S{8,}/gi
+  /(?:api[_-]?key|token|secret|password|credential)\s*[:=]\s*(?!\[REDACTED:)\S{8,}/gi
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -63,7 +79,7 @@ function assertUsableHomeDir(homeDir: string): void {
   }
 }
 
-function assertUsableDenyEntry(rawEntry: string): void {
+function assertUsableDenyEntry(rawEntry: string, index: number): void {
   const trimmed = rawEntry.trim()
   if (trimmed.length === 0) {
     throw new Error('redact: denyList entries must not be blank')
@@ -71,8 +87,14 @@ function assertUsableDenyEntry(rawEntry: string): void {
   const lower = trimmed.toLowerCase()
   for (const token of REPLACEMENT_TOKENS) {
     if (token.toLowerCase().includes(lower)) {
+      // G3 — a deny-list entry is, by definition, a literal string that
+      // must never be published. This guard runs inside normalize(), which
+      // runs in GitHub Actions on a public repository, so printing the
+      // entry itself here would be the redaction module publishing the
+      // exact secret it exists to protect. Name the problem, never the
+      // value: index and length are enough to find and fix the entry.
       throw new Error(
-        `redact: denyList entry "${trimmed}" is too short — it collides with a redaction replacement token and would self-poison output`,
+        `redact: denyList entry at index ${index} (length ${trimmed.length}) is too short; it could collide with a redaction token`,
       )
     }
   }
@@ -122,8 +144,8 @@ function patterns(opts: RedactOptions): Rule[] {
     label: 'home-path',
   })
 
-  for (const rawEntry of opts.denyList) {
-    assertUsableDenyEntry(rawEntry)
+  for (const [index, rawEntry] of opts.denyList.entries()) {
+    assertUsableDenyEntry(rawEntry, index)
     const trimmed = rawEntry.trim()
     rules.push({
       pattern: new RegExp(escapeRegExp(trimmed), 'gi'),

@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { redactString, redactDeep, findSecrets, findSecretsDeep } from './redact.ts'
 
+// G4 — pinned to {} rather than left to default to process.env, so this
+// suite is hermetic: a contributor's or CI runner's ambient environment
+// can no longer silently change which of these tests pass. The two F7
+// tests below override this with their own explicit fake env.
 const opts = {
   homeDir: 'C:\\Users\\User',
   denyList: ['my-private-project'],
+  env: {},
 }
 
 describe('redactString', () => {
@@ -115,6 +120,95 @@ describe('redactString', () => {
     expect(() =>
       redactString('abc', { ...opts, denyList: ['red'] }),
     ).toThrow(/denyList/)
+  })
+
+  // G3 — F3 and F6 both required that a guard name the *problem*, never the
+  // *value*. The collision guard was the one holdout: it interpolated the
+  // deny-list entry itself into a message that runs inside normalize, which
+  // runs in GitHub Actions on a public repository.
+  it('reports the index and length of a colliding deny-list entry, never its content', () => {
+    let caught: Error | undefined
+    try {
+      redactString('abc', { ...opts, denyList: ['bear'] })
+    } catch (err) {
+      caught = err as Error
+    }
+    expect(caught).toBeDefined()
+    const message = caught?.message ?? ''
+    expect(message).toContain('index 0')
+    expect(message).toContain('length 4')
+    expect(message.toLowerCase()).not.toContain('bear')
+  })
+})
+
+// G1/G2 — the rule set must be idempotent: once redactString has cleaned a
+// string, findSecrets scanning that same string must report nothing. Round
+// 1 broke this without a test catching it: CREDENTIAL_ASSIGNMENT runs first
+// during redaction and never sees the tokens later rules emit, but
+// findSecrets applies every rule — including CREDENTIAL_ASSIGNMENT — to the
+// already-redacted output. A 17+ character, space-free replacement token
+// right after "token:"/"secret:"/etc. then satisfies CREDENTIAL_ASSIGNMENT's
+// own \S{8,}, manufacturing a phantom leak out of clean text. This corpus
+// covers every rule family plus the three measured triggers.
+describe('idempotence: findSecrets(redactString(x)) is always []', () => {
+  const cases: Array<[string, string, typeof opts]> = [
+    ['an OpenAI-style key', 'sk-abc123DEF456ghi789jkl', opts],
+    ['a GitHub token', 'ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4', opts],
+    [
+      'a bare JWT',
+      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
+      opts,
+    ],
+    // G1 trigger 1 — measured: redacts to "auth token: [REDACTED:bearer]",
+    // then findSecrets on that output reported ['credential'].
+    ['a bearer token', 'auth token: Bearer abcdefghij', opts],
+    ['a credential assignment', 'DB_PASSWORD=SuperSecretValue123', opts],
+    ['a native Windows home path', 'C:\\Users\\User\\x.ts', opts],
+    ['a forward-slash home path', 'C:/Users/User/x.ts', opts],
+    ['a Git-Bash (MSYS) home path', '/c/Users/User/x.ts', opts],
+    // G1 trigger 2 — measured: redacts to "project secret: [REDACTED:denied]",
+    // then findSecrets on that output reported ['credential'].
+    [
+      'a deny-list entry',
+      'project secret: my-proj',
+      { ...opts, denyList: ['my-proj'] },
+    ],
+    // G1 trigger 3 — measured: redacts to "token: [REDACTED:env]", then
+    // findSecrets on that output reported ['credential'].
+    [
+      'an environment value',
+      'token: alpha beta gamma',
+      { ...opts, env: { MY_TOKEN: 'alpha beta gamma' } },
+    ],
+  ]
+
+  it.each(cases)('is clean after redacting %s', (_name, input, caseOpts) => {
+    expect(findSecrets(redactString(input, caseOpts), caseOpts)).toEqual([])
+  })
+})
+
+// G2 — the home-directory variants added for F2 were only ever tested for
+// redaction, never for detection, so redaction and detection could drift
+// apart unnoticed (which is exactly what happened to the other rules in
+// G1). These assert findSecrets/findSecretsDeep recognize all three forms
+// on RAW, unredacted input.
+describe('findSecrets recognizes every home-directory variant', () => {
+  it.each([
+    ['native', 'note: C:\\Users\\User\\x.ts'],
+    ['forward-slash', 'note: C:/Users/User/x.ts'],
+    ['Git-Bash (MSYS)', 'note: /c/Users/User/x.ts'],
+  ])('%s form', (_label, input) => {
+    expect(findSecrets(input, opts)).toEqual(['home-path'])
+  })
+})
+
+describe('findSecretsDeep recognizes every home-directory variant', () => {
+  it.each([
+    ['native', 'C:\\Users\\User\\x.ts'],
+    ['forward-slash', 'C:/Users/User/x.ts'],
+    ['Git-Bash (MSYS)', '/c/Users/User/x.ts'],
+  ])('%s form', (_label, path) => {
+    expect(findSecretsDeep({ note: path }, opts)).toEqual(['home-path'])
   })
 })
 
