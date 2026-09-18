@@ -1,0 +1,28 @@
+---
+interface Props {
+  trace: {
+    task: string
+    model: string
+    commit: string
+    frames: Array<{ type: string; [key: string]: unknown }>
+  }
+}
+const { trace } = Astro.props
+---
+
+<noscript>
+  <section aria-label={`Recorded run transcript: ${trace.task}`}>
+    <p>{trace.task}</p>
+    <p>{trace.model} · {trace.commit}</p>
+    <ol>
+      {
+        trace.frames.map((frame) => (
+          <li data-frame-type={frame.type}>
+            <p>{frame.type}</p>
+            <pre>{JSON.stringify(frame, null, 2)}</pre>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+</noscript>
