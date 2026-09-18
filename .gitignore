@@ -3,3 +3,5 @@ dist/
 .astro/
 .env
 agent/traces/
+test-results/
+playwright-report/

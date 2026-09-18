@@ -1,0 +1,28 @@
+{
+  "name": "nine-commits",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "agent",
+    "site"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.base.json --noEmit",
+    "validate": "tsx tools/validate-traces.ts",
+    "record": "tsx tools/record-trace.ts",
+    "covers": "tsx tools/make-covers.ts",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.1",
+    "zod": "^4.6.5"
+  }
+}
