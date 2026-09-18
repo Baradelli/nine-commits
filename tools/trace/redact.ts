@@ -46,7 +46,22 @@ const API_KEY =
 // A bare JSON Web Token: three dot-separated base64url segments.
 const JWT = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g
 
-const BEARER = /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi
+// J2 — the value class is *tempered*: it consumes any character of the token
+// alphabet except one that begins another `Bearer`. Untempered, the class ran
+// straight through the next token's own keyword, so `Bearer XBearer Y` matched
+// once — covering the first token and the literal word `Bearer` — and
+// published ` Y` with the gate reporting clean, because the second token's
+// `\b` anchor had been eaten and nothing could match it afterwards. Tempered,
+// the match stops at the boundary, the splice puts a `]` there which restores
+// the word boundary, and the fixed-point loop picks the second token up on the
+// next pass.
+//
+// Only the two rules ending in an open-ended value class get this. API_KEY and
+// JWT end in `\b`, and a tempered class there stops mid-word-run where no `\b`
+// exists, so the engine backtracks and the rule matches NOTHING: measured,
+// `sk-…Bearer …` would go from a tail leak to being published entirely
+// unredacted. Tempering those two is strictly worse than leaving them.
+const BEARER = /\bBearer\s+(?:(?!Bearer)[A-Za-z0-9._~+/=-]){8,}/gi
 
 // A generic "<sensitive name><separator><value>" assignment, for keys that
 // don't match a known vendor shape (e.g. a plain DB_PASSWORD env dump).
@@ -60,8 +75,21 @@ const BEARER = /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi
 // is now an invariant of the driver below, not a property each rule has to
 // encode about every other rule's output, so this rule can go back to being
 // as greedy as a security boundary wants it to be.
-const CREDENTIAL_ASSIGNMENT =
-  /(?:api[_-]?key|token|secret|password|credential)\s*[:=]\s*\S{8,}/gi
+//
+// J2 — greedy, but tempered, for the same reason BEARER is: an untempered
+// `\S{8,}` ran through a following assignment's own keyword, so
+// `token: aaaaaaaatoken: bbbbbbbb` matched once and published the second
+// value. The temper rejects only a position that starts another
+// keyword-AND-separator, never a bare keyword, and that distinction is
+// load-bearing: `secret: [REDACTED:x]andmoresecrettext` has the word "secret"
+// inside its value, and stopping there would leave `secrettext` behind — the
+// H1 fail-open all over again. The alternation is written once and reused in
+// both places, so the rule and its own temper cannot drift apart.
+const CREDENTIAL_KEYWORD = 'api[_-]?key|token|secret|password|credential'
+const CREDENTIAL_ASSIGNMENT = new RegExp(
+  `(?:${CREDENTIAL_KEYWORD})\\s*[:=]\\s*(?:(?!(?:${CREDENTIAL_KEYWORD})\\s*[:=])\\S){8,}`,
+  'gi',
+)
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -348,7 +376,10 @@ export function redactString(input: string, opts: RedactOptions): string {
  */
 function located(err: unknown, where: string): Error {
   const message = err instanceof Error ? err.message : String(err)
-  return new Error(`${message} (at ${where || '<root>'})`)
+  // `cause` keeps the original error (and its stack) reachable. Only the
+  // message is ever printed by normalize, and the original message is already
+  // label-only, so this adds a debugging handle without adding a leak surface.
+  return new Error(`${message} (at ${where || '<root>'})`, { cause: err })
 }
 
 export function redactDeep<T>(value: T, opts: RedactOptions): T {

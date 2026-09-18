@@ -193,19 +193,17 @@ const corpusOpts: RedactOptions = {
 // `distinctive` is the part of the sample that must NOT survive redaction.
 // Without it, a rule set that redacted nothing at all would satisfy the
 // idempotence property trivially — see the second describe block below.
-// `gluedStillMatches` records whether this family's rule can still match when
-// the sample is concatenated directly onto another token with no separator.
-// The vendor-key, JWT and bearer rules all begin with `\b`, so gluing them
-// onto a preceding word character destroys the anchor and the rule matches
-// nothing at all. That is a rule-coverage limit, not an overlap bug, and it
-// is out of scope this round — but the adjacency corpus below must not assert
-// the disappearance of material that no rule ever claimed, so those families
-// are only used as the LEADING half of an adjacent pair. See the report.
+// J1 — round 4 also carried a `gluedStillMatches` flag here, saying whether
+// this family's rule survives being glued onto another token. It is gone: a
+// per-family boolean cannot be right, because the answer depends on the
+// wrapper (which decides whether a word character precedes the sample) as much
+// as on the family, and a flag that silently switches assertions off is how 48
+// cases came to assert nothing at all. KNOWN_SURVIVALS carries the truth now,
+// per case, measured.
 type Sample = {
   family: string
   text: string
   distinctive: string
-  gluedStillMatches: boolean
 }
 
 const SAMPLES: Sample[] = [
@@ -213,61 +211,79 @@ const SAMPLES: Sample[] = [
     family: 'openai key',
     text: 'sk-abc123DEF456ghi789jkl',
     distinctive: 'abc123DEF456ghi789jkl',
-    gluedStillMatches: false,
   },
   {
     family: 'github token',
     text: 'ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4',
     distinctive: 'a1B2c3D4e5F6g7H8i9J0k1L2m3N4',
-    gluedStillMatches: false,
   },
   {
     family: 'jwt',
     text: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
     distinctive: 'dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
-    gluedStillMatches: false,
   },
   {
     family: 'bearer token',
     text: 'Bearer abcdefghij',
     distinctive: 'abcdefghij',
-    gluedStillMatches: false,
   },
   {
     family: 'credential assignment',
     text: 'DB_PASSWORD=SuperSecretValue123',
     distinctive: 'SuperSecretValue123',
-    gluedStillMatches: true,
   },
   {
     family: 'home path (native)',
     text: 'C:\\Users\\User\\x.ts',
     distinctive: 'C:\\Users\\User',
-    gluedStillMatches: true,
   },
   {
     family: 'home path (forward slash)',
     text: 'C:/Users/User/x.ts',
     distinctive: 'C:/Users/User',
-    gluedStillMatches: true,
   },
   {
     family: 'home path (MSYS)',
     text: '/c/Users/User/x.ts',
     distinctive: '/c/Users/User',
-    gluedStillMatches: true,
   },
   {
     family: 'deny-list entry',
     text: 'my-private-project',
     distinctive: 'my-private-project',
-    gluedStillMatches: true,
   },
   {
     family: 'env value',
     text: 'sup3rSecretValue!',
     distinctive: 'sup3rSecretValue',
-    gluedStillMatches: true,
+  },
+  // J3 — API_KEY alternates seven vendor shapes and the corpus only ever
+  // sampled two of them (`sk-`, `ghp_`). The other five were production regex
+  // with no generated coverage at all. Test-only: no rule changes here.
+  {
+    family: 'aws access key',
+    text: 'AKIAIOSFODNN7EXAMPLE',
+    distinctive: 'IOSFODNN7EXAMPLE',
+  },
+  {
+    family: 'npm token',
+    text: 'npm_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8',
+    distinctive: 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8',
+  },
+  {
+    family: 'slack bot token',
+    text: 'xoxb-12345678901-2345678901234-AbCdEfGhIjKlMnOpQrStUvWx',
+    distinctive: 'AbCdEfGhIjKlMnOpQrStUvWx',
+  },
+  {
+    family: 'google api key',
+    text: 'AIzaSyD-ExampleKeyMaterial0123456789xyz',
+    distinctive: 'ExampleKeyMaterial0123456789xyz',
+  },
+  {
+    family: 'github fine-grained pat',
+    text: 'github_pat_11ABCDEFG0aBcDeFgHiJkLmNoPqRsTuVwXyZ012345',
+    distinctive: '11ABCDEFG0aBcDeFgHiJkLmNoPqRsTuVwXyZ012345',
   },
 ]
 
@@ -318,7 +334,9 @@ describe('redaction invariant over a generated corpus', () => {
     expect(corpus).toHaveLength(
       SAMPLES.length * WRAPPERS.length * CONTEXTS.length,
     )
-    expect(corpus).toHaveLength(720)
+    // 15 families x 12 wrappers x 6 contexts. Pinned as a literal as well as
+    // a product so that a generator that silently stops generating is caught.
+    expect(corpus).toHaveLength(1080)
   })
 
   it.each(corpus)('%s — is clean and idempotent', (_name, input) => {
@@ -359,48 +377,164 @@ describe('generated corpus: the secret itself does not survive', () => {
 // pairs would have been the same mistake the round-2 ten-row table made: it
 // covers what someone happened to line up, not the space.
 //
-// Assertions per case: clean and idempotent for ALL 1200; plus, for the pairs
-// where it is sound, that the secret material is gone. Two exclusions, both of
-// them limits of what this assertion can see rather than places the module is
-// allowed to leak:
+// J1 — every case asserts something, and every fragment that survives is
+// enumerated. Round 4 skipped assertions per FAMILY (`gluedStillMatches`) and
+// skipped the leading fragment whenever the two halves shared it. Where those
+// two skips intersected, `mustBeGone` came out empty and the `for` loop over
+// it ran zero assertions: 48 cases passed by asserting nothing, and the count
+// grew by 12 for every future family flagged unmatched-when-glued. Worse, the
+// per-family flag was applied to all 12 wrappers when its justification — the
+// `\b` is destroyed, so the rule produces no hit — only holds for the wrappers
+// that leave a word character immediately before the trailing sample.
 //
-//   - The TRAILING distinctive is only asserted when that family's rule can
-//     still match while glued (`gluedStillMatches`). A `\b`-anchored rule
-//     matches nothing in that position, so no hit was produced and none was
-//     discarded — there is no overlap defect there to detect.
-//   - The LEADING distinctive is only asserted when the two halves do not
-//     share it, i.e. not for a family glued to itself. `not.toContain` cannot
-//     tell the leading copy from the trailing one, and for jwt and bearer the
-//     leading match greedily swallows the boundary between the copies, leaving
-//     a second copy that no longer matches anything. Measured:
-//     `Bearer abcdefghijBearer abcdefghij` -> `[REDACTED:bearer] abcdefghij`.
-//     That is the same anchor-consumption class as the bullet above, reached
-//     from the other side; it is reported, and it is not I1 (nothing was
-//     discarded, so no overlap policy can recover it).
-const adjacency: Array<[string, string, string[]]> = []
+// The flag is gone. Every case now asserts every fragment, and a fragment is
+// allowed to survive only if it is named in KNOWN_SURVIVALS below. That list
+// is asserted EXACT in both directions: an unlisted survival fails the build,
+// and a listed entry that no longer survives fails too, so the list shrinks as
+// leaks are closed and cannot rot into a stale allow-list.
+type Fragment = { owner: 'lead' | 'trail' | 'both'; text: string }
+
+// The exact set of fragments that survive redaction today, keyed
+// `<lead> + <trail> / <wrapper> :: <lead|trail|both>`. Every entry is a real
+// leak: material published while findSecrets reports clean. They are recorded
+// rather than fixed because closing them needs the trailing `\b` anchors
+// dropped and every rule tempered against every other rule's prefix — a
+// rule-set redesign, not a last-round change. Reasons are grouped above the
+// blocks below.
+//
+// This list is the round's product. It is asserted exact, so it is a ratchet:
+// it can only shrink, and it cannot rot.
+const KNOWN_SURVIVALS = new Map<string, string>([
+  // lead rule ends in \b and the trailing token supplies a word character, so it matches nothing and both halves ship (16)
+  ['aws access key + openai key / bare :: lead', 'lead'],
+  ['aws access key + github token / bare :: lead', 'lead'],
+  ['aws access key + jwt / bare :: lead', 'lead'],
+  ['aws access key + bearer token / bare :: lead', 'lead'],
+  ['aws access key + credential assignment / bare :: lead', 'lead'],
+  ['aws access key + npm token / bare :: lead', 'lead'],
+  ['aws access key + slack bot token / bare :: lead', 'lead'],
+  ['aws access key + google api key / bare :: lead', 'lead'],
+  ['aws access key + github fine-grained pat / bare :: lead', 'lead'],
+  ['npm token + github token / bare :: lead', 'lead'],
+  ['npm token + credential assignment / bare :: lead', 'lead'],
+  ['npm token + github fine-grained pat / bare :: lead', 'lead'],
+  ['slack bot token + github token / bare :: lead', 'lead'],
+  ['slack bot token + credential assignment / bare :: lead', 'lead'],
+  ['slack bot token + npm token / bare :: lead', 'lead'],
+  ['slack bot token + github fine-grained pat / bare :: lead', 'lead'],
+  // self-pair: the leading match swallows the boundary between the copies (4)
+  ['jwt + jwt / bare :: both', 'both'],
+  ['jwt + jwt / leading dash :: both', 'both'],
+  ['aws access key + aws access key / bare :: both', 'both'],
+  ['npm token + npm token / bare :: both', 'both'],
+  // leading match's greedy class eats the trailing rule's \b anchor (63)
+  ['openai key + jwt / bare :: trail', 'trail'],
+  ['openai key + bearer token / bare :: trail', 'trail'],
+  ['github token + openai key / bare :: trail', 'trail'],
+  ['github token + jwt / bare :: trail', 'trail'],
+  ['github token + bearer token / bare :: trail', 'trail'],
+  ['github token + slack bot token / bare :: trail', 'trail'],
+  ['github token + google api key / bare :: trail', 'trail'],
+  ['jwt + bearer token / bare :: trail', 'trail'],
+  ['credential assignment + bearer token / bare :: trail', 'trail'],
+  ['home path (native) + openai key / bare :: trail', 'trail'],
+  ['home path (native) + github token / bare :: trail', 'trail'],
+  ['home path (native) + jwt / bare :: trail', 'trail'],
+  ['home path (native) + bearer token / bare :: trail', 'trail'],
+  ['home path (native) + aws access key / bare :: trail', 'trail'],
+  ['home path (native) + npm token / bare :: trail', 'trail'],
+  ['home path (native) + slack bot token / bare :: trail', 'trail'],
+  ['home path (native) + google api key / bare :: trail', 'trail'],
+  ['home path (native) + github fine-grained pat / bare :: trail', 'trail'],
+  ['home path (forward slash) + openai key / bare :: trail', 'trail'],
+  ['home path (forward slash) + github token / bare :: trail', 'trail'],
+  ['home path (forward slash) + jwt / bare :: trail', 'trail'],
+  ['home path (forward slash) + bearer token / bare :: trail', 'trail'],
+  ['home path (forward slash) + aws access key / bare :: trail', 'trail'],
+  ['home path (forward slash) + npm token / bare :: trail', 'trail'],
+  ['home path (forward slash) + slack bot token / bare :: trail', 'trail'],
+  ['home path (forward slash) + google api key / bare :: trail', 'trail'],
+  ['home path (forward slash) + github fine-grained pat / bare :: trail', 'trail'],
+  ['home path (MSYS) + openai key / bare :: trail', 'trail'],
+  ['home path (MSYS) + github token / bare :: trail', 'trail'],
+  ['home path (MSYS) + jwt / bare :: trail', 'trail'],
+  ['home path (MSYS) + bearer token / bare :: trail', 'trail'],
+  ['home path (MSYS) + aws access key / bare :: trail', 'trail'],
+  ['home path (MSYS) + npm token / bare :: trail', 'trail'],
+  ['home path (MSYS) + slack bot token / bare :: trail', 'trail'],
+  ['home path (MSYS) + google api key / bare :: trail', 'trail'],
+  ['home path (MSYS) + github fine-grained pat / bare :: trail', 'trail'],
+  ['aws access key + openai key / bare :: trail', 'trail'],
+  ['aws access key + github token / bare :: trail', 'trail'],
+  ['aws access key + jwt / bare :: trail', 'trail'],
+  ['aws access key + bearer token / bare :: trail', 'trail'],
+  ['aws access key + npm token / bare :: trail', 'trail'],
+  ['aws access key + slack bot token / bare :: trail', 'trail'],
+  ['aws access key + google api key / bare :: trail', 'trail'],
+  ['aws access key + github fine-grained pat / bare :: trail', 'trail'],
+  ['npm token + openai key / bare :: trail', 'trail'],
+  ['npm token + github token / bare :: trail', 'trail'],
+  ['npm token + jwt / bare :: trail', 'trail'],
+  ['npm token + bearer token / bare :: trail', 'trail'],
+  ['npm token + slack bot token / bare :: trail', 'trail'],
+  ['npm token + google api key / bare :: trail', 'trail'],
+  ['npm token + github fine-grained pat / bare :: trail', 'trail'],
+  ['slack bot token + github token / bare :: trail', 'trail'],
+  ['slack bot token + jwt / bare :: trail', 'trail'],
+  ['slack bot token + bearer token / bare :: trail', 'trail'],
+  ['slack bot token + npm token / bare :: trail', 'trail'],
+  ['slack bot token + github fine-grained pat / bare :: trail', 'trail'],
+  ['google api key + jwt / bare :: trail', 'trail'],
+  ['google api key + bearer token / bare :: trail', 'trail'],
+  ['github fine-grained pat + openai key / bare :: trail', 'trail'],
+  ['github fine-grained pat + jwt / bare :: trail', 'trail'],
+  ['github fine-grained pat + bearer token / bare :: trail', 'trail'],
+  ['github fine-grained pat + slack bot token / bare :: trail', 'trail'],
+  ['github fine-grained pat + google api key / bare :: trail', 'trail'],
+])
+
+const adjacency: Array<[string, string, Fragment[]]> = []
 for (const lead of SAMPLES) {
   for (const trail of SAMPLES) {
     for (const [wrapperName, wrap] of WRAPPERS) {
-      const mustBeGone: string[] = []
-      if (lead.distinctive !== trail.distinctive) {
-        mustBeGone.push(lead.distinctive)
-      }
-      if (trail.gluedStillMatches) mustBeGone.push(trail.distinctive)
+      // A self-pair's two halves share one distinctive, and `includes` cannot
+      // tell the copies apart, so they collapse to a single 'both' fragment
+      // rather than being dropped.
+      const fragments: Fragment[] =
+        lead.distinctive === trail.distinctive
+          ? [{ owner: 'both', text: lead.distinctive }]
+          : [
+              { owner: 'lead', text: lead.distinctive },
+              { owner: 'trail', text: trail.distinctive },
+            ]
       adjacency.push([
         `${lead.family} + ${trail.family} / ${wrapperName}`,
         `${wrap(lead.text)}${wrap(trail.text)}`,
-        mustBeGone,
+        fragments,
       ])
     }
   }
 }
+
+const survivalKey = (caseName: string, fragment: Fragment): string =>
+  `${caseName} :: ${fragment.owner}`
 
 describe('adjacent secrets with no separator', () => {
   it('generates the expected number of cases', () => {
     expect(adjacency).toHaveLength(
       SAMPLES.length * SAMPLES.length * WRAPPERS.length,
     )
-    expect(adjacency).toHaveLength(1200)
+    // 15 families x 15 families x 12 wrappers.
+    expect(adjacency).toHaveLength(2700)
+  })
+
+  it('records a reason for every known survival', () => {
+    // J1 — a bare list of keys would rot into folklore. Every entry carries a
+    // reason, and the reason has to be one of the three measured mechanisms.
+    expect(KNOWN_SURVIVALS.size).toBe(83)
+    for (const reason of KNOWN_SURVIVALS.values()) {
+      expect(['lead', 'trail', 'both']).toContain(reason)
+    }
   })
 
   it.each(adjacency)('%s — is clean and idempotent', (_name, input) => {
@@ -410,13 +544,32 @@ describe('adjacent secrets with no separator', () => {
   })
 })
 
-describe('adjacent secrets: no overlap loser leaves an uncovered tail', () => {
-  it.each(adjacency)('%s — every claimed secret is gone', (_name, input, mustBeGone) => {
+describe('adjacent secrets: every surviving fragment is enumerated', () => {
+  it.each(adjacency)('%s', (name, input, fragments) => {
+    // J1 — the vacuity hole cannot reopen: every case carries at least one
+    // fragment, and every fragment is asserted.
+    expect(fragments.length).toBeGreaterThan(0)
     const out = redactString(input, corpusOpts)
-    for (const fragment of mustBeGone) {
-      expect(input).toContain(fragment)
-      expect(out).not.toContain(fragment)
+    for (const fragment of fragments) {
+      expect(input).toContain(fragment.text)
+      const key = survivalKey(name, fragment)
+      expect({ key, survives: out.includes(fragment.text) }).toEqual({
+        key,
+        survives: KNOWN_SURVIVALS.has(key),
+      })
     }
+  })
+
+  it('has no baseline entry that names a case the corpus does not generate', () => {
+    const generated = new Set(
+      adjacency.flatMap(([name, , fragments]) =>
+        fragments.map((fragment) => survivalKey(name, fragment)),
+      ),
+    )
+    const orphans = [...KNOWN_SURVIVALS.keys()].filter(
+      (key) => !generated.has(key),
+    )
+    expect(orphans).toEqual([])
   })
 })
 
@@ -620,6 +773,44 @@ describe('a divergence inside redactDeep reports where it happened', () => {
     const message = catchFrom({ a: { b: 'log REDACTED:env here' } })
     expect(message).toContain('a.b')
     expect(message).not.toContain('log REDACTED:env here')
+  })
+
+  it('keeps the original error reachable as `cause`', () => {
+    let caught: Error | undefined
+    try {
+      redactDeep({ a: 'log REDACTED:env here' }, selfPoisoning)
+    } catch (err) {
+      caught = err as Error
+    }
+    expect(caught?.cause).toBeInstanceOf(Error)
+    expect((caught?.cause as Error).message).toContain('fixed point')
+  })
+})
+
+// J1's ratchet, applied to the one remaining limitation that a real recorded
+// trace can actually hit. The credential rule needs its keyword immediately
+// followed by `\s*[:=]`, and in JSON a closing quote intervenes, so
+// `{"token":"aaaaaaaa"}` is published untouched — and JSON is this pipeline's
+// own serialization format, so a tool_result carrying a JSON body is the
+// realistic shape, not a contrived one. Every other known limitation needs two
+// secrets concatenated with no separator at all.
+//
+// Pinned rather than fixed: closing it means new production regex surface and
+// this is the last round. Pinned rather than merely written down, because a
+// sentence in a report does not fail a build. When someone widens the rule,
+// these assertions fail and force this block to be deleted in the same commit.
+describe('KNOWN LIMITATION — a quoted JSON key defeats the credential rule', () => {
+  it.each([
+    ['a JSON object', '{"token":"aaaaaaaa"}', 'aaaaaaaa'],
+    ['a JSON body with whitespace', '{ "api_key": "SuperSecretValue123" }', 'SuperSecretValue123'],
+    ["single-quoted key", "{'password':'hunter2hunter2'}", 'hunter2hunter2'],
+  ])('%s is published untouched', (_name, input, secret) => {
+    const out = redactString(input, corpusOpts)
+    expect(out).toBe(input)
+    expect(out).toContain(secret)
+    // And the gate agrees it is clean, which is what makes it a leak rather
+    // than a build failure.
+    expect(findSecrets(out, corpusOpts)).toEqual([])
   })
 })
 
