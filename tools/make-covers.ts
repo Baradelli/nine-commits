@@ -4,6 +4,7 @@ import satori from 'satori'
 import { Resvg } from '@resvg/resvg-js'
 import matter from 'gray-matter'
 import { buildCover } from './covers/layout.ts'
+import { parseCoverFrontmatter } from './covers/frontmatter.ts'
 
 const WIDTH = 1200
 const HEIGHT = 627
@@ -49,11 +50,12 @@ async function main(): Promise<void> {
     if (!existsSync(mdxPath)) continue
 
     const { data } = matter(readFileSync(mdxPath, 'utf8'))
+    const { order, title, thesis } = parseCoverFrontmatter(data, postDir)
 
     const element = buildCover({
-      order: Number(data.order),
-      title: String(data.title),
-      thesis: String(data.thesis),
+      order,
+      title,
+      thesis,
       traceLine: firstAssistantLine(postDir),
     })
 
