@@ -1,0 +1,13 @@
+{
+  "name": "@nine-commits/agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx --env-file=.env src/cli.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.69",
+    "ai": "^7.0.105",
+    "zod": "^4.6.5"
+  }
+}
