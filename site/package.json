@@ -10,6 +10,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "typecheck": "astro check",
     "astro": "astro"
   },
   "dependencies": {
@@ -18,7 +19,8 @@
     "astro": "^7.3.3",
     "preact": "^10.29.8"
   },
-  "allowScripts": {
-    "esbuild": true
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "^5.9.3"
   }
 }
