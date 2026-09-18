@@ -190,13 +190,32 @@ type Hit = {
  *
  * Every rule is matched against `input` independently — so no rule ever sees
  * another rule's replacement text within a pass — and the matches are then
- * merged into one left-to-right, non-overlapping list. Overlaps resolve
- * leftmost first, then longest, then by rule order.
+ * reduced to a left-to-right list of disjoint spans by taking their **union**:
+ * overlapping matches are merged into one span covering all of them, and the
+ * merged span carries the label of its leftmost (then longest, then
+ * highest-priority) contributor.
  *
- * Both exported entry points are built on this, which is what keeps
- * detection and redaction from drifting apart: `findSecrets` reports the
- * labels of these hits, `redactString` splices over the very same spans. A
- * string has no hits if and only if `findSecrets` returns [] for it.
+ * The union is the point. The obvious alternative — pick a non-overlapping
+ * subset and drop the losers — silently publishes a loser's uncovered tail
+ * whenever the winner ends inside it, and nothing downstream can recover it:
+ * the truncated remainder no longer matches any rule, so the fixed-point loop
+ * settles and the gate reports clean. Measured, with built-in rules only:
+ * `npm_a1b2c3d4e5f6g7h8i9j0password=hunter2hunter2` redacted to
+ * `[REDACTED:api-key]=hunter2hunter2`. Taking the union instead makes the
+ * guarantee "every character any rule matched is replaced" rather than "the
+ * chosen subset of matches is replaced", which is the difference between
+ * "no rule matches the result" and "no matched material survives".
+ *
+ * Merging is transitive by construction: a span extended by one overlap is
+ * compared against the next match using its new end, so a chain of pairwise
+ * overlaps collapses into a single span. Matches that merely touch — the next
+ * one starts exactly where the open span ends — stay separate, so two adjacent
+ * secrets still produce two tokens rather than one.
+ *
+ * Both exported entry points are built on this, which is what keeps detection
+ * and redaction from drifting apart: `findSecrets` reports the labels of these
+ * spans, `redactString` splices over the very same spans. A string has no
+ * spans if and only if `findSecrets` returns [] for it.
  */
 function scanOnce(input: string, rules: Rule[]): Hit[] {
   const hits: Hit[] = []
@@ -228,14 +247,18 @@ function scanOnce(input: string, rules: Rule[]): Hit[] {
       a.priority - b.priority,
   )
 
-  const chosen: Hit[] = []
-  let cursor = 0
+  const merged: Hit[] = []
   for (const hit of hits) {
-    if (hit.start < cursor) continue
-    chosen.push(hit)
-    cursor = hit.end
+    const open = merged[merged.length - 1]
+    if (open && hit.start < open.end) {
+      // Overlaps the span we are building: absorb it rather than discard it,
+      // so its uncovered tail (if any) is redacted too.
+      if (hit.end > open.end) open.end = hit.end
+      continue
+    }
+    merged.push({ ...hit })
   }
-  return chosen
+  return merged
 }
 
 function applyHits(input: string, hits: Hit[]): string {
@@ -249,11 +272,22 @@ function applyHits(input: string, hits: Hit[]): string {
 }
 
 /**
- * How many redaction passes may run before the module declares the rule set
- * divergent. Real chains are short — the longest one the corpus produces is
- * home-path -> bearer -> credential, three passes plus the confirming scan.
+ * How many redaction passes may run before the module gives up.
+ *
+ * I4 — measured, not estimated: no case in the generated corpus needs more
+ * than two applied passes (a cap of 2 clears all of it).
+ *
+ * The cap is nevertheless far above that, because pass count is not only a
+ * property of the rule set. Each pass peels exactly one keyword-separator
+ * prefix off a stacked value, so `'token: '.repeat(n)` needs n passes with a
+ * rule set that is converging perfectly well. At 8 that put ordinary — if
+ * silly — content within reach of a throw whose message blamed the rules. A
+ * high cap costs nothing (the loop exits on the first clean scan, so
+ * convergent input never pays for the headroom) and keeps the throw for the
+ * case it is actually for: a rule whose replacement re-triggers itself and
+ * grows without bound.
  */
-const MAX_REDACTION_PASSES = 8
+const MAX_REDACTION_PASSES = 64
 
 /**
  * Redacts to a *fixed point*: the returned string is one that `scanOnce`
@@ -275,8 +309,12 @@ const MAX_REDACTION_PASSES = 8
  *
  * It throws rather than returning a string the gate would reject, because
  * the alternative is a build that fails in `normalize` with no way for the
- * author to fix it by editing the trace. A rule set that cannot converge is
- * a bug in the rule set, and the message says so — in labels, never values.
+ * author to fix it by editing the trace.
+ *
+ * The message states only what cap exhaustion actually establishes — that the
+ * scan had not settled within the cap — and does not attribute it to a rule
+ * bug. It cannot: a convergent rule set reaches the cap too, on input with
+ * enough stacked keyword prefixes. Labels and counts, never values.
  */
 export function redactString(input: string, opts: RedactOptions): string {
   const rules = patterns(opts)
@@ -291,18 +329,44 @@ export function redactString(input: string, opts: RedactOptions): string {
   if (residual.length > 0) {
     const kinds = [...new Set(residual.map((hit) => hit.label))].sort()
     throw new Error(
-      `redact: rule set did not reach a fixed point after ${MAX_REDACTION_PASSES} passes; these kinds still match their own redacted output: ${kinds.join(', ')}`,
+      `redact: did not reach a fixed point after ${MAX_REDACTION_PASSES} passes; still matching: ${kinds.join(', ')}`,
     )
   }
   return out
 }
 
+/**
+ * I3 — a divergence throw from `redactString` names a rule kind but not a
+ * place, and it is raised one leaf at a time from inside a whole trace. Add
+ * the structural path so the author can find the string, once, at the leaf
+ * where it happened (nothing above catches, so this never double-prefixes).
+ *
+ * `where` is built from **redacted** path segments. Object keys are redacted
+ * content in this module — `redactDeep` rewrites them — so an unredacted key
+ * in an error message would make the locator a fresh leak of exactly the kind
+ * the rest of the module exists to prevent.
+ */
+function located(err: unknown, where: string): Error {
+  const message = err instanceof Error ? err.message : String(err)
+  return new Error(`${message} (at ${where || '<root>'})`)
+}
+
 export function redactDeep<T>(value: T, opts: RedactOptions): T {
+  return redactNode(value, opts, '')
+}
+
+function redactNode<T>(value: T, opts: RedactOptions, where: string): T {
   if (typeof value === 'string') {
-    return redactString(value, opts) as T
+    try {
+      return redactString(value, opts) as T
+    } catch (err) {
+      throw located(err, where)
+    }
   }
   if (Array.isArray(value)) {
-    return value.map((item) => redactDeep(item, opts)) as T
+    return value.map((item, index) =>
+      redactNode(item, opts, `${where}[${index}]`),
+    ) as T
   }
   if (value !== null && typeof value === 'object') {
     // Object.create(null) (no prototype) instead of {} (Object.prototype):
@@ -313,7 +377,15 @@ export function redactDeep<T>(value: T, opts: RedactOptions): T {
     // "__proto__" property, so this is a real input shape, not a contrived one.
     const out: Record<string, unknown> = Object.create(null)
     for (const [key, val] of Object.entries(value)) {
-      out[redactString(key, opts)] = redactDeep(val, opts)
+      let safeKey: string
+      try {
+        safeKey = redactString(key, opts)
+      } catch (err) {
+        // The key itself diverged; there is no redacted spelling of it to put
+        // in the path, so say which position it was without naming it.
+        throw located(err, `${where}${where ? '.' : ''}<key>`)
+      }
+      out[safeKey] = redactNode(val, opts, `${where}${where ? '.' : ''}${safeKey}`)
     }
     return out as T
   }

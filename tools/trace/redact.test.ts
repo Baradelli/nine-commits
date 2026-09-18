@@ -120,6 +120,24 @@ describe('redactString', () => {
     ).toThrow(/denyList/)
   })
 
+  // I5 — H3 added the index to this throw but nothing pinned it, unlike the
+  // collision guard below. The entry is whitespace, so "the message does not
+  // contain the entry" is only assertable with a character the message could
+  // not otherwise contain: a tab can only appear here by interpolation.
+  it('reports the index of a blank deny-list entry, never its content', () => {
+    let caught: Error | undefined
+    try {
+      redactString('abc', { ...opts, denyList: ['fine', '\t \n'] })
+    } catch (err) {
+      caught = err as Error
+    }
+    expect(caught).toBeDefined()
+    const message = caught?.message ?? ''
+    expect(message).toContain('index 1')
+    expect(message).not.toContain('\t')
+    expect(message).not.toContain('fine')
+  })
+
   it('rejects a deny-list entry that collides with a replacement token', () => {
     // Measured: an unguarded 'red' rewrites '[REDACTED:denied]' into
     // '[[REDACTED:denied]ACTED:denied]' and self-poisons findSecrets forever.
@@ -175,56 +193,81 @@ const corpusOpts: RedactOptions = {
 // `distinctive` is the part of the sample that must NOT survive redaction.
 // Without it, a rule set that redacted nothing at all would satisfy the
 // idempotence property trivially — see the second describe block below.
-const SAMPLES: Array<{ family: string; text: string; distinctive: string }> = [
+// `gluedStillMatches` records whether this family's rule can still match when
+// the sample is concatenated directly onto another token with no separator.
+// The vendor-key, JWT and bearer rules all begin with `\b`, so gluing them
+// onto a preceding word character destroys the anchor and the rule matches
+// nothing at all. That is a rule-coverage limit, not an overlap bug, and it
+// is out of scope this round — but the adjacency corpus below must not assert
+// the disappearance of material that no rule ever claimed, so those families
+// are only used as the LEADING half of an adjacent pair. See the report.
+type Sample = {
+  family: string
+  text: string
+  distinctive: string
+  gluedStillMatches: boolean
+}
+
+const SAMPLES: Sample[] = [
   {
     family: 'openai key',
     text: 'sk-abc123DEF456ghi789jkl',
     distinctive: 'abc123DEF456ghi789jkl',
+    gluedStillMatches: false,
   },
   {
     family: 'github token',
     text: 'ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4',
     distinctive: 'a1B2c3D4e5F6g7H8i9J0k1L2m3N4',
+    gluedStillMatches: false,
   },
   {
     family: 'jwt',
     text: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
     distinctive: 'dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
+    gluedStillMatches: false,
   },
   {
     family: 'bearer token',
     text: 'Bearer abcdefghij',
     distinctive: 'abcdefghij',
+    gluedStillMatches: false,
   },
   {
     family: 'credential assignment',
     text: 'DB_PASSWORD=SuperSecretValue123',
     distinctive: 'SuperSecretValue123',
+    gluedStillMatches: true,
   },
   {
     family: 'home path (native)',
     text: 'C:\\Users\\User\\x.ts',
     distinctive: 'C:\\Users\\User',
+    gluedStillMatches: true,
   },
   {
     family: 'home path (forward slash)',
     text: 'C:/Users/User/x.ts',
     distinctive: 'C:/Users/User',
+    gluedStillMatches: true,
   },
   {
     family: 'home path (MSYS)',
     text: '/c/Users/User/x.ts',
     distinctive: '/c/Users/User',
+    gluedStillMatches: true,
   },
   {
     family: 'deny-list entry',
     text: 'my-private-project',
     distinctive: 'my-private-project',
+    gluedStillMatches: true,
   },
   {
     family: 'env value',
     text: 'sup3rSecretValue!',
     distinctive: 'sup3rSecretValue',
+    gluedStillMatches: true,
   },
 ]
 
@@ -296,6 +339,131 @@ describe('generated corpus: the secret itself does not survive', () => {
       expect(redactString(input, corpusOpts)).not.toContain(distinctive)
     },
   )
+})
+
+// ---------------------------------------------------------------------------
+// I2 — the adjacency corpus: two secrets glued together with NO separator.
+// ---------------------------------------------------------------------------
+//
+// The corpus above crosses one sample with wrappers and contexts, and where it
+// puts two samples in one string it separates them with " and also ". That
+// cannot produce the shape where one rule's match RUNS INTO another rule's
+// match, which is the shape that breaks overlap resolution: a rule whose
+// greedy tail reaches into a second secret wins the overlap on position, and
+// the second secret's uncovered remainder is published while the gate reports
+// clean.
+//
+// I2 asked for a context that concatenates two samples with no separator. This
+// generalises that from one cyclic pair to ALL 100 ordered pairs, because the
+// defect is a property of a *pair of rules*, and cycling through 10 of the 100
+// pairs would have been the same mistake the round-2 ten-row table made: it
+// covers what someone happened to line up, not the space.
+//
+// Assertions per case: clean and idempotent for ALL 1200; plus, for the pairs
+// where it is sound, that the secret material is gone. Two exclusions, both of
+// them limits of what this assertion can see rather than places the module is
+// allowed to leak:
+//
+//   - The TRAILING distinctive is only asserted when that family's rule can
+//     still match while glued (`gluedStillMatches`). A `\b`-anchored rule
+//     matches nothing in that position, so no hit was produced and none was
+//     discarded — there is no overlap defect there to detect.
+//   - The LEADING distinctive is only asserted when the two halves do not
+//     share it, i.e. not for a family glued to itself. `not.toContain` cannot
+//     tell the leading copy from the trailing one, and for jwt and bearer the
+//     leading match greedily swallows the boundary between the copies, leaving
+//     a second copy that no longer matches anything. Measured:
+//     `Bearer abcdefghijBearer abcdefghij` -> `[REDACTED:bearer] abcdefghij`.
+//     That is the same anchor-consumption class as the bullet above, reached
+//     from the other side; it is reported, and it is not I1 (nothing was
+//     discarded, so no overlap policy can recover it).
+const adjacency: Array<[string, string, string[]]> = []
+for (const lead of SAMPLES) {
+  for (const trail of SAMPLES) {
+    for (const [wrapperName, wrap] of WRAPPERS) {
+      const mustBeGone: string[] = []
+      if (lead.distinctive !== trail.distinctive) {
+        mustBeGone.push(lead.distinctive)
+      }
+      if (trail.gluedStillMatches) mustBeGone.push(trail.distinctive)
+      adjacency.push([
+        `${lead.family} + ${trail.family} / ${wrapperName}`,
+        `${wrap(lead.text)}${wrap(trail.text)}`,
+        mustBeGone,
+      ])
+    }
+  }
+}
+
+describe('adjacent secrets with no separator', () => {
+  it('generates the expected number of cases', () => {
+    expect(adjacency).toHaveLength(
+      SAMPLES.length * SAMPLES.length * WRAPPERS.length,
+    )
+    expect(adjacency).toHaveLength(1200)
+  })
+
+  it.each(adjacency)('%s — is clean and idempotent', (_name, input) => {
+    const once = redactString(input, corpusOpts)
+    expect(findSecrets(once, corpusOpts)).toEqual([])
+    expect(redactString(once, corpusOpts)).toBe(once)
+  })
+})
+
+describe('adjacent secrets: no overlap loser leaves an uncovered tail', () => {
+  it.each(adjacency)('%s — every claimed secret is gone', (_name, input, mustBeGone) => {
+    const out = redactString(input, corpusOpts)
+    for (const fragment of mustBeGone) {
+      expect(input).toContain(fragment)
+      expect(out).not.toContain(fragment)
+    }
+  })
+})
+
+// I1 — the five shapes the fix-round-4 review measured. Each is an overlap
+// where the winning hit ends INSIDE the losing hit, so the loser's uncovered
+// remainder was published and no later pass could recover it: the truncated
+// remainder no longer matches anything, so the fixed-point loop terminates and
+// findSecrets reports clean. The first two need no caller configuration at
+// all — built-in rules only.
+describe('an overlapped rule never leaves its tail behind', () => {
+  it.each<[string, string, string, RedactOptions]>([
+    [
+      'api key running into a credential assignment',
+      'npm_a1b2c3d4e5f6g7h8i9j0password=hunter2hunter2',
+      'hunter2hunter2',
+      corpusOpts,
+    ],
+    [
+      'jwt running into a credential assignment',
+      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abctoken=SuperSecretValue',
+      'SuperSecretValue',
+      corpusOpts,
+    ],
+    [
+      'deny-list entry running into a credential assignment',
+      'my client token=SuperSecretPassword',
+      'SuperSecretPassword',
+      { ...corpusOpts, denyList: ['my client token'] },
+    ],
+    [
+      'deny-list entry running into an api key',
+      'xyz sk-abc123DEF456ghi789jkl',
+      '123DEF456ghi789jkl',
+      { ...corpusOpts, denyList: ['xyz sk-abc'] },
+    ],
+    [
+      'env value running into a credential assignment',
+      'ev-prefix token=SuperSecretPassword',
+      'SuperSecretPassword',
+      { ...corpusOpts, env: { MY_TOKEN: 'ev-prefix token' } },
+    ],
+  ])('%s', (_name, input, leaked, caseOpts) => {
+    const out = redactString(input, caseOpts)
+    expect(input).toContain(leaked)
+    expect(out).not.toContain(leaked)
+    expect(findSecrets(out, caseOpts)).toEqual([])
+  })
 })
 
 // H1 — the round-2 lookahead `(?!\[REDACTED:)` made the credential rule fail
@@ -387,6 +555,71 @@ describe('a rule set that cannot converge fails closed', () => {
       caught = err as Error
     }
     expect(caught?.message).not.toContain('MY_TOKEN')
+  })
+
+  // I3.1 — the message must not claim a cause it cannot determine. Cap
+  // exhaustion means "did not settle within the cap", which a perfectly
+  // convergent rule set can also produce (see the next block). Blaming the
+  // rule set sends an author hunting a bug that may not exist.
+  it('does not attribute cap exhaustion to a rule bug', () => {
+    let caught: Error | undefined
+    try {
+      redactString('log line REDACTED:env here', selfPoisoning)
+    } catch (err) {
+      caught = err as Error
+    }
+    expect(caught?.message).not.toMatch(/match(es)? their own/)
+  })
+
+  // I3.3 — ordinary content must not be able to reach the throw. Each pass
+  // peels exactly one keyword-separator prefix, so N stacked prefixes need N
+  // passes with a rule set that is converging perfectly well.
+  it('does not throw on deeply stacked credential keywords', () => {
+    const stacked = 'token: '.repeat(9) + 'aaaaaaaa'
+    expect(() => redactString(stacked, corpusOpts)).not.toThrow()
+    expect(redactString(stacked, corpusOpts)).toBe('[REDACTED:credential]')
+  })
+})
+
+// I3.2 — the throw happens inside redactString, one leaf at a time. Thrown
+// from redactDeep over a whole trace, the author has no way to find which
+// string caused it. The path must be reported, and — because object keys are
+// themselves redacted content — the path elements must be redacted too, or
+// the locator becomes the leak.
+describe('a divergence inside redactDeep reports where it happened', () => {
+  const selfPoisoning: RedactOptions = {
+    ...corpusOpts,
+    env: { MY_TOKEN: 'REDACTED:env' },
+  }
+
+  const catchFrom = (value: unknown): string => {
+    try {
+      redactDeep(value, selfPoisoning)
+    } catch (err) {
+      return (err as Error).message
+    }
+    return ''
+  }
+
+  it('reports the structural path to the offending string', () => {
+    const message = catchFrom({
+      frames: [{ type: 'user', content: 'log REDACTED:env here' }],
+    })
+    expect(message).toContain('frames[0].content')
+  })
+
+  it('redacts the path itself, so the locator is not a new leak', () => {
+    const message = catchFrom({
+      'C:\\Users\\User\\notes.ts': 'log REDACTED:env here',
+    })
+    expect(message).toContain('~\\notes.ts')
+    expect(message).not.toContain('C:\\Users\\User')
+  })
+
+  it('still never prints the offending value', () => {
+    const message = catchFrom({ a: { b: 'log REDACTED:env here' } })
+    expect(message).toContain('a.b')
+    expect(message).not.toContain('log REDACTED:env here')
   })
 })
 
