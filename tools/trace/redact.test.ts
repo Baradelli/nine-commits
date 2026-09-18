@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { redactString, redactDeep, findSecrets, findSecretsDeep } from './redact.ts'
+import {
+  redactString,
+  redactDeep,
+  findSecrets,
+  findSecretsDeep,
+  type RedactOptions,
+} from './redact.ts'
 
 // G4 — pinned to {} rather than left to default to process.env, so this
 // suite is hermetic: a contributor's or CI runner's ambient environment
@@ -141,49 +147,246 @@ describe('redactString', () => {
   })
 })
 
-// G1/G2 — the rule set must be idempotent: once redactString has cleaned a
-// string, findSecrets scanning that same string must report nothing. Round
-// 1 broke this without a test catching it: CREDENTIAL_ASSIGNMENT runs first
-// during redaction and never sees the tokens later rules emit, but
-// findSecrets applies every rule — including CREDENTIAL_ASSIGNMENT — to the
-// already-redacted output. A 17+ character, space-free replacement token
-// right after "token:"/"secret:"/etc. then satisfies CREDENTIAL_ASSIGNMENT's
-// own \S{8,}, manufacturing a phantom leak out of clean text. This corpus
-// covers every rule family plus the three measured triggers.
-describe('idempotence: findSecrets(redactString(x)) is always []', () => {
-  const cases: Array<[string, string, typeof opts]> = [
-    ['an OpenAI-style key', 'sk-abc123DEF456ghi789jkl', opts],
-    ['a GitHub token', 'ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4', opts],
-    [
-      'a bare JWT',
-      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
-      opts,
-    ],
-    // G1 trigger 1 — measured: redacts to "auth token: [REDACTED:bearer]",
-    // then findSecrets on that output reported ['credential'].
-    ['a bearer token', 'auth token: Bearer abcdefghij', opts],
-    ['a credential assignment', 'DB_PASSWORD=SuperSecretValue123', opts],
-    ['a native Windows home path', 'C:\\Users\\User\\x.ts', opts],
-    ['a forward-slash home path', 'C:/Users/User/x.ts', opts],
-    ['a Git-Bash (MSYS) home path', '/c/Users/User/x.ts', opts],
-    // G1 trigger 2 — measured: redacts to "project secret: [REDACTED:denied]",
-    // then findSecrets on that output reported ['credential'].
-    [
-      'a deny-list entry',
-      'project secret: my-proj',
-      { ...opts, denyList: ['my-proj'] },
-    ],
-    // G1 trigger 3 — measured: redacts to "token: [REDACTED:env]", then
-    // findSecrets on that output reported ['credential'].
-    [
-      'an environment value',
-      'token: alpha beta gamma',
-      { ...opts, env: { MY_TOKEN: 'alpha beta gamma' } },
-    ],
-  ]
+// H1/H2 — the redaction invariant, proved over a GENERATED corpus.
+//
+// The invariant: for any input x and any valid opts,
+//   redactString(redactString(x, opts), opts) === redactString(x, opts)
+// and consequently findSecrets(redactString(x, opts), opts) === [].
+//
+// Rounds 1 and 2 each broke this and each shipped green, because the test
+// that was supposed to catch it was a hand-written table: every row was a
+// bare, unquoted, unpunctuated secret, so the table could only ever re-check
+// the handful of shapes somebody had already thought of. The failures that
+// survived were quoted, bracketed and parenthesised values — shapes that are
+// MORE common in a real trace than the bare form.
+//
+// So this corpus is not listed, it is built: every secret family crossed
+// with every wrapper crossed with every surrounding context. That is 720
+// cases from a few dozen lines, and it covers shapes nobody enumerated. A
+// tenth rule added next year is exercised against all 72 wrapper/context
+// combinations the moment its sample is added to SAMPLES.
 
-  it.each(cases)('is clean after redacting %s', (_name, input, caseOpts) => {
-    expect(findSecrets(redactString(input, caseOpts), caseOpts)).toEqual([])
+const corpusOpts: RedactOptions = {
+  homeDir: 'C:\\Users\\User',
+  denyList: ['my-private-project'],
+  env: { MY_APP_SECRET: 'sup3rSecretValue!' },
+}
+
+// `distinctive` is the part of the sample that must NOT survive redaction.
+// Without it, a rule set that redacted nothing at all would satisfy the
+// idempotence property trivially — see the second describe block below.
+const SAMPLES: Array<{ family: string; text: string; distinctive: string }> = [
+  {
+    family: 'openai key',
+    text: 'sk-abc123DEF456ghi789jkl',
+    distinctive: 'abc123DEF456ghi789jkl',
+  },
+  {
+    family: 'github token',
+    text: 'ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4',
+    distinctive: 'a1B2c3D4e5F6g7H8i9J0k1L2m3N4',
+  },
+  {
+    family: 'jwt',
+    text: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
+    distinctive: 'dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
+  },
+  {
+    family: 'bearer token',
+    text: 'Bearer abcdefghij',
+    distinctive: 'abcdefghij',
+  },
+  {
+    family: 'credential assignment',
+    text: 'DB_PASSWORD=SuperSecretValue123',
+    distinctive: 'SuperSecretValue123',
+  },
+  {
+    family: 'home path (native)',
+    text: 'C:\\Users\\User\\x.ts',
+    distinctive: 'C:\\Users\\User',
+  },
+  {
+    family: 'home path (forward slash)',
+    text: 'C:/Users/User/x.ts',
+    distinctive: 'C:/Users/User',
+  },
+  {
+    family: 'home path (MSYS)',
+    text: '/c/Users/User/x.ts',
+    distinctive: '/c/Users/User',
+  },
+  {
+    family: 'deny-list entry',
+    text: 'my-private-project',
+    distinctive: 'my-private-project',
+  },
+  {
+    family: 'env value',
+    text: 'sup3rSecretValue!',
+    distinctive: 'sup3rSecretValue',
+  },
+]
+
+const WRAPPERS: Array<[string, (s: string) => string]> = [
+  ['bare', (s) => s],
+  ['double quoted', (s) => `"${s}"`],
+  ['single quoted', (s) => `'${s}'`],
+  ['backticked', (s) => `\`${s}\``],
+  ['parens', (s) => `(${s})`],
+  ['angles', (s) => `<${s}>`],
+  ['brackets', (s) => `[${s}]`],
+  ['braces', (s) => `{${s}}`],
+  ['leading dash', (s) => `-${s}`],
+  ['trailing comma', (s) => `${s},`],
+  ['trailing semicolon', (s) => `${s};`],
+  ['trailing period', (s) => `${s}.`],
+]
+
+const CONTEXTS: Array<[string, (wrapped: string, other: string) => string]> = [
+  ['alone', (w) => w],
+  ['after "token: "', (w) => `token: ${w}`],
+  ['after "api_key="', (w) => `api_key=${w}`],
+  ['after "SECRET: "', (w) => `SECRET: ${w}`],
+  ['mid-sentence', (w) => `the agent read ${w} while running the task`],
+  ['two secrets in one string', (w, other) => `${w} and also ${other}`],
+]
+
+// [caseName, input, distinctiveSubstringThatMustNotSurvive]
+const corpus: Array<[string, string, string]> = []
+for (const [index, sample] of SAMPLES.entries()) {
+  // The "two secrets" context pairs each sample with the next family in the
+  // list, so every adjacency in the cycle gets exercised rather than one
+  // fixed pair.
+  const other = SAMPLES[(index + 1) % SAMPLES.length]
+  for (const [wrapperName, wrap] of WRAPPERS) {
+    for (const [contextName, place] of CONTEXTS) {
+      corpus.push([
+        `${sample.family} / ${wrapperName} / ${contextName}`,
+        place(wrap(sample.text), wrap(other!.text)),
+        sample.distinctive,
+      ])
+    }
+  }
+}
+
+describe('redaction invariant over a generated corpus', () => {
+  it('generates the expected number of cases', () => {
+    expect(corpus).toHaveLength(
+      SAMPLES.length * WRAPPERS.length * CONTEXTS.length,
+    )
+    expect(corpus).toHaveLength(720)
+  })
+
+  it.each(corpus)('%s — is clean and idempotent', (_name, input) => {
+    const once = redactString(input, corpusOpts)
+    expect(findSecrets(once, corpusOpts)).toEqual([])
+    expect(redactString(once, corpusOpts)).toBe(once)
+  })
+})
+
+// The assertion family that stops the invariant above from passing
+// vacuously: a rule set that redacted nothing would be perfectly idempotent
+// and perfectly "clean". These cases prove redaction actually happened.
+describe('generated corpus: the secret itself does not survive', () => {
+  it.each(corpus)(
+    '%s — distinctive substring is gone',
+    (_name, input, distinctive) => {
+      expect(input).toContain(distinctive)
+      expect(redactString(input, corpusOpts)).not.toContain(distinctive)
+    },
+  )
+})
+
+// H1 — the round-2 lookahead `(?!\[REDACTED:)` made the credential rule fail
+// OPEN: any value that began with the literal token prefix was skipped
+// entirely, including everything after it in the same value. A security
+// boundary must not fail open, so these two shapes must still be redacted.
+describe('a value that looks like a replacement token is still redacted', () => {
+  it.each([
+    ['a spoofed token as the whole value', 'password: [REDACTED:hunter2]'],
+    [
+      'a spoofed token with real secret text after it',
+      'secret: [REDACTED:x]andmoresecrettext',
+    ],
+  ])('%s', (_name, input) => {
+    const out = redactString(input, corpusOpts)
+    expect(out).toBe('[REDACTED:credential]')
+    expect(findSecrets(out, corpusOpts)).toEqual([])
+  })
+})
+
+// The seven inputs the fix-round-3 review measured as still failing. The
+// generated corpus above covers six of them structurally; the seventh
+// (`Bearer C:/Users/User/...`) is the one shape a cross-product of
+// independent samples never builds, because there the redaction of one rule
+// CREATES a match for another: the home path becomes "~", and "~" is a
+// member of the bearer rule's own character class, so a clean "~/aaaaaaaaa"
+// reads as a bearer token afterwards. Pinned explicitly so the row can never
+// silently come back.
+describe('the measured fix-round-3 failures', () => {
+  it.each<[string, string, typeof corpusOpts]>([
+    ['double-quoted bearer', 'TOKEN="Bearer abcdefghij"', corpusOpts],
+    ['single-quoted bearer', "token: 'Bearer abcdefghij'", corpusOpts],
+    ['parenthesised bearer', 'api_key: (Bearer abcdefghij)', corpusOpts],
+    ['angle-bracketed bearer', 'token: <Bearer abcdefghij>', corpusOpts],
+    [
+      'quoted env value',
+      'token: "alpha beta gamma"',
+      { ...corpusOpts, env: { MY_TOKEN: 'alpha beta gamma' } },
+    ],
+    [
+      'dash-prefixed deny-list entry',
+      'secret: -myproj',
+      { ...corpusOpts, denyList: ['myproj'] },
+    ],
+    [
+      'a home path that becomes a bearer token once redacted',
+      'Bearer C:/Users/User/aaaaaaaaa',
+      corpusOpts,
+    ],
+  ])('%s', (_name, input, caseOpts) => {
+    const once = redactString(input, caseOpts)
+    expect(findSecrets(once, caseOpts)).toEqual([])
+    expect(redactString(once, caseOpts)).toBe(once)
+  })
+})
+
+// H1 — the invariant is enforced, not assumed. redactString runs its
+// scan/splice pass to a fixed point; a rule whose replacement text contains
+// its own trigger never reaches one. Deny-list entries are screened for that
+// at the entry point, but environment values are not (an ambient variable's
+// content is outside the author's control, and guarding it is on the
+// deferred list). The loop must therefore fail CLOSED on divergence rather
+// than hand back a string the build gate will reject with no way to fix it.
+describe('a rule set that cannot converge fails closed', () => {
+  const selfPoisoning = {
+    ...corpusOpts,
+    // The value is a substring of its own replacement token, so each pass
+    // rewrites the previous pass's output and the string grows forever.
+    env: { MY_TOKEN: 'REDACTED:env' },
+  }
+
+  it('throws instead of returning text the gate would reject', () => {
+    let caught: Error | undefined
+    try {
+      redactString('log line REDACTED:env here', selfPoisoning)
+    } catch (err) {
+      caught = err as Error
+    }
+    expect(caught).toBeDefined()
+    expect(caught?.message).toContain('fixed point')
+    expect(caught?.message).toContain('env-value')
+  })
+
+  it('names the rule kind, never the value, in the thrown message', () => {
+    let caught: Error | undefined
+    try {
+      redactString('log line REDACTED:env here', selfPoisoning)
+    } catch (err) {
+      caught = err as Error
+    }
+    expect(caught?.message).not.toContain('MY_TOKEN')
   })
 })
 
