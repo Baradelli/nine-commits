@@ -12,25 +12,25 @@ They are in the order they were made. Nothing here was approved in advance.
 
 ---
 
-## 1. Process
+## 1. Pre-flight — Playwright base URL
 
-baseURL becomes 'http://localhost:4321/nine-commits/' (trailing slash) and every
+Playwright's baseURL was 'http://localhost:4321/nine-commits' with no trailing slash, while every spec called goto('/posts/...') with a leading slash. Playwright resolves via new URL(url, baseURL), so a leading slash DISCARDS the /nine-commits path segment and every end-to-end test would have hit 404. Decided: baseURL gets a trailing slash and every goto() uses a relative path with no leading slash. Cost if wrong: the e2e tests fail loudly on first run; no silent damage.
 
-## 2. Process
+## 2. Pre-flight — Task 1 verification
 
-Task 1 verifies with `npm install` only; typecheck is first exercised in Task 2,
+Task 1 step 7 ran `npm run typecheck`, but tsconfig.base.json includes only tools/**/*.ts and agent/src/**/*.ts, neither of which exists at that point, so tsc exits TS18003 "No inputs were found" and the step fails as written. Decided: Task 1 verifies with `npm install` only; typecheck is first exercised in Task 2. Cost if wrong: none — typecheck still runs from Task 2 onward and in CI.
 
-## 3. Process
+## 3. Pre-flight — GitHub Action version
 
-use actions/setup-node@v7. Carried into the Task 14 dispatch.
+The plan pinned actions/setup-node@v5. Verified against the GitHub API that the current major is v7.0.0, and that the plan's other actions were already current (checkout@v7, deploy-pages@v5, withastro/action@v6). Decided: use actions/setup-node@v7. Cost if wrong: CI fails at the setup step; no production impact.
 
-## 4. Process
+## 4. Pre-flight — shell
 
-every implementer runs plan commands through the Bash tool (Git Bash), never
+The plan's commands are POSIX shell (env-var prefixes, heredocs, &&-chaining) but the host is Windows with PowerShell as the primary shell. Decided: every implementer runs plan commands through the Bash tool (Git Bash), never PowerShell. Cost if wrong: commands fail with parse errors; no silent damage.
 
-## 5. Process
+## 5. Pre-flight — isolation
 
-use a branch (phase-1) rather than a git worktree. Isolation from main is
+The process calls for an isolated workspace. This repo was brand new, unpublished, with no parallel work and no worktree. Decided: use a branch (phase-1) rather than a git worktree — isolation from main is preserved, and a separate worktree path would only add confusion on a two-commit repo. Cost if wrong: none — the work is still off main and reviewable as a branch.
 
 ## 6. Task 1
 
