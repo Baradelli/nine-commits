@@ -121,6 +121,48 @@ const CREDENTIAL_ASSIGNMENT = new RegExp(
 const HOME_SHAPE =
   /(?:[A-Za-z]:[\\/][Uu]sers[\\/]|\/[a-z]\/Users\/|\/Users\/|\/home\/)[A-Za-z0-9._@-]+/g
 
+// A3 — the STRUCTURAL credential rule.
+//
+// `CREDENTIAL_ASSIGNMENT` above needs its keyword immediately followed by
+// `\s*[:=]`, and this pipeline's own serialization format puts a closing quote
+// in between: `{"token":"aaaaaaaa"}` matches nothing. Worse, the text form was
+// never the realistic shape — `redactDeep` walks PARSED structures, so a
+// `tool_result` carrying `{ token: "aaaaaaaa" }` reaches `redactString` as the
+// bare leaf `"aaaaaaaa"`, with no keyword adjacent to it at all. Neither form
+// was covered, and the object form goes live at post 2 when `tool_call.args`
+// and `tool_result.result` start carrying objects.
+//
+// Fixed here rather than by widening the text regex: this looks at structure
+// the text rules cannot see, so it adds no new text-matching surface and
+// cannot change what `redactString` does to any string. The 3780-case corpus
+// exercises `redactString`, so it is untouched by construction.
+//
+// Applied in `redactNode` AND in `findSecretsDeep`, never in only one of them.
+// Redaction and detection drifting apart is this module's recurring defect
+// (G1, G2): a structural leak the redactor closes but the gate cannot see is a
+// hand-edited trace walking straight through `npm run validate`.
+const CREDENTIAL_KEY = new RegExp(CREDENTIAL_KEYWORD, 'i')
+const MIN_CREDENTIAL_VALUE_LENGTH = 8
+
+/**
+ * Whether `value` is a credential by virtue of the key it is filed under.
+ *
+ * The exemption is EXACT equality with a replacement token, not a prefix or
+ * substring test. `[REDACTED:credential]` is 21 characters under a
+ * credential-shaped key, so without it this rule would re-fire on its own
+ * output forever; with a prefix test instead, a value that merely starts with
+ * the token would be skipped in full, trailing secret and all — which is
+ * precisely the H1 fail-open the text rule had to have removed.
+ */
+function isStructuralCredential(key: string, value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length >= MIN_CREDENTIAL_VALUE_LENGTH &&
+    CREDENTIAL_KEY.test(key) &&
+    !REPLACEMENT_TOKENS.includes(value)
+  )
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -145,20 +187,56 @@ function assertUsableDenyEntry(rawEntry: string, index: number): void {
       `redact: denyList entry at index ${index} must not be blank`,
     )
   }
-  const lower = trimmed.toLowerCase()
-  for (const token of REPLACEMENT_TOKENS) {
-    if (token.toLowerCase().includes(lower)) {
-      // G3 — a deny-list entry is, by definition, a literal string that
-      // must never be published. This guard runs inside normalize(), which
-      // runs in GitHub Actions on a public repository, so printing the
-      // entry itself here would be the redaction module publishing the
-      // exact secret it exists to protect. Name the problem, never the
-      // value: index and length are enough to find and fix the entry.
-      throw new Error(
-        `redact: denyList entry at index ${index} (length ${trimmed.length}) is too short; it could collide with a redaction token`,
-      )
-    }
+  if (collidesWithReplacementToken(trimmed)) {
+    // G3 — a deny-list entry is, by definition, a literal string that
+    // must never be published. This guard runs inside normalize(), which
+    // runs in GitHub Actions on a public repository, so printing the
+    // entry itself here would be the redaction module publishing the
+    // exact secret it exists to protect. Name the problem, never the
+    // value: index and length are enough to find and fix the entry.
+    throw new Error(
+      `redact: denyList entry at index ${index} (length ${trimmed.length}) is too short; it could collide with a redaction token`,
+    )
   }
+}
+
+/**
+ * A8.2 — the same collision guard the deny list gets, for environment values.
+ *
+ * Both become rules the same way and both can stop `redactString`'s
+ * fixed-point loop from converging the same way, but only deny-list entries
+ * were screened. The loop fails closed either way, so this is usability
+ * rather than exposure: the failure it replaces named a rule kind and a pass
+ * count, which is nothing an author can act on, while this one names the
+ * variable to fix.
+ *
+ * The variable's NAME is not the secret — the value is — so unlike the
+ * deny-list guard this one can afford to be specific. The value never
+ * appears.
+ *
+ * Only applied to values that would actually have become rules (sensitive
+ * name, long enough). A guard over every ambient variable could fail a CI
+ * build over content that was never going to be scanned for in the first
+ * place.
+ */
+function assertUsableEnvValue(name: string, value: string): void {
+  if (collidesWithReplacementToken(value)) {
+    throw new Error(
+      `redact: the value of ${name} (length ${value.length}) is too short; it could collide with a redaction token`,
+    )
+  }
+}
+
+/**
+ * Whether redacting `value` would leave text that still contains `value`,
+ * which is the one way a caller-supplied literal can make the fixed-point
+ * loop grow without bound instead of settling.
+ */
+function collidesWithReplacementToken(value: string): boolean {
+  const lower = value.toLowerCase()
+  return REPLACEMENT_TOKENS.some((token) =>
+    token.toLowerCase().includes(lower),
+  )
 }
 
 /**
@@ -231,6 +309,7 @@ function patterns(opts: RedactOptions): Rule[] {
       value.length >= MIN_ENV_VALUE_LENGTH &&
       SENSITIVE_ENV_NAME.test(name)
     ) {
+      assertUsableEnvValue(name, value)
       rules.push({
         pattern: new RegExp(escapeRegExp(value), 'g'),
         replacement: '[REDACTED:env]',
@@ -455,7 +534,12 @@ function redactNode<T>(value: T, opts: RedactOptions, where: string): T {
         // in the path, so say which position it was without naming it.
         throw located(err, `${where}${where ? '.' : ''}<key>`)
       }
-      out[safeKey] = redactNode(val, opts, `${where}${where ? '.' : ''}${safeKey}`)
+      // A3 — decided from the RAW key, not `safeKey`: redacting the key can
+      // remove the very keyword that makes the value a credential, and this
+      // rule must only ever match more, never less.
+      out[safeKey] = isStructuralCredential(key, val)
+        ? '[REDACTED:credential]'
+        : redactNode(val, opts, `${where}${where ? '.' : ''}${safeKey}`)
     }
     return out as T
   }
@@ -494,6 +578,14 @@ export function findSecretsDeep(value: unknown, opts: RedactOptions): string[] {
     if (current !== null && typeof current === 'object') {
       for (const [key, val] of Object.entries(current)) {
         found.push(...findSecrets(key, opts))
+        // A3 — the same structural test `redactNode` applies, so the gate
+        // sees exactly what the redactor would have removed. Reported
+        // INSTEAD of walking the leaf, mirroring the redactor replacing the
+        // whole value rather than scanning it.
+        if (isStructuralCredential(key, val)) {
+          found.push('credential')
+          continue
+        }
         walk(val)
       }
     }

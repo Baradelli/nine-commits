@@ -673,60 +673,108 @@ describe('the measured fix-round-3 failures', () => {
   })
 })
 
+// A8.2 — deny-list entries were screened for collision with this module's own
+// replacement tokens; environment values were not, though both become rules
+// the same way and both can poison the fixed-point loop the same way. The
+// asymmetry was an inconsistency, not an exposure — the loop fails closed —
+// but the failure it produced named a rule kind and a pass count, which is
+// nothing an author can act on. Both now fail at the entry point with a
+// message that says which variable to fix.
+describe('an environment value that would poison the rule set is rejected up front', () => {
+  // A substring of its own replacement token: each pass would rewrite the
+  // previous pass's output and the string would grow without bound.
+  const selfPoisoning = { ...corpusOpts, env: { MY_TOKEN: 'REDACTED:env' } }
+
+  it('throws before scanning anything', () => {
+    expect(() => redactString('an ordinary clean line', selfPoisoning)).toThrow(
+      /collide with a redaction token/,
+    )
+  })
+
+  // The deny-list guard reports an index because an entry has no name. An
+  // environment variable does, and the NAME is not the secret — the value is.
+  // Naming it is the whole difference between an actionable error and the
+  // unactionable one this replaces.
+  it('names the variable so the author knows what to fix', () => {
+    expect(() => redactString('x', selfPoisoning)).toThrow(/MY_TOKEN/)
+  })
+
+  it('never puts the value in the message', () => {
+    let caught: Error | undefined
+    try {
+      redactString('x', selfPoisoning)
+    } catch (err) {
+      caught = err as Error
+    }
+    expect(caught?.message).not.toContain('REDACTED:env')
+  })
+
+  // Confined to values that would actually have become rules. A guard that
+  // ran over every ambient variable could fail a CI build over something that
+  // was never going to be scanned for in the first place.
+  it.each([
+    ['a non-sensitive name', { HOME: 'REDACTED:env' }],
+    ['a value below the rule threshold', { MY_TOKEN: 'ACTED:e' }],
+  ])('ignores %s', (_label, env) => {
+    expect(() =>
+      redactString('an ordinary clean line', { ...corpusOpts, env }),
+    ).not.toThrow()
+  })
+})
+
 // H1 — the invariant is enforced, not assumed. redactString runs its
-// scan/splice pass to a fixed point; a rule whose replacement text contains
-// its own trigger never reaches one. Deny-list entries are screened for that
-// at the entry point, but environment values are not (an ambient variable's
-// content is outside the author's control, and guarding it is on the
-// deferred list). The loop must therefore fail CLOSED on divergence rather
-// than hand back a string the build gate will reject with no way to fix it.
-describe('a rule set that cannot converge fails closed', () => {
-  const selfPoisoning = {
-    ...corpusOpts,
-    // The value is a substring of its own replacement token, so each pass
-    // rewrites the previous pass's output and the string grows forever.
-    env: { MY_TOKEN: 'REDACTED:env' },
-  }
+// scan/splice pass to a fixed point, and it must fail CLOSED when it cannot
+// reach one rather than hand back a string the build gate would reject with
+// no way for the author to fix it.
+//
+// A8.2 — the vehicle here used to be a self-poisoning environment value.
+// Guarding those at the entry point (above) took that route away, so this
+// uses cap exhaustion instead: each pass peels exactly one keyword-separator
+// prefix, so more stacked prefixes than MAX_REDACTION_PASSES reaches the
+// throw with a rule set that is converging perfectly well. That is the case
+// the message is deliberately worded for.
+describe('a scan that cannot settle within the cap fails closed', () => {
+  const beyondTheCap = `${'token: '.repeat(80)}aaaaaaaa`
 
   it('throws instead of returning text the gate would reject', () => {
     let caught: Error | undefined
     try {
-      redactString('log line REDACTED:env here', selfPoisoning)
+      redactString(beyondTheCap, corpusOpts)
     } catch (err) {
       caught = err as Error
     }
     expect(caught).toBeDefined()
     expect(caught?.message).toContain('fixed point')
-    expect(caught?.message).toContain('env-value')
+    expect(caught?.message).toContain('credential')
   })
 
   it('names the rule kind, never the value, in the thrown message', () => {
     let caught: Error | undefined
     try {
-      redactString('log line REDACTED:env here', selfPoisoning)
+      redactString(beyondTheCap, corpusOpts)
     } catch (err) {
       caught = err as Error
     }
-    expect(caught?.message).not.toContain('MY_TOKEN')
+    expect(caught?.message).not.toContain('aaaaaaaa')
   })
 
   // I3.1 — the message must not claim a cause it cannot determine. Cap
-  // exhaustion means "did not settle within the cap", which a perfectly
-  // convergent rule set can also produce (see the next block). Blaming the
-  // rule set sends an author hunting a bug that may not exist.
+  // exhaustion means "did not settle within the cap", which is exactly what
+  // this input produces with no rule bug anywhere. Blaming the rule set
+  // sends an author hunting a bug that does not exist.
   it('does not attribute cap exhaustion to a rule bug', () => {
     let caught: Error | undefined
     try {
-      redactString('log line REDACTED:env here', selfPoisoning)
+      redactString(beyondTheCap, corpusOpts)
     } catch (err) {
       caught = err as Error
     }
     expect(caught?.message).not.toMatch(/match(es)? their own/)
   })
 
-  // I3.3 — ordinary content must not be able to reach the throw. Each pass
-  // peels exactly one keyword-separator prefix, so N stacked prefixes need N
-  // passes with a rule set that is converging perfectly well.
+  // I3.3 — ordinary content must not be able to reach the throw. Measured:
+  // the cap clears 64 stacked prefixes and no corpus case needs more than two
+  // passes, so the headroom is real.
   it('does not throw on deeply stacked credential keywords', () => {
     const stacked = 'token: '.repeat(9) + 'aaaaaaaa'
     expect(() => redactString(stacked, corpusOpts)).not.toThrow()
@@ -740,14 +788,16 @@ describe('a rule set that cannot converge fails closed', () => {
 // themselves redacted content — the path elements must be redacted too, or
 // the locator becomes the leak.
 describe('a divergence inside redactDeep reports where it happened', () => {
-  const selfPoisoning: RedactOptions = {
-    ...corpusOpts,
-    env: { MY_TOKEN: 'REDACTED:env' },
-  }
+  // A8.2 — same substitution as the block above: the self-poisoning env value
+  // is now rejected at the entry point, so the string that cannot settle is
+  // one with more stacked keyword prefixes than the pass cap. None of the
+  // keys below is credential-shaped, so the structural rule does not short
+  // out the leaf before `redactString` sees it.
+  const beyondTheCap = `${'token: '.repeat(80)}aaaaaaaa`
 
   const catchFrom = (value: unknown): string => {
     try {
-      redactDeep(value, selfPoisoning)
+      redactDeep(value, corpusOpts)
     } catch (err) {
       return (err as Error).message
     }
@@ -756,29 +806,27 @@ describe('a divergence inside redactDeep reports where it happened', () => {
 
   it('reports the structural path to the offending string', () => {
     const message = catchFrom({
-      frames: [{ type: 'user', content: 'log REDACTED:env here' }],
+      frames: [{ type: 'user', content: beyondTheCap }],
     })
     expect(message).toContain('frames[0].content')
   })
 
   it('redacts the path itself, so the locator is not a new leak', () => {
-    const message = catchFrom({
-      'C:\\Users\\User\\notes.ts': 'log REDACTED:env here',
-    })
+    const message = catchFrom({ 'C:\\Users\\User\\notes.ts': beyondTheCap })
     expect(message).toContain('~\\notes.ts')
     expect(message).not.toContain('C:\\Users\\User')
   })
 
   it('still never prints the offending value', () => {
-    const message = catchFrom({ a: { b: 'log REDACTED:env here' } })
+    const message = catchFrom({ a: { b: beyondTheCap } })
     expect(message).toContain('a.b')
-    expect(message).not.toContain('log REDACTED:env here')
+    expect(message).not.toContain(beyondTheCap)
   })
 
   it('keeps the original error reachable as `cause`', () => {
     let caught: Error | undefined
     try {
-      redactDeep({ a: 'log REDACTED:env here' }, selfPoisoning)
+      redactDeep({ a: beyondTheCap }, corpusOpts)
     } catch (err) {
       caught = err as Error
     }
@@ -787,30 +835,147 @@ describe('a divergence inside redactDeep reports where it happened', () => {
   })
 })
 
-// J1's ratchet, applied to the one remaining limitation that a real recorded
-// trace can actually hit. The credential rule needs its keyword immediately
-// followed by `\s*[:=]`, and in JSON a closing quote intervenes, so
-// `{"token":"aaaaaaaa"}` is published untouched — and JSON is this pipeline's
-// own serialization format, so a tool_result carrying a JSON body is the
-// realistic shape, not a contrived one. Every other known limitation needs two
-// secrets concatenated with no separator at all.
+// A3 — the structural credential rule, which replaces the round-5 KNOWN
+// LIMITATION block that used to sit here.
 //
-// Pinned rather than fixed: closing it means new production regex surface and
-// this is the last round. Pinned rather than merely written down, because a
-// sentence in a report does not fail a build. When someone widens the rule,
-// these assertions fail and force this block to be deleted in the same commit.
-describe('KNOWN LIMITATION — a quoted JSON key defeats the credential rule', () => {
+// That block pinned `{"token":"aaaaaaaa"}` as published-untouched-and-gate-
+// clean. The gap it described was narrower than the real one: `redactDeep`
+// walks PARSED structures, so a `tool_result` carrying `{ token: "aaaaaaaa" }`
+// as an object reaches `redactString` as the bare leaf `"aaaaaaaa"`, with no
+// keyword anywhere near it. Neither the text form nor the object form was
+// covered, and the object form is the one that goes live at post 2 when
+// `tool_call.args` and `tool_result.result` start carrying objects.
+//
+// The fix is structural rather than a wider text regex: when an object KEY is
+// credential-shaped and its value is a string of 8 or more characters, the
+// value goes. That adds no new text-matching surface at all — nothing that
+// `redactString` used to leave alone is matched differently now — so it
+// cannot regress the 3780-case corpus, which is what made widening the regex
+// the riskier of the two options.
+describe('a credential-shaped object key redacts its own value', () => {
+  it.each([
+    ['token', { token: 'aaaaaaaa' }],
+    ['api_key', { api_key: 'SuperSecretValue123' }],
+    ['apiKey', { apiKey: 'SuperSecretValue123' }],
+    ['API-KEY', { 'API-KEY': 'SuperSecretValue123' }],
+    ['password', { password: 'hunter2hunter2' }],
+    ['secret', { secret: 'hunter2hunter2' }],
+    ['credential', { credential: 'hunter2hunter2' }],
+    ['access_token', { access_token: 'hunter2hunter2' }],
+    ['Authorization-Token', { 'Authorization-Token': 'hunter2hunter2' }],
+  ])('%s', (key, input) => {
+    expect(redactDeep(input, corpusOpts)).toEqual({
+      [key]: '[REDACTED:credential]',
+    })
+  })
+
+  it('reaches a credential nested inside a recorded tool_result', () => {
+    const trace = {
+      frames: [
+        {
+          type: 'tool_result',
+          id: 'call_1',
+          ok: true,
+          result: { headers: { Authorization: 'x' }, token: 'aaaaaaaa' },
+        },
+      ],
+    }
+
+    const out = redactDeep(trace, corpusOpts) as typeof trace
+    expect(out.frames[0]?.result.token).toBe('[REDACTED:credential]')
+  })
+
+  // Detection and redaction must not drift apart — that is the defect this
+  // module has been bitten by twice. A structural leak the redactor closes
+  // but the gate cannot see is a hand-edited trace walking straight through
+  // `npm run validate`.
+  it('is reported by findSecretsDeep, not only fixed by redactDeep', () => {
+    expect(findSecretsDeep({ token: 'aaaaaaaa' }, corpusOpts)).toEqual([
+      'credential',
+    ])
+  })
+
+  it('leaves nothing for findSecretsDeep once redactDeep has run', () => {
+    const input = { args: { api_key: 'SuperSecretValue123' } }
+    const once = redactDeep(input, corpusOpts)
+    expect(findSecretsDeep(once, corpusOpts)).toEqual([])
+    expect(redactDeep(once, corpusOpts)).toEqual(once)
+  })
+
+  // Short values are left alone, for the same reason the text rule requires
+  // 8 characters: `{"token":"abc"}` is a placeholder, not a credential, and
+  // redacting it would gut ordinary tool output.
+  it.each([
+    ['a short value', { token: 'abc' }],
+    ['an empty value', { token: '' }],
+  ])('leaves %s alone', (_label, input) => {
+    expect(redactDeep(input, corpusOpts)).toEqual(input)
+    expect(findSecretsDeep(input, corpusOpts)).toEqual([])
+  })
+
+  // The trace schema's own `tokens` field contains the substring "token".
+  // It holds numbers, so the string-only condition keeps it safe — pinned
+  // here because it is the one place this rule brushes against the format.
+  it("does not touch the schema's own numeric tokens array", () => {
+    const input = { tokens: [0, 1, 2], frames: [] }
+    expect(redactDeep(input, corpusOpts)).toEqual(input)
+  })
+
+  it('recurses into a non-string value rather than stringifying it', () => {
+    const input = { credentials: { user: 'alice', password: 'hunter2hunter2' } }
+    expect(redactDeep(input, corpusOpts)).toEqual({
+      credentials: { user: 'alice', password: '[REDACTED:credential]' },
+    })
+  })
+
+  // The replacement is itself 21 characters under a credential-shaped key,
+  // so an exact-equality exemption is what keeps the fixed point. Exact, not
+  // a prefix test: a value that merely STARTS with the token is still a
+  // secret with a disguise on, and skipping it is the H1 fail-open again.
+  it('still redacts a value that only starts with a replacement token', () => {
+    expect(
+      redactDeep({ token: '[REDACTED:credential]andmoresecrettext' }, corpusOpts),
+    ).toEqual({ token: '[REDACTED:credential]' })
+  })
+})
+
+// What is LEFT of the round-5 KNOWN LIMITATION, now that the structural form
+// is closed: a JSON document that arrives as a string LEAF rather than as
+// parsed structure. `redactString` is pure text, and the text rule still
+// needs its keyword immediately followed by `\s*[:=]`, which a closing quote
+// breaks.
+//
+// Kept pinned, and kept honest about what it covers: the realistic shape the
+// old block argued for — a `tool_result` carrying a JSON body — is a parsed
+// object in this pipeline and is now handled. What remains is a JSON string
+// embedded in a string, which a tool that returns raw stdout can still
+// produce. Closing it means widening the text regex, which is the option the
+// final review deliberately did not take.
+describe('KNOWN LIMITATION — a quoted JSON key defeats the *text* credential rule', () => {
   it.each([
     ['a JSON object', '{"token":"aaaaaaaa"}', 'aaaaaaaa'],
     ['a JSON body with whitespace', '{ "api_key": "SuperSecretValue123" }', 'SuperSecretValue123'],
     ["single-quoted key", "{'password':'hunter2hunter2'}", 'hunter2hunter2'],
-  ])('%s is published untouched', (_name, input, secret) => {
+  ])('%s is published untouched as a bare string', (_name, input, secret) => {
     const out = redactString(input, corpusOpts)
     expect(out).toBe(input)
     expect(out).toContain(secret)
     // And the gate agrees it is clean, which is what makes it a leak rather
     // than a build failure.
     expect(findSecrets(out, corpusOpts)).toEqual([])
+  })
+
+  // The same three documents, parsed — which is how a recorded trace
+  // actually carries them — are now closed on both sides.
+  it.each([
+    ['a JSON object', { token: 'aaaaaaaa' }],
+    ['a JSON body with whitespace', { api_key: 'SuperSecretValue123' }],
+    ['a single-quoted key', { password: 'hunter2hunter2' }],
+  ])('%s is NOT published once parsed', (_name, parsed) => {
+    expect(findSecretsDeep(parsed, corpusOpts)).toEqual(['credential'])
+    expect(findSecretsDeep(redactDeep(parsed, corpusOpts), corpusOpts)).toEqual(
+      [],
+    )
   })
 })
 
