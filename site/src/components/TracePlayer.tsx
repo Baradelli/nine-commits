@@ -1,5 +1,5 @@
 import { useEffect, useReducer } from 'preact/hooks'
-import { initialState, reduce, visibleFrames } from '../lib/player-state.ts'
+import { initialState, isAtEnd, reduce, visibleFrames } from '../lib/player-state.ts'
 import { FrameView } from './Frame.tsx'
 
 type AnyFrame = { type: string; [key: string]: unknown }
@@ -28,7 +28,7 @@ export default function TracePlayer({ trace }: { trace: Trace }) {
   }, [state.playing, state.index])
 
   const shown = visibleFrames(trace.frames, state)
-  const atEnd = state.index >= trace.frames.length - 1
+  const atEnd = isAtEnd(state)
 
   return (
     <section aria-label={`Recorded run: ${trace.task}`} data-trace-player>

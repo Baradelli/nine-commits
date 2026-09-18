@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { initialState, reduce, visibleFrames } from './player-state.ts'
+import { initialState, reduce, visibleFrames, isAtEnd } from './player-state.ts'
 
 describe('player-state', () => {
   it('starts at the first frame, paused', () => {
@@ -51,5 +51,23 @@ describe('player-state', () => {
     const s = initialState(0)
     expect(visibleFrames([], s)).toEqual([])
     expect(reduce(s, { type: 'next' }).index).toBe(0)
+  })
+
+  it('keeps playing across an intermediate frame, and stops only on the step that reaches the end', () => {
+    let s = initialState(3)
+    s = reduce(s, { type: 'play' })
+    s = reduce(s, { type: 'next' })
+    expect(s).toEqual({ index: 1, playing: true, total: 3 })
+    s = reduce(s, { type: 'next' })
+    expect(s).toEqual({ index: 2, playing: false, total: 3 })
+  })
+
+  it('isAtEnd is true only at the last index', () => {
+    expect(isAtEnd(initialState(3))).toBe(false)
+    expect(isAtEnd(reduce(initialState(3), { type: 'next' }))).toBe(false)
+    expect(
+      isAtEnd(reduce(reduce(initialState(3), { type: 'next' }), { type: 'next' })),
+    ).toBe(true)
+    expect(isAtEnd(initialState(0))).toBe(true)
   })
 })

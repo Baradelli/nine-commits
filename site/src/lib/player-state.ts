@@ -21,12 +21,16 @@ function clamp(index: number, total: number): number {
   return Math.min(Math.max(index, 0), last)
 }
 
+export function isAtEnd(state: PlayerState): boolean {
+  return state.index >= Math.max(0, state.total - 1)
+}
+
 export function reduce(state: PlayerState, action: PlayerAction): PlayerState {
   switch (action.type) {
     case 'next': {
       const index = clamp(state.index + 1, state.total)
-      const atEnd = index === Math.max(0, state.total - 1)
-      return { ...state, index, playing: atEnd ? false : state.playing }
+      const nextState = { ...state, index }
+      return { ...nextState, playing: isAtEnd(nextState) ? false : state.playing }
     }
     case 'prev':
       return { ...state, index: clamp(state.index - 1, state.total) }
