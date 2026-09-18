@@ -23,9 +23,26 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      # A6: tsconfig.base.json deliberately excludes site/, so the components,
+      # pages and layouts are statically unchecked unless `astro check` runs
+      # too. It passes today, which is exactly why nobody would notice when
+      # it stops.
+      - run: npm run typecheck --workspace site
       - run: npm test
       # Spec §5: a malformed or leaking trace must never reach production.
+      #
+      # A1: REDACT_HOME_DIR tells the gate the author's real home directory.
+      # `homedir()` here is /home/runner, which appears in no committed trace,
+      # so without it the exact home-path rule is built out of a path nothing
+      # can match. The generic home-shape rule covers the general case either
+      # way, so an unset secret degrades to that rather than to nothing.
+      #
+      # A secret rather than a variable: the value IS one of the strings this
+      # pipeline exists to keep out of a public repository, and GitHub masks
+      # a secret if it ever reaches the log.
       - run: npm run validate
+        env:
+          REDACT_HOME_DIR: ${{ secrets.REDACT_HOME_DIR }}
 
   build:
     needs: verify

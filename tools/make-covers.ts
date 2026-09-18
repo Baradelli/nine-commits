@@ -5,10 +5,10 @@ import { Resvg } from '@resvg/resvg-js'
 import matter from 'gray-matter'
 import { buildCover } from './covers/layout.ts'
 import { parseCoverFrontmatter } from './covers/frontmatter.ts'
+import { POSTS_DIR } from './paths.ts'
 
 const WIDTH = 1200
 const HEIGHT = 627
-const POSTS_DIR = join('site', 'src', 'content', 'posts')
 const FONT_DIR = join('node_modules', '@fontsource', 'inter', 'files')
 
 function loadFonts() {
@@ -39,6 +39,14 @@ function firstAssistantLine(postDir: string): string {
 }
 
 async function main(): Promise<void> {
+  // A9 — `validate-traces` already exits cleanly on a fresh clone with no
+  // content collection yet; this died with a raw ENOENT. Two tools reading
+  // the same directory must behave the same way when it is not there.
+  if (!existsSync(POSTS_DIR)) {
+    console.log('no posts directory yet — nothing to render')
+    return
+  }
+
   const fonts = loadFonts()
   const slugs = readdirSync(POSTS_DIR, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())

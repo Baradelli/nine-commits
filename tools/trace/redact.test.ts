@@ -814,6 +814,65 @@ describe('KNOWN LIMITATION — a quoted JSON key defeats the credential rule', (
   })
 })
 
+// A1 — the leak gate must not depend on WHOSE machine is running it.
+//
+// Every committed trace is redacted locally, against this author's Windows
+// home directory. The CI gate re-scans those same traces on `ubuntu-latest`,
+// where `homedir()` is `/home/runner` — so the exact-`homeDir` rule is built
+// from a path that appears nowhere in the repository, and the `home-path`
+// class, the single leak class this whole pipeline was justified by, could
+// not fire in CI at all. Measured before the fix:
+//
+//   local gate ({homeDir:'C:\Users\User'}) on "read C:\Users\User\...\.env" -> ["home-path"]
+//   CI gate    ({homeDir:'/home/runner'})  on the same string               -> []
+//
+// These cases pin the CI orientation specifically: a POSIX `homeDir` still
+// catching a Windows home path. Every pre-existing test passed `homeDir`
+// explicitly AND matching, which is exactly why none of them saw this.
+describe('the home-shape rule does not depend on who is running the scan', () => {
+  const ciOpts: RedactOptions = {
+    homeDir: '/home/runner',
+    denyList: [],
+    env: {},
+  }
+
+  it.each([
+    ['Windows native', 'read C:\\Users\\User\\projects\\nine-commits\\.env'],
+    ['Windows forward-slash', 'read C:/Users/User/projects/nine-commits/.env'],
+    ['Git-Bash (MSYS) drive form', 'read /c/Users/User/projects/x/.env'],
+    ['another POSIX home', 'read /home/someone-else/projects/x/.env'],
+    ['a macOS home', 'read /Users/someone-else/projects/x/.env'],
+  ])('%s is caught when homeDir is a POSIX path', (_label, input) => {
+    expect(findSecrets(input, ciOpts)).toEqual(['home-shape'])
+    expect(redactString(input, ciOpts)).not.toContain('sers')
+  })
+
+  it('catches a Windows home path nested in a trace structure', () => {
+    const trace = { frames: [{ content: 'wrote C:\\Users\\User\\out.json' }] }
+    expect(findSecretsDeep(trace, ciOpts)).toEqual(['home-shape'])
+  })
+
+  // The two rules must stay legible apart in output: the exact-`homeDir`
+  // rule keeps its own label, so a report still says whether the match was
+  // THIS machine's home directory or merely home-shaped.
+  it('keeps the exact-homeDir label when both rules cover the same span', () => {
+    expect(findSecrets('read C:\\Users\\User\\x.ts', opts)).toEqual([
+      'home-path',
+    ])
+  })
+
+  // The generic class must not eat surrounding prose. A `[^\\/]+` user-name
+  // segment (the literal form the finding proposed) also consumes spaces and
+  // quotes, so `/home/runner and more text` would redact the whole sentence.
+  it.each([
+    ['prose after a POSIX home', '/home/runner and more text', '~ and more text'],
+    ['prose after a macOS home', '/Users/someone and more text', '~ and more text'],
+    ['a quoted Windows home', '"C:\\Users\\User\\x.ts"', '"~\\x.ts"'],
+  ])('%s keeps everything that is not the path', (_label, input, expected) => {
+    expect(redactString(input, ciOpts)).toBe(expected)
+  })
+})
+
 // G2 — the home-directory variants added for F2 were only ever tested for
 // redaction, never for detection, so redaction and detection could drift
 // apart unnoticed (which is exactly what happened to the other rules in

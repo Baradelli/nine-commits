@@ -91,6 +91,36 @@ const CREDENTIAL_ASSIGNMENT = new RegExp(
   'gi',
 )
 
+// A1 — a home-directory rule that does NOT depend on whose machine is running
+// the scan.
+//
+// `patterns()` builds an exact rule from `opts.homeDir`, which is right for
+// the recorder (it runs on the author's machine, against the author's own
+// paths) and useless for the CI gate (it runs on `ubuntu-latest`, where
+// `homedir()` is `/home/runner` — a path that appears in no committed trace).
+// So the one leak class this pipeline exists for could not fire in CI at all.
+// This rule closes that: it matches the SHAPE of a home directory on any of
+// the three platforms plus the Git-Bash/MSYS drive form, so the gate catches a
+// Windows home path no matter what `homeDir` it was handed.
+//
+// Two deliberate narrowings against the obvious spelling:
+//
+// 1. The user-name segment is `[A-Za-z0-9._@-]+`, not `[^\\/]+`. The latter
+//    also consumes spaces, quotes and punctuation, so `/home/runner and more
+//    prose` would redact the prose along with the path — silent data loss in
+//    the published trace, from a rule whose whole job is to be a safety net. A
+//    name containing a space (`C:\Users\John Smith`) still matches its first
+//    word, so the gate still fires; it just does not swallow the sentence.
+//
+// 2. It is case-SENSITIVE where case is load-bearing. `/Users/` and `/home/`
+//    are matched as spelled, because a lowercase `/users/` is far more likely
+//    to be a REST path (`api.example.com/users/42`) than a home directory and
+//    redacting that would corrupt ordinary tool output. The drive-anchored
+//    Windows forms accept `Users` or `users`, since a `C:\` ahead of them
+//    leaves no ambiguity.
+const HOME_SHAPE =
+  /(?:[A-Za-z]:[\\/][Uu]sers[\\/]|\/[a-z]\/Users\/|\/Users\/|\/home\/)[A-Za-z0-9._@-]+/g
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -173,6 +203,15 @@ function patterns(opts: RedactOptions): Rule[] {
     pattern: new RegExp(homeAlternation, 'gi'),
     replacement: '~',
     label: 'home-path',
+  })
+  // Pushed AFTER the exact rule on purpose. When both cover the same span the
+  // union keeps the lower-priority contributor's label, so a report still
+  // distinguishes "this machine's home directory" (`home-path`) from "merely
+  // home-shaped" (`home-shape`).
+  rules.push({
+    pattern: HOME_SHAPE,
+    replacement: '~',
+    label: 'home-shape',
   })
 
   for (const [index, rawEntry] of opts.denyList.entries()) {

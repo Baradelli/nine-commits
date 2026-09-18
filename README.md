@@ -13,6 +13,24 @@ replays a run that actually happened on my machine, recorded from the agent in
 - `site/` — the blog (Astro).
 - `tools/` — trace normalization and cover generation.
 
+## Recording a trace
+
+```
+npm start --workspace @nine-commits/agent -- "<task>"   # writes agent/traces/<id>.json
+npm run record -- agent/traces/<id>.json <post-slug> [trace-b.json]
+npm run validate
+```
+
+`record` redacts against this machine's home directory, the deny list in
+`tools/trace/redact.config.ts`, and every sensitive-looking value in the
+environment — including `agent/.env`, which it reads itself. The optional
+third argument names the output file, for posts that carry more than one
+trace.
+
+`validate` re-scans every committed trace. Set `REDACT_HOME_DIR` to scan for a
+home directory other than that of whoever is running it; CI does, because its
+own home directory appears in no committed trace.
+
 ## Attribution
 
 Built while following **"Build an AI Agent from Scratch"** by
