@@ -5,3 +5,4 @@ dist/
 traces/
 test-results/
 playwright-report/
+.claude/
