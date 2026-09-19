@@ -1,0 +1,115 @@
+/*
+ * Nine Commits — design tokens.
+ *
+ * Direction: Blueprint & Transcript. Drafting paper and technical ink, with
+ * the agent's trace typeset as dialogue rather than as terminal output.
+ *
+ * The complete light palette is defined here on bare `:root`. The dark block
+ * at the bottom redefines only the values that actually differ, so no colour
+ * has its only definition inside a media query.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* ---- Ground and ink ------------------------------------------------ */
+
+  /* A cool paper, deliberately not the warm cream of every generated page. */
+  --ground: #f2f4f3;
+
+  /* Blueprint navy, not a tinted near-black. Held as channels so every
+     derived tone is one token rather than a stray `opacity` in the CSS. */
+  --ink-rgb: 11 30 45;
+
+  --ink: rgb(var(--ink-rgb));
+  /* Secondary prose: 6.6:1 on paper, 7.5:1 on the dark ground. */
+  --ink-2: rgb(var(--ink-rgb) / 0.72);
+  /* Smallest text tier that still clears 4.5:1 in both modes. */
+  --ink-3: rgb(var(--ink-rgb) / 0.62);
+  /* Non-text only: hairlines, the measure track, disabled control edges. */
+  --rule: rgb(var(--ink-rgb) / 0.2);
+  --rule-faint: rgb(var(--ink-rgb) / 0.1);
+  /* The one filled surface on the site: code and data payloads. */
+  --wash: rgb(var(--ink-rgb) / 0.045);
+  --selection: rgb(var(--ink-rgb) / 0.14);
+
+  /* ---- Semantic frame palette ---------------------------------------- */
+
+  /*
+   * These are information, not decoration, so each is checked against its
+   * ground and each is backed by a second, non-colour signal: the speaker
+   * label names the frame in words, and the margin rule changes line TYPE
+   * (the drafting convention — solid, dashed, dotted, heavy) per frame.
+   * Light-mode values all land between 5.4:1 and 6.0:1 on paper.
+   */
+  --frame-user: var(--ink);
+  --frame-assistant: #0e6e7d; /* cyan     5.4:1 */
+  --frame-tool: #8c5304; /* amber    5.7:1 */
+  --frame-ok: #1a6b3c; /* green    5.9:1 */
+  --frame-error: #b02218; /* red      6.0:1 */
+  --frame-compaction: #6a46b8; /* violet   6.0:1 */
+
+  --focus: #0e6e7d;
+
+  /* ---- Type ----------------------------------------------------------- */
+
+  --font-prose: 'Literata', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-data: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo,
+    monospace;
+
+  /* A minor third (1.2). Quiet, technical, no dramatic jump until the
+     page title, which is the only fluid step. */
+  --text-2xs: 0.78rem;
+  --text-xs: 0.889rem;
+  --text-s: 0.95rem;
+  --text-m: 1.0625rem;
+  --text-l: 1.266rem;
+  --text-xl: 1.52rem;
+  --text-2xl: 1.82rem;
+  --text-3xl: clamp(2.1rem, 1.55rem + 2.6vw, 3rem);
+
+  /* Serif body wants generous leading; headings want almost none. */
+  --leading-prose: 1.72;
+  --leading-dialogue: 1.75;
+  --leading-tight: 1.16;
+  --leading-snug: 1.34;
+
+  /* ---- Space ---------------------------------------------------------- */
+
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-s: 1rem;
+  --space-m: 1.5rem;
+  --space-l: 2.25rem;
+  --space-xl: 3.5rem;
+  --space-2xl: 5.5rem;
+
+  /* ---- Measure and margin -------------------------------------------- */
+
+  /* Literata at 17px: 64ch lands just under 80 characters of prose. */
+  --measure: 64ch;
+  --gutter: 8.5rem; /* the live margin: speaker labels hang here */
+  --gutter-gap: var(--space-m);
+  --rail-width: 2px;
+
+  --duration: 160ms;
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #0b1e2d;
+    --ink-rgb: 220 230 236;
+
+    /* Lifted for the dark ground; all land between 7.1:1 and 9.7:1. */
+    --frame-assistant: #5fd3e4;
+    --frame-tool: #e8a93c;
+    --frame-ok: #5ccb8a;
+    --frame-error: #ff8478;
+    --frame-compaction: #b9a0f5;
+
+    --focus: #5fd3e4;
+    --wash: rgb(var(--ink-rgb) / 0.06);
+  }
+}

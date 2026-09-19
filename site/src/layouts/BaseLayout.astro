@@ -1,0 +1,40 @@
+---
+// Self-hosted, no external font request. Only the cuts that are actually
+// used: regular and italic for prose, semibold for labels and subheads,
+// bold for titles, and one monospace weight for code and data payloads.
+import '@fontsource/literata/latin-400.css'
+import '@fontsource/literata/latin-400-italic.css'
+import '@fontsource/literata/latin-600.css'
+import '@fontsource/literata/latin-700.css'
+import '@fontsource/jetbrains-mono/latin-400.css'
+
+import '../styles/global.css'
+import { asset } from '../lib/paths.ts'
+
+interface Props {
+  title: string
+  description: string
+}
+
+const { title, description } = Astro.props
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href={asset('favicon.ico')} sizes="32x32" />
+    <link rel="icon" href={asset('favicon.svg')} type="image/svg+xml" />
+    <meta name="color-scheme" content="light dark" />
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page">
+      <slot />
+    </div>
+  </body>
+</html>
