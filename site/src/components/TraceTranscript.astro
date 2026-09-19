@@ -1,4 +1,16 @@
 ---
+import { FrameView } from './Frame.tsx'
+
+/*
+ * The no-script fallback. It renders the same `FrameView` the island does,
+ * so a reader with scripting off gets the trace properly typeset as
+ * dialogue rather than a JSON dump — the argument of a post never depends
+ * on the player running.
+ *
+ * The measure does not appear here: with every frame printed at once there
+ * is no position to report, and the site has exactly one structural device
+ * so it is not spent on decoration.
+ */
 interface Props {
   trace: {
     task: string
@@ -7,22 +19,30 @@ interface Props {
     frames: Array<{ type: string; [key: string]: unknown }>
   }
 }
+
 const { trace } = Astro.props
 ---
 
 <noscript>
-  <section aria-label={`Recorded run transcript: ${trace.task}`}>
-    <p>{trace.task}</p>
-    <p>{trace.model} · {trace.commit}</p>
-    <ol>
-      {
-        trace.frames.map((frame) => (
-          <li data-frame-type={frame.type}>
-            <p>{frame.type}</p>
-            <pre>{JSON.stringify(frame, null, 2)}</pre>
-          </li>
-        ))
-      }
-    </ol>
+  <section
+    class="transcript-block"
+    aria-label={`Recorded run transcript: ${trace.task}`}
+  >
+    <div class="spread">
+      <p class="marginal">Recorded run</p>
+
+      <header>
+        <h2 class="trace__task">{trace.task}</h2>
+        <p class="trace__note">
+          Recorded from {trace.model} at commit {trace.commit}. The
+          step-through needs JavaScript, so the whole run is printed here
+          instead.
+        </p>
+      </header>
+
+      <ol class="transcript full">
+        {trace.frames.map((frame) => <FrameView frame={frame} />)}
+      </ol>
+    </div>
   </section>
 </noscript>
