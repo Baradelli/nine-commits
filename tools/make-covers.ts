@@ -3,25 +3,33 @@ import { join } from 'node:path'
 import satori from 'satori'
 import { Resvg } from '@resvg/resvg-js'
 import matter from 'gray-matter'
-import { buildCover } from './covers/layout.ts'
+import {
+  buildCover,
+  COVER_HEIGHT,
+  COVER_WIDTH,
+} from './covers/layout.ts'
 import { parseCoverFrontmatter } from './covers/frontmatter.ts'
 import { POSTS_DIR } from './paths.ts'
 
-const WIDTH = 1200
-const HEIGHT = 627
-const FONT_DIR = join('node_modules', '@fontsource', 'inter', 'files')
+const FONT_DIR = join('node_modules', '@fontsource', 'literata', 'files')
 
+/**
+ * Literata, so the card and the site are set in the same face.
+ *
+ * `.woff`, never `.woff2`: satori cannot decode woff2 and the failure
+ * happens at render time, not at install time.
+ */
 function loadFonts() {
   return [
     {
-      name: 'Inter',
-      data: readFileSync(join(FONT_DIR, 'inter-latin-400-normal.woff')),
+      name: 'Literata',
+      data: readFileSync(join(FONT_DIR, 'literata-latin-400-normal.woff')),
       weight: 400 as const,
       style: 'normal' as const,
     },
     {
-      name: 'Inter',
-      data: readFileSync(join(FONT_DIR, 'inter-latin-700-normal.woff')),
+      name: 'Literata',
+      data: readFileSync(join(FONT_DIR, 'literata-latin-700-normal.woff')),
       weight: 700 as const,
       style: 'normal' as const,
     },
@@ -68,13 +76,13 @@ async function main(): Promise<void> {
     })
 
     const svg = await satori(element as never, {
-      width: WIDTH,
-      height: HEIGHT,
+      width: COVER_WIDTH,
+      height: COVER_HEIGHT,
       fonts,
     })
 
     const png = new Resvg(svg, {
-      fitTo: { mode: 'width', value: WIDTH },
+      fitTo: { mode: 'width', value: COVER_WIDTH },
     })
       .render()
       .asPng()
