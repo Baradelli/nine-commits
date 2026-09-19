@@ -1,46 +1,128 @@
 ---
 import { getCollection } from 'astro:content'
+import BaseLayout from '../layouts/BaseLayout.astro'
+import { PLANNED, SERIES_LENGTH } from '../lib/series.ts'
+import { href } from '../lib/paths.ts'
 
-const posts = (await getCollection('posts', ({ data }) => !data.draft)).sort(
-  (a, b) => a.data.order - b.data.order,
-)
-const base = import.meta.env.BASE_URL
+const published = await getCollection('posts', ({ data }) => !data.draft)
+const byOrder = new Map(published.map((post) => [post.data.order, post]))
 
-// A8.3 — see PostLayout: the committed favicons were never linked, so a
-// browser requested them at the domain root instead of under the base path.
-const asset = (path: string): string => `${base}/${path}`.replace(/\/+/g, '/')
+// The series is nine commits whether or not nine posts exist yet. Each
+// planned entry is joined onto whatever has actually been written, so the
+// index reads as a table of contents in progress rather than an empty state.
+const entries = PLANNED.map((planned) => ({
+  planned,
+  post: byOrder.get(planned.order),
+}))
+
+const written = entries.filter((entry) => entry.post !== undefined).length
+const spelled = [
+  'None',
+  'One',
+  'Two',
+  'Three',
+  'Four',
+  'Five',
+  'Six',
+  'Seven',
+  'Eight',
+  'Nine',
+]
+
+const repo = 'https://github.com/baradelli/nine-commits'
+const course = 'https://publish.obsidian.md/agents-v2/course'
+
+// `pubDate` is coerced from a bare `2026-09-14`, which lands at UTC
+// midnight. Formatted in the build machine's zone it renders as the day
+// before, so the zone is pinned rather than inherited.
+const dateFormat = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+})
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Nine Commits</title>
-    <meta
-      name="description"
-      content="One AI agent, built in nine commits, with the real traces that produced each post."
-    />
-    <link rel="icon" href={asset('favicon.ico')} sizes="32x32" />
-    <link rel="icon" href={asset('favicon.svg')} type="image/svg+xml" />
-  </head>
-  <body>
-    <h1>Nine Commits</h1>
-    <p>
-      One AI agent, built in nine commits. Every demo on this site replays a run
-      that actually happened.
-    </p>
+<BaseLayout
+  title="Nine Commits"
+  description="One AI agent, built in nine commits, with the real execution traces that produced every post."
+>
+  <main class="measured" id="main">
+    <div class="rail" aria-hidden="true">
+      <span
+        class="rail__fill"
+        style={`--fill: ${(written / SERIES_LENGTH) * 100}%`}></span>
+    </div>
 
-    <ol>
-      {
-        posts.map((post) => (
-          <li>
-            <a href={`${base}/posts/${post.id}/`.replace(/\/+/g, '/')}>
-              {post.data.title}
-            </a>
-            <p>{post.data.thesis}</p>
-          </li>
-        ))
-      }
-    </ol>
-  </body>
-</html>
+    <div class="spread">
+      <header class="intro">
+        <h1 class="title">Nine Commits</h1>
+        <p class="lede">
+          One AI agent, built in nine commits. Every demo on this site replays a
+          run that actually happened on my machine, including the ones that
+          failed.
+        </p>
+        <p>
+          There is no framework here and nothing hidden behind a diagram. An
+          agent is a loop over an array of messages. Each post is bound to a git
+          tag you can check out and run yourself, and every one of them has a
+          section about what broke.
+        </p>
+      </header>
+
+      <p class="marginal" aria-hidden="true">{written} of {SERIES_LENGTH}</p>
+      <p class="standfirst">
+        {
+          written === 0
+            ? 'Nothing is published yet. The agent exists and the first run is being recorded. Until then, here is the whole series and the claim each commit has to earn.'
+            : `${spelled[written]} of the nine ${written === 1 ? 'is' : 'are'} published. The rest are listed with the claim each commit still has to earn.`
+        }
+      </p>
+
+      <ol class="contents full">
+        {
+          entries.map(({ planned, post }) => (
+            <li class:list={['entry', post === undefined && 'entry--planned']}>
+              <div class="entry__ordinal">
+                <div>Commit {planned.order}</div>
+                <code>{planned.tag}</code>
+              </div>
+              <div class="entry__main">
+                <h2 class="entry__title">
+                  {post === undefined ? (
+                    planned.title
+                  ) : (
+                    <a href={href(`posts/${post.id}`)}>{post.data.title}</a>
+                  )}
+                </h2>
+                <p class="entry__thesis">
+                  {post === undefined ? planned.thesis : post.data.thesis}
+                </p>
+                <p class="entry__state">
+                  {post === undefined
+                    ? 'Not written yet.'
+                    : `Published ${dateFormat.format(post.data.pubDate)}.`}
+                </p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+
+      <footer class="colophon">
+        <p>
+          Written by Vitor Baradelli while building the agent in <a href={repo}>
+            the repository
+          </a>. Every trace here was recorded from that code, then normalised
+          and redacted before it shipped.
+        </p>
+        <p>
+          The series follows <a href={course}>
+            Build an AI Agent from Scratch
+          </a> by Scott Moss. The agent in this repository is my own
+          implementation.
+        </p>
+      </footer>
+    </div>
+  </main>
+</BaseLayout>

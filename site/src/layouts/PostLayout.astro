@@ -1,6 +1,9 @@
 ---
 import type { CollectionEntry } from 'astro:content'
 import { Image } from 'astro:assets'
+import BaseLayout from './BaseLayout.astro'
+import { SERIES_LENGTH } from '../lib/series.ts'
+import { home } from '../lib/paths.ts'
 
 interface Props {
   post: CollectionEntry<'posts'>
@@ -9,42 +12,45 @@ interface Props {
 const { post } = Astro.props
 const { title, thesis, commit, cover, coverAlt, order } = post.data
 const repo = 'https://github.com/baradelli/nine-commits'
-const base = import.meta.env.BASE_URL
-
-// A8.3 — both favicons are committed but neither layout linked them, so a
-// browser requested them at the DOMAIN root (`/favicon.ico`) rather than
-// under `/nine-commits/`. Routed through BASE_URL like every other asset
-// path, and normalized the same way the post links are, because BASE_URL's
-// trailing slash is not something to have to remember per call site.
-const asset = (path: string): string =>
-  `${base}/${path}`.replace(/\/+/g, '/')
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title} — Nine Commits</title>
-    <meta name="description" content={thesis} />
-    <link rel="icon" href={asset('favicon.ico')} sizes="32x32" />
-    <link rel="icon" href={asset('favicon.svg')} type="image/svg+xml" />
-  </head>
-  <body>
-    <a href={base}>Nine Commits</a>
+<BaseLayout title={`${title} — Nine Commits`} description={thesis}>
+  <header class="site-head">
+    <a class="masthead" href={home}>Nine Commits</a>
+  </header>
 
-    <article>
-      <p>Commit {order} of 9</p>
-      <h1>{title}</h1>
-      <p>{thesis}</p>
-      <Image src={cover} alt={coverAlt} />
+  <main class="measured" id="main">
+    <!-- The measure tracks reading position. Scroll-driven and JavaScript
+         free; where scroll timelines are unsupported the track stays empty
+         rather than being faked with a script. -->
+    <div class="rail rail--reading" aria-hidden="true">
+      <span class="rail__fill"></span>
+    </div>
 
-      <slot />
+    <article class="spread">
+      <p class="marginal">
+        <span>Commit {order} of {SERIES_LENGTH}</span><br /><code>{commit}</code>
+      </p>
 
-      <footer>
-        <a href={`${repo}/releases/tag/${commit}`}>
-          Read the code at <code>{commit}</code>
-        </a>
+      <header class="post__header">
+        <h1 class="title">{title}</h1>
+        <p class="lede">{thesis}</p>
+      </header>
+
+      <Image class="post__cover" src={cover} alt={coverAlt} loading="eager" />
+
+      <div class="prose">
+        <slot />
+      </div>
+
+      <footer class="post__footer">
+        <p>
+          The agent in this post is tagged <code>{commit}</code> in the
+          repository. <a href={`${repo}/releases/tag/${commit}`}>
+            Read the code at that tag
+          </a> and run the same task the trace recorded.
+        </p>
       </footer>
     </article>
-  </body>
-</html>
+  </main>
+</BaseLayout>
