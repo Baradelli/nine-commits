@@ -34,18 +34,10 @@ test('the player starts on the user frame and advances to the assistant reply', 
   await expect(player.locator('.player__count')).toHaveText('Frame 1 of 2')
   await expect(player.locator('.player__budget')).toContainText('0 tokens in context')
 
-  // The island hydrates with `client:visible`, and this player sits well
-  // below the fold in a default viewport. Scrolling it into view starts the
-  // IntersectionObserver, but hydration finishes on a later tick than the
-  // scroll itself, so the very first click can land on the pre-hydration
-  // static markup and do nothing. Retry the click rather than sleeping an
-  // arbitrary amount: this waits exactly as long as hydration takes.
   const nextButton = player.locator('[data-action="next"]')
   await nextButton.scrollIntoViewIfNeeded()
-  await expect(async () => {
-    await nextButton.click()
-    await expect(frames).toHaveCount(2, { timeout: 1_000 })
-  }).toPass({ timeout: 15_000 })
+  await nextButton.click()
+  await expect(frames).toHaveCount(2)
 
   await expect(userFrame).toBeVisible()
   await expect(assistantFrame).toBeVisible()
@@ -65,17 +57,12 @@ test('the post page logs no console errors once the player is stepped', async ({
 
   // A hydration error in the reducer surfaces on interaction, not on mount,
   // so the check has to happen after stepping through the controls rather
-  // than right after the player appears. The retry below is only to get past
-  // the `client:visible` hydration race (see the previous test); once one
-  // click has registered, the island is confirmed hydrated and the rest can
-  // run without retrying.
+  // than right after the player appears.
   const nextButton = player.locator('[data-action="next"]')
   const frames = player.locator('[data-frame-type]')
   await nextButton.scrollIntoViewIfNeeded()
-  await expect(async () => {
-    await nextButton.click()
-    await expect(frames).toHaveCount(2, { timeout: 1_000 })
-  }).toPass({ timeout: 15_000 })
+  await nextButton.click()
+  await expect(frames).toHaveCount(2)
 
   await player.locator('[data-action="prev"]').click()
   await player.locator('[data-action="play"]').click()

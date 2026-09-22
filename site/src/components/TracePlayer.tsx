@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from 'preact/hooks'
+import { useEffect, useReducer, useState } from 'preact/hooks'
 import {
   initialState,
   isAtEnd,
@@ -31,6 +31,16 @@ export default function TracePlayer({ trace }: { trace: Trace }) {
   // Generics are inferred from `reduce`; naming them explicitly breaks across
   // Preact hook typings.
   const [state, dispatch] = useReducer(reduce, initialState(trace.frames.length))
+
+  // Server-rendered and pre-hydration markup must not claim to be
+  // interactive: the controls render disabled until this flips, on mount,
+  // so a click in the hydration gap is visibly inert rather than a silent
+  // no-op. `useState(false)` matches on both the server render and the
+  // first client render (avoiding a hydration mismatch); the effect below
+  // only runs once the island has actually hydrated and attached its
+  // handlers.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
 
   useEffect(() => {
     if (!state.playing) return
@@ -80,7 +90,7 @@ export default function TracePlayer({ trace }: { trace: Trace }) {
             class="control"
             data-action="prev"
             onClick={() => dispatch({ type: 'prev' })}
-            disabled={state.index === 0}
+            disabled={!mounted || state.index === 0}
           >
             Back
           </button>
@@ -89,7 +99,7 @@ export default function TracePlayer({ trace }: { trace: Trace }) {
             class="control"
             data-action="next"
             onClick={() => dispatch({ type: 'next' })}
-            disabled={atEnd}
+            disabled={!mounted || atEnd}
           >
             Next
           </button>
@@ -98,7 +108,7 @@ export default function TracePlayer({ trace }: { trace: Trace }) {
             class="control"
             data-action="play"
             onClick={() => dispatch({ type: state.playing ? 'pause' : 'play' })}
-            disabled={atEnd}
+            disabled={!mounted || atEnd}
           >
             {state.playing ? 'Pause' : 'Play'}
           </button>
@@ -107,7 +117,7 @@ export default function TracePlayer({ trace }: { trace: Trace }) {
             class="control"
             data-action="reset"
             onClick={() => dispatch({ type: 'reset' })}
-            disabled={state.index === 0 && !state.playing}
+            disabled={!mounted || (state.index === 0 && !state.playing)}
           >
             Start over
           </button>
