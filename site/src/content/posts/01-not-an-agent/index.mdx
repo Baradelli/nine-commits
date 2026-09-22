@@ -5,7 +5,7 @@ thesis: "An agent is a model, a set of actions, and a loop. Take the loop away a
 pubDate: 2026-09-22
 commit: v1-not-an-agent
 cover: ./cover.png
-coverAlt: "Cover for commit 01 of Nine Commits, An LLM Is Not an Agent, set over the opening line of the recorded run"
+coverAlt: "Title card for commit 01 of Nine Commits, An LLM Is Not an Agent, with the opening line of the model's recorded reply printed beneath it"
 ---
 
 import TracePlayer from '../../../components/TracePlayer.tsx'
@@ -29,9 +29,10 @@ and you have a chatbot — which is exactly what this first commit is.
 
 ## What I built
 
-Thirty-three lines across two files, comments and blank lines included. One of
-them holds a model name and a one-sentence system instruction. The other makes
-a single call and returns the text.
+Thirty-three lines of agent across two files, comments and blank lines
+included, plus a CLI that prints the result and writes the trace. One of the
+two files holds a model name and a two-sentence system instruction. The other
+makes a single call and returns the text.
 
 ```ts
 export async function runOnce(task: string): Promise<RunResult> {
@@ -80,11 +81,13 @@ situation it was probably in rather than the one it was actually in. It has no
 way to check, so it guessed, and it guessed a modality this program does not
 have.
 
-Then it offered me commands for two operating systems: `find` for Linux and
-macOS, `Get-ChildItem` for Windows PowerShell. Not because it hedges out of
-habit, but because it cannot see which machine it is on. Every fact needed to
-answer the question — the platform, the filesystem, the list of files — sits on
-the other side of a wall with no door in it.
+What it asks for next follows from that. First, for the answer to be handed to
+it: paste a listing, or give it the repository, or send a screenshot. Then,
+failing all three, commands I could run myself — `find` for Linux and macOS,
+`Get-ChildItem` for Windows PowerShell. Two operating systems, not because it
+hedges out of habit, but because it cannot see which machine it is on. Every
+fact needed to answer the question — the platform, the filesystem, the list of
+files — sits on the other side of a wall with no door in it.
 
 And then the last line, which is the one I keep coming back to:
 
@@ -94,20 +97,22 @@ There is no *once*. `runOnce` returns, the CLI prints the text, writes the
 trace, and the process exits. The model had just proposed a protocol — you run
 a command, you paste the result back, I read it and answer — in which every
 step after the first is impossible in the program it was running inside. It
-described the loop correctly. Then it asked me to be the loop.
+described one turn of a loop and assumed a second turn would exist. Then it
+asked me to be the loop.
 
-That is a better failure than the one I expected, because it is not a mistake.
-Read as a chat message, that reply is close to ideal: it declines precisely, it
-names the right command for two platforms, and it commits to finishing the job.
-It is the reply I would want from a chat window. It is a dead end in a
-terminal, because the second turn it is counting on has nowhere to happen.
+So the reply is two things at once, and it is worth keeping them apart. One is
+simply wrong: there was no image, and a person on the other end of that message
+would now be working out which image it meant. The other is a correct plan —
+the right commands, for the right platforms, in the right order. The post is
+about the second one, because the plan is not what failed here. It had nowhere
+to run.
 
-So the gap this series is about is not the gap between a right answer and a
-wrong one. The model was not wrong. It is the gap between a reply and a result,
-and nothing in the text tells you which of the two you just got. Count what the
-run contains: one question, one answer, 245 tokens, and not one byte read from
-disk. The project on my machine is exactly as uncounted as it was before I
-asked.
+That is the gap this series is about, and it is not the gap between a right
+answer and a wrong one — this reply contains both, in the same breath. It is
+the gap between a reply and a result, and nothing in the text tells you which
+of the two you just got. Count what the run contains: one question, one answer,
+245 tokens, and not one byte read from disk. The project on my machine is
+exactly as uncounted as it was before I asked.
 
 ## What is missing
 
@@ -123,8 +128,10 @@ Steps 1 and 3 need **tools**: a way for the model to name an action, and a way
 for the result to come back in. Steps 4 and 5 need a **loop**: somewhere for
 turn two to happen at all.
 
-The model worked that sequence out by itself. It wrote steps 1 and 2 into its
-answer, and then handed 3, 4 and 5 to me — because at this commit I had not
-built anywhere else for them to go.
+The model got through step 2 on its own: it decided that listing files was the
+next action and it named the call. Then it handed 3 and 4 to me, and never
+reached 5 at all — it assumed one exchange would settle the matter. That
+assumption is the tell. Repeating until the work is done is not something a
+single completion can want; it is something the program around it has to do.
 
 The next commit gives it hands.
