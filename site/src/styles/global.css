@@ -447,6 +447,24 @@ pre {
   tab-size: 2;
 }
 
+/*
+ * Syntax colour follows the page's scheme. Shiki is configured with
+ * `defaultColor: false` (see `astro.config.mjs`), so it ships both palettes
+ * as custom properties and neither is inlined — which is what leaves the
+ * block sitting on `--wash` rather than on a theme's own background.
+ */
+.astro-code,
+.astro-code span {
+  color: var(--shiki-light);
+}
+
+@media (prefers-color-scheme: dark) {
+  .astro-code,
+  .astro-code span {
+    color: var(--shiki-dark);
+  }
+}
+
 .prose img {
   border: 1px solid var(--rule-faint);
 }
