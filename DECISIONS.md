@@ -1,36 +1,38 @@
 # Decisions taken during Phase 1
 
-Phase 1 of this project was executed by an agent working from
-`docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md`, with a separate reviewer
-gating every task. Where a review surfaced a conflict, an ambiguity, or a defect in the
-plan itself, the decision was made rather than deferred, and recorded here.
+Phase 1 was executed by an agent working from
+`docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md`, with a separate reviewer gating
+every task. Where a review surfaced a conflict, an ambiguity, or a defect in the plan itself,
+the decision was made rather than deferred, and recorded here.
 
-Every entry says what was decided, why, and what it costs if the call was wrong.
-They are in the order they were made. Nothing here was approved in advance.
+Every entry says what was decided, why, and what it costs if the call was wrong. They are in
+the order they were made. Nothing here was approved in advance.
 
-**44 decisions.**
+Six of them record an implementer pushing back on an instruction and being right.
+
+**54 decisions.**
 
 ---
 
 ## 1. Pre-flight — Playwright base URL
 
-Playwright's baseURL was 'http://localhost:4321/nine-commits' with no trailing slash, while every spec called goto('/posts/...') with a leading slash. Playwright resolves via new URL(url, baseURL), so a leading slash DISCARDS the /nine-commits path segment and every end-to-end test would have hit 404. Decided: baseURL gets a trailing slash and every goto() uses a relative path with no leading slash. Cost if wrong: the e2e tests fail loudly on first run; no silent damage.
+Playwright's baseURL was 'http://localhost:4321/nine-commits' with no trailing slash, while every spec called goto('/posts/...') with a leading slash. Playwright resolves via new URL(url, baseURL), so a leading slash DISCARDS the /nine-commits segment and every end-to-end test would have hit 404. Decided: baseURL gets a trailing slash and every goto() uses a relative path with no leading slash. Cost if wrong: the e2e tests fail loudly on first run; no silent damage.
 
 ## 2. Pre-flight — Task 1 verification
 
-Task 1 step 7 ran `npm run typecheck`, but tsconfig.base.json includes only tools/**/*.ts and agent/src/**/*.ts, neither of which exists at that point, so tsc exits TS18003 "No inputs were found" and the step fails as written. Decided: Task 1 verifies with `npm install` only; typecheck is first exercised in Task 2. Cost if wrong: none — typecheck still runs from Task 2 onward and in CI.
+Task 1 step 7 ran `npm run typecheck`, but tsconfig.base.json includes only tools/**/*.ts and agent/src/**/*.ts, neither of which exists at that point, so tsc exits TS18003 and the step fails as written. Decided: Task 1 verifies with `npm install` only; typecheck is first exercised in Task 2. Cost if wrong: none.
 
 ## 3. Pre-flight — GitHub Action version
 
-The plan pinned actions/setup-node@v5. Verified against the GitHub API that the current major is v7.0.0, and that the plan's other actions were already current (checkout@v7, deploy-pages@v5, withastro/action@v6). Decided: use actions/setup-node@v7. Cost if wrong: CI fails at the setup step; no production impact.
+The plan pinned actions/setup-node@v5. Verified against the GitHub API that the current major is v7.0.0, and that the plan's other actions were already current. Decided: use actions/setup-node@v7. Cost if wrong: CI fails at the setup step; no production impact.
 
 ## 4. Pre-flight — shell
 
-The plan's commands are POSIX shell (env-var prefixes, heredocs, &&-chaining) but the host is Windows with PowerShell as the primary shell. Decided: every implementer runs plan commands through the Bash tool (Git Bash), never PowerShell. Cost if wrong: commands fail with parse errors; no silent damage.
+The plan's commands are POSIX shell but the host is Windows with PowerShell as the primary shell. Decided: every implementer runs plan commands through the Bash tool (Git Bash). Cost if wrong: commands fail with parse errors; no silent damage.
 
 ## 5. Pre-flight — isolation
 
-The process calls for an isolated workspace. This repo was brand new, unpublished, with no parallel work and no worktree. Decided: use a branch (phase-1) rather than a git worktree — isolation from main is preserved, and a separate worktree path would only add confusion on a two-commit repo. Cost if wrong: none — the work is still off main and reviewable as a branch.
+The process calls for an isolated workspace. This repo was brand new, unpublished, with no parallel work. Decided: use a branch (phase-1) rather than a git worktree. Cost if wrong: none - the work is still off main.
 
 ## 6. Task 1
 
@@ -187,4 +189,44 @@ PARKED - strings inside an ARRAY under a credential key are not covered by the s
 ## 44. Process
 
 NOT in this wave and escalated to the user instead - the site has NO design system, no stylesheet, no visual identity. Spec 7 phase 1 step 4 names it; no task in my plan ever created it. What would deploy today is Times New Roman on white. It blocks PUBLISHING, not merging, and it is a whole feature the author will want to direct rather than receive. Cost if wrong: the branch is merge-ready but not publish-ready, which is what I am telling them.
+
+## 45. Process
+
+the design refuses the conventional AI aesthetic on purpose. The user asked for something that "remete AI", and the obvious reading is gradients, glow and neural-net imagery. Decided against it: the site's entire argument is that an agent is not magic, just a loop over a message array, and every post carries a mandatory "what broke" section. A hype visual would contradict the text it wraps. The move that replaces it - typesetting agent output as book dialogue rather than terminal output - is both more distinctive and consistent with the writing. Cost if wrong: the user wanted overt futurism and gets restrained engineering instead; reversible, it is one stylesheet.
+
+## 46. Process
+
+the cover generator switches from Inter to Literata so the LinkedIn card and the site read as one system. The covers were built before the design system existed, so they had no typeface to agree with. Cost if wrong: regenerating nine covers later.
+
+## 47. Process
+
+the Task 15 design review was interrupted by the user and NOT re-dispatched. The design was inspected directly instead - index page at desktop and mobile, both colour schemes, plus a read of the copy - and judged sound. Cost if wrong: the design system ships without an independent review pass, unlike every other task on this branch. It remains the one unreviewed slice.
+
+## 48. Process
+
+the recorded trace stands exactly as returned, including the hallucinated image. Verified by reading all 21 lines myself: no home path, no key, no env value. Normalized output is byte-identical to raw - nothing needed redacting, which means the pipeline's plumbing is now proven end to end but its RULES have still never fired on real data. Cost if wrong: none; the alternative was editing a trace to read better, which is the one thing this project may never do.
+
+## 49. Process
+
+the two overclaiming sentences get fixed rather than defended. "The model was not wrong" sits three paragraphs after the post establishes that the model asserted an image that does not exist, and "It described the loop correctly" credits it with an iteration it never proposed. Neither claim is load-bearing - the surrounding paragraphs already make the stronger version of each argument - and on a site whose entire currency is honesty, a reader who spots the tension assumes the author did not. Cost if wrong: two sentences slightly more hedged than they needed to be.
+
+## 50. Process
+
+og:image gets added even though it is outside Task 12's file list. Four missing meta tags defeat the entire cover pipeline and this post's linkedin.md - paste the URL into LinkedIn today and the card has no image. The spec names LinkedIn as the megaphone and specifies 1200x627, a ratio that exists for exactly one purpose. Task 12 is the task that makes the gap observable, so it is the task that closes it. Cost if wrong: meta tags on a site that has one page.
+
+## 51. Process
+
+DEFERRED with a recorded reason - outcome is a hardcoded constant. toRawTrace returns 'failure' for every v1 run, so the badge under the trace is declared at build time, not observed. True by construction at v1 and the recorder says so, so nothing false ships. From post 3, when the loop can finish a task, it must become a real signal derived from whether the stop condition fired on completion or exhaustion, or the badge becomes decoration. Recording it now while the reason is fresh rather than discovering it when post 4 ships a "failure" that succeeded.
+
+## 52. Process
+
+the implementer's re-pointing of the v1-not-an-agent tag from 33909f4 to d7b409d is UPHELD. agent/, tools/trace/ and player-state.ts are byte-identical between the two, so the design's contract - check out the tag and run exactly the agent the post describes - is unaffected. Leaving the tag would mean the one artifact a reader is invited to check out still contains "The model was not wrong", a sentence just certified as false. Moving an unpushed local tag is cheaper than shipping that. Cost if wrong: the tag bundles some unrelated site work into a "commit 1" checkout.
+
+## 53. Process
+
+the reviewer CORRECTED the implementer's own risk assessment of the astro preview workaround, and I am recording the correction rather than the worry. Reading Astro's source, ASTRO_PREVIEW_BACKGROUND short-circuits the agent check before isRunByAgent() is ever called, so the workaround does not depend on the detection heuristic in either direction - the "a CI runner that also looks agent-like" risk the implementer flagged is exactly what the override neutralizes. Residual risk is ordinary upstream-API risk, mitigated by the comment already in the config.
+
+## 54. Process
+
+FIXING the TracePlayer hydration dead-click rather than deferring it, even though the reviewer scoped it as a follow-up. client:visible hydrates on intersection, so there is a real window where a reader who scrolls to the player and clicks Next gets nothing - no state change, no error, no feedback. That is on the site's centrepiece, and a silent dead first click is the worst possible first impression for a project whose whole argument is that you can see exactly what happened. It is also the one place in this codebase that fails silently, which contradicts the invariant every other gate holds to. Cost if wrong: a slightly earlier hydration and a disabled state nobody sees.
 
