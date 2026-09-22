@@ -14,9 +14,43 @@ import { asset } from '../lib/paths.ts'
 interface Props {
   title: string
   description: string
+  /** `website` for the index, `article` for a post. */
+  type?: 'website' | 'article'
+  /** The social card, as a site-relative URL. Made absolute below. */
+  image?: string
+  imageAlt?: string
+  imageWidth?: number
+  imageHeight?: number
 }
 
-const { title, description } = Astro.props
+const {
+  title,
+  description,
+  type = 'website',
+  image,
+  imageAlt,
+  imageWidth,
+  imageHeight,
+} = Astro.props
+
+/*
+ * Open Graph needs absolute URLs — a scraper has no page to resolve a
+ * relative one against — and this site is served from a base path, so both
+ * halves have to be right or the card silently fails. `Astro.url.pathname`
+ * already carries the base in a build; `Astro.site` supplies the origin.
+ *
+ * A missing `site` is a build failure rather than a quietly dropped tag: the
+ * bug it causes is invisible until someone pastes a link into LinkedIn, which
+ * is much too late to discover it.
+ */
+if (Astro.site === undefined) {
+  throw new Error(
+    'BaseLayout: astro.config must set `site` — the Open Graph tags need an absolute URL',
+  )
+}
+
+const canonical = new URL(Astro.url.pathname, Astro.site)
+const card = image === undefined ? undefined : new URL(image, Astro.site)
 ---
 
 <!doctype html>
@@ -26,9 +60,38 @@ const { title, description } = Astro.props
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonical.href} />
     <link rel="icon" href={asset('favicon.ico')} sizes="32x32" />
     <link rel="icon" href={asset('favicon.svg')} type="image/svg+xml" />
     <meta name="color-scheme" content="light dark" />
+
+    <meta property="og:site_name" content="Nine Commits" />
+    <meta property="og:type" content={type} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical.href} />
+    <meta property="og:locale" content="en_GB" />
+    {
+      card !== undefined && (
+        <>
+          <meta property="og:image" content={card.href} />
+          {imageWidth !== undefined && (
+            <meta property="og:image:width" content={String(imageWidth)} />
+          )}
+          {imageHeight !== undefined && (
+            <meta property="og:image:height" content={String(imageHeight)} />
+          )}
+          {imageAlt !== undefined && (
+            <meta property="og:image:alt" content={imageAlt} />
+          )}
+        </>
+      )
+    }
+    <meta
+      name="twitter:card"
+      content={card === undefined ? 'summary' : 'summary_large_image'}
+    />
+
     <slot name="head" />
   </head>
   <body>
