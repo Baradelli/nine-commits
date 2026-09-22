@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildCover } from './layout.ts'
+import { buildCover, openingLine } from './layout.ts'
 
 const input = {
   order: 1,
@@ -55,5 +55,43 @@ describe('buildCover', () => {
       if (typeof node.props.children === 'string') text.push(node.props.children)
     })
     expect(text).toContain('09')
+  })
+})
+
+describe('openingLine', () => {
+  it('takes only the first line, not the whole reply', () => {
+    expect(openingLine('First sentence.\n- a bullet\n- another')).toBe(
+      'First sentence.',
+    )
+  })
+
+  it('does not drag a list marker inline behind the opening sentence', () => {
+    // The defect this exists for: the first card generated from a real trace
+    // read "...Please either: - Upload a listing of the...".
+    expect(openingLine('Please either:\n\n- Upload a listing')).not.toContain(
+      '-',
+    )
+  })
+
+  it('strips a marker when the reply opens on a list', () => {
+    expect(openingLine('- Upload a listing of the files')).toBe(
+      'Upload a listing of the files',
+    )
+    expect(openingLine('1. Run the command')).toBe('Run the command')
+  })
+
+  it('collapses runs of whitespace inside that line', () => {
+    expect(openingLine('Count  TypeScript   files:\tnow')).toBe(
+      'Count TypeScript files: now',
+    )
+  })
+
+  it('handles CRLF and empty content', () => {
+    expect(openingLine('one\r\ntwo')).toBe('one')
+    expect(openingLine('')).toBe('')
+  })
+
+  it('keeps a hyphenated word that is not a bullet', () => {
+    expect(openingLine('well-formed output')).toBe('well-formed output')
   })
 })

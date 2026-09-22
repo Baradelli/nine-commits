@@ -552,8 +552,44 @@ pre {
   text-wrap: pretty;
 }
 
-.frame__speech + .frame__speech {
+/*
+ * A model writes lists, so the transcript sets them as lists. They keep the
+ * dialogue measure and the dialogue leading, because a list inside a trace
+ * is still speech — it is not a bulleted interface.
+ */
+.frame__body ul,
+.frame__body ol {
+  padding-inline-start: 1.3em;
+  max-width: 56ch;
+}
+
+.frame__body li {
+  line-height: var(--leading-dialogue);
+}
+
+.frame__body li::marker {
+  color: var(--ink-3);
+}
+
+.frame__speech + .frame__speech,
+.frame__speech + ul,
+.frame__speech + ol,
+.frame__body ul + .frame__speech,
+.frame__body ol + .frame__speech {
   margin-block-start: var(--space-2xs);
+}
+
+.frame__body li + li,
+.frame__body li > ul,
+.frame__body li > ol {
+  margin-block-start: var(--space-3xs);
+}
+
+/* Declared here rather than inherited from `.prose`, so a trace is typeset
+   the same wherever it is rendered. */
+.frame__body code {
+  background: var(--wash);
+  padding: 0.1em 0.3em;
 }
 
 .frame__note {

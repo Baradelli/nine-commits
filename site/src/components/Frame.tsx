@@ -4,12 +4,16 @@
  * The site's argument is that an agent is not magic, it is a conversation
  * history. So a frame is set the way a printed interview or a play script is
  * set: the speaker hangs in the left margin, and what was said is real prose
- * type with real leading. Monospace appears only on `args` and `result`,
- * which genuinely are data.
+ * type with real leading. Monospace appears on `args` and `result`, which
+ * genuinely are data, and on the spans a model itself marked as code —
+ * a command it wrote in backticks is a command, and printing the backticks
+ * instead would be typesetting the markup rather than the speech.
  *
  * Rendered by both the interactive player and the no-script transcript, so
  * there is exactly one typesetting of a trace on the site.
  */
+
+import { parseSpeech, type Block, type List, type Span } from '../lib/speech.ts'
 
 export type AnyFrame = { type: string; [key: string]: unknown }
 
@@ -69,17 +73,43 @@ function count(value: unknown): string {
     : String(value)
 }
 
-/** Prose keeps its paragraph breaks; it is not a log line. */
-function speech(content: unknown) {
-  return String(content)
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter((paragraph) => paragraph.length > 0)
-    .map((paragraph, i) => (
+/** Backticked spans become code; everything else is plain text, escaped. */
+function inline(spans: Span[]) {
+  return spans.map((span, i) =>
+    span.kind === 'code' ? <code key={i}>{span.text}</code> : span.text,
+  )
+}
+
+function listing(list: List, key: number) {
+  const items = list.items.map((item, i) => (
+    <li key={i}>
+      {inline(item.spans)}
+      {render(item.blocks)}
+    </li>
+  ))
+
+  return list.ordered ? <ol key={key}>{items}</ol> : <ul key={key}>{items}</ul>
+}
+
+function render(blocks: Block[]) {
+  return blocks.map((block, i) =>
+    block.kind === 'list' ? (
+      listing(block, i)
+    ) : (
       <p class="frame__speech" key={i}>
-        {paragraph}
+        {inline(block.spans)}
       </p>
-    ))
+    ),
+  )
+}
+
+/**
+ * Prose keeps the structure it was written with: paragraph breaks, the lists
+ * a model actually emits, and the spans it marked as code. It is not a log
+ * line, and it is not one run-on paragraph with the markup left in.
+ */
+function speech(content: unknown) {
+  return render(parseSpeech(String(content)))
 }
 
 function body(frame: AnyFrame) {

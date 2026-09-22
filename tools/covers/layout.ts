@@ -35,6 +35,26 @@ const ACCENT = '#5fd3e4' // --frame-assistant, dark
 const RAIL_WIDTH = 8
 
 /**
+ * The one line of the model's reply that the card carries.
+ *
+ * Assistant text is markdown, so collapsing all of its whitespace runs the
+ * opening sentence into whatever came after it and drags the list markers
+ * along with it: the first card generated from a real trace read "…Please
+ * either: - Upload a listing of the…", with a stray inline hyphen where a
+ * bullet had been. Cutting at the first newline, before any whitespace is
+ * collapsed, keeps the card to a sentence the model wrote as one sentence.
+ *
+ * A leading marker is stripped as well, for the reply that opens on a list.
+ */
+export function openingLine(content: string): string {
+  const first = content.replace(/\r\n?/g, '\n').split('\n')[0] ?? ''
+  return first
+    .replace(/^\s*(?:[-*+]|\d{1,9}[.)])\s+/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
  * The trace line is background texture, so it is cut to fit — but cut at a
  * word boundary. A hard slice leaves the card ending mid-word, which reads
  * as a bug rather than as a fragment.

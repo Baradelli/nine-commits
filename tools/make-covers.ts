@@ -5,6 +5,7 @@ import { Resvg } from '@resvg/resvg-js'
 import matter from 'gray-matter'
 import {
   buildCover,
+  openingLine,
   COVER_HEIGHT,
   COVER_WIDTH,
 } from './covers/layout.ts'
@@ -43,7 +44,7 @@ function firstAssistantLine(postDir: string): string {
     frames: Array<{ type: string; content?: string }>
   }
   const frame = trace.frames.find((f) => f.type === 'assistant')
-  return frame?.content?.replace(/\s+/g, ' ').trim() ?? ''
+  return openingLine(frame?.content ?? '')
 }
 
 async function main(): Promise<void> {
