@@ -1,0 +1,130 @@
+---
+order: 1
+title: An LLM Is Not an Agent
+thesis: "An agent is a model, a set of actions, and a loop. Take the loop away and what is left is a chatbot."
+pubDate: 2026-09-22
+commit: v1-not-an-agent
+cover: ./cover.png
+coverAlt: "Cover for commit 01 of Nine Commits, An LLM Is Not an Agent, set over the opening line of the recorded run"
+---
+
+import TracePlayer from '../../../components/TracePlayer.tsx'
+import TraceTranscript from '../../../components/TraceTranscript.astro'
+import trace from './trace.json'
+
+Everyone calls things agents now. A prompt with a system message is an agent. A
+chatbot with a retrieval step is an agent. The word has been stretched until it
+means "LLM I am excited about."
+
+Here is the definition I am building this series on:
+
+**An agent is an LLM that can take actions in a loop until a task is complete.**
+
+Three parts, and all three are load-bearing. A model that reasons. Actions it
+can actually take. And a loop that keeps going until the work is done rather
+than until the response is finished.
+
+Drop any one of them and you have something else. Drop the loop specifically,
+and you have a chatbot — which is exactly what this first commit is.
+
+## What I built
+
+Thirty-three lines across two files, comments and blank lines included. One of
+them holds a model name and a one-sentence system instruction. The other makes
+a single call and returns the text.
+
+```ts
+export async function runOnce(task: string): Promise<RunResult> {
+  const result = await generateText({
+    model: openai(MODEL_NAME),
+    instructions: INSTRUCTIONS,
+    prompt: task,
+  })
+
+  return {
+    text: result.text,
+    model: MODEL_NAME,
+    totalTokens: result.usage?.totalTokens ?? 0,
+  }
+}
+```
+
+No tools. No message history. No loop. The whole system instruction is *"You
+are a helpful assistant running inside a developer terminal. Answer
+concisely."*
+
+I am starting here on purpose. Everything the next eight commits add is easier
+to argue for once you have watched this version fail.
+
+## What broke
+
+I asked it to count the TypeScript files in this project. Step through the run
+— it is two frames long, and the second one is the whole post.
+
+<TracePlayer trace={trace} client:visible />
+<TraceTranscript trace={trace} />
+
+I expected a shell command delivered with false confidence. That is the failure
+I had drafted this section around before I recorded anything, and it is not
+what happened. What came back is stranger and more useful.
+
+It opens with this:
+
+> I can’t directly count files from the image alone.
+
+There is no image. Nothing was uploaded and nothing was attached. The prompt is
+the single sentence in frame one, sent by a command-line program with no
+concept of a file upload. The model reached for the most common way a question
+like that arrives — a screenshot pasted into a chat window — and described the
+situation it was probably in rather than the one it was actually in. It has no
+way to check, so it guessed, and it guessed a modality this program does not
+have.
+
+Then it offered me commands for two operating systems: `find` for Linux and
+macOS, `Get-ChildItem` for Windows PowerShell. Not because it hedges out of
+habit, but because it cannot see which machine it is on. Every fact needed to
+answer the question — the platform, the filesystem, the list of files — sits on
+the other side of a wall with no door in it.
+
+And then the last line, which is the one I keep coming back to:
+
+> I’ll tell you the number once you provide the output.
+
+There is no *once*. `runOnce` returns, the CLI prints the text, writes the
+trace, and the process exits. The model had just proposed a protocol — you run
+a command, you paste the result back, I read it and answer — in which every
+step after the first is impossible in the program it was running inside. It
+described the loop correctly. Then it asked me to be the loop.
+
+That is a better failure than the one I expected, because it is not a mistake.
+Read as a chat message, that reply is close to ideal: it declines precisely, it
+names the right command for two platforms, and it commits to finishing the job.
+It is the reply I would want from a chat window. It is a dead end in a
+terminal, because the second turn it is counting on has nowhere to happen.
+
+So the gap this series is about is not the gap between a right answer and a
+wrong one. The model was not wrong. It is the gap between a reply and a result,
+and nothing in the text tells you which of the two you just got. Count what the
+run contains: one question, one answer, 245 tokens, and not one byte read from
+disk. The project on my machine is exactly as uncounted as it was before I
+asked.
+
+## What is missing
+
+Here is what answering that question would actually take:
+
+1. Decide that listing files is the next action
+2. Call something that lists files
+3. Read what came back
+4. Decide whether that was enough
+5. Repeat until it is
+
+Steps 1 and 3 need **tools**: a way for the model to name an action, and a way
+for the result to come back in. Steps 4 and 5 need a **loop**: somewhere for
+turn two to happen at all.
+
+The model worked that sequence out by itself. It wrote steps 1 and 2 into its
+answer, and then handed 3, 4 and 5 to me — because at this commit I had not
+built anywhere else for them to go.
+
+The next commit gives it hands.
