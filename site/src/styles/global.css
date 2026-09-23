@@ -469,6 +469,46 @@ pre {
   border: 1px solid var(--rule-faint);
 }
 
+/*
+ * A table is a set of readings, so it is ruled rather than boxed: hairlines
+ * between rows, none down the sides, and the numbers in the data face because
+ * that is what monospace is reserved for on this site.
+ */
+/*
+ * `display: block` so a wide table scrolls inside the measure instead of
+ * silently clipping its last column on a phone, which is what it did. The
+ * rules still land where a table's rules land, because the rows lay out as a
+ * table inside it.
+ */
+.prose table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: var(--text-s);
+  text-align: start;
+}
+
+.prose th,
+.prose td {
+  padding: var(--space-2xs) var(--space-xs) var(--space-2xs) 0;
+  border-block-end: 1px solid var(--rule-faint);
+  vertical-align: baseline;
+}
+
+.prose th {
+  font-weight: 600;
+  color: var(--ink-2);
+  text-align: start;
+  border-block-end-color: var(--rule);
+}
+
+.prose td:not(:first-child) {
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+}
+
 /* --------------------------------------------------------------------- *
  * The transcript
  *
@@ -647,16 +687,52 @@ pre {
  * --------------------------------------------------------------------- */
 
 .player,
-.transcript-block {
+.transcript-block,
+.compare {
   position: relative;
   margin-block: var(--space-xl);
 }
 
 .prose .player,
-.prose .transcript-block {
+.prose .transcript-block,
+.prose .compare {
   max-width: none;
   margin-inline-start: calc(-1 * (var(--gutter) + var(--gutter-gap)));
   width: calc(100% + var(--gutter) + var(--gutter-gap));
+}
+
+/*
+ * A compared player is already out in the margin with its switch, so it must
+ * not break out a second time. Declared after the rule above, which it ties
+ * with on specificity.
+ */
+.prose .compare .player {
+  margin-inline: 0;
+  margin-block: var(--space-m) 0;
+  width: 100%;
+}
+
+/*
+ * Which of the recordings you are watching. The selected run is drawn with a
+ * solid edge and the rest with dashed ones — the same line-type convention
+ * the frames use, so the switch still reads with no colour vision at all.
+ * `aria-pressed` says the same thing to a screen reader.
+ */
+.compare__switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-xs);
+}
+
+.compare__switch .control {
+  border-style: dashed;
+  color: var(--ink-2);
+}
+
+.compare__switch .control[aria-pressed='true'] {
+  border-style: solid;
+  border-color: var(--ink);
+  color: var(--ink);
 }
 
 /* The budget measure is a different instrument from the reading measure:
@@ -831,9 +907,17 @@ pre {
      is a lot of furniture on a 390px screen; on a phone the trace's
      measure simply takes over the page's for the length of the trace. */
   .prose .player,
-  .prose .transcript-block {
+  .prose .transcript-block,
+  .prose .compare {
     margin-inline-start: calc(-1 * var(--space-m));
     width: calc(100% + var(--space-m));
     padding-inline-start: var(--space-m);
+  }
+
+  /* The compared player has already been pulled out by its wrapper. */
+  .prose .compare .player {
+    margin-inline: 0;
+    width: 100%;
+    padding-inline-start: 0;
   }
 }

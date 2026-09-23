@@ -31,6 +31,27 @@ trace.
 home directory other than that of whoever is running it; CI does, because its
 own home directory appears in no committed trace.
 
+The run itself is configured by environment:
+
+| Variable | What it does |
+| --- | --- |
+| `TOOL_DESCRIPTIONS` | `precise` (the default) or `thin` — which set of tool descriptions the model is given. This is the post 2 experiment; both sets are in `agent/src/tools/descriptions.ts`. |
+| `TRACE_EXPECT` | Comma-separated facts the final answer must contain for the run to count as having answered the question. Required — the recorder refuses to grade a run nobody said what to expect from. |
+| `TRACE_ID` | The trace's id, and the file it is written to. |
+| `TRACE_COMMIT` | The tag the trace is recorded against. |
+
+So one side of the post 2 comparison is:
+
+```
+TOOL_DESCRIPTIONS=precise TRACE_ID=precise-descriptions \
+TRACE_EXPECT="agent/src/config.ts,gpt-5-mini" \
+npm start --workspace @nine-commits/agent -- \
+  "Which file in this project sets the model name the agent uses, and what is it set to?"
+```
+
+The model is not deterministic, so one run per side will not reproduce the
+post's conclusion. The post says so, and gives the counts over 21 runs each.
+
 ## Attribution
 
 Built while following **"Build an AI Agent from Scratch"** by

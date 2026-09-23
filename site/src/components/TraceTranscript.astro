@@ -18,18 +18,24 @@ interface Props {
     commit: string
     frames: Array<{ type: string; [key: string]: unknown }>
   }
+  /*
+   * What this recording is, when a post prints more than one of them. With
+   * the player gone there is no switch to say which run you are looking at,
+   * so the margin has to.
+   */
+  label?: string
 }
 
-const { trace } = Astro.props
+const { trace, label = 'Recorded run' } = Astro.props
 ---
 
 <noscript>
   <section
     class="transcript-block"
-    aria-label={`Recorded run transcript: ${trace.task}`}
+    aria-label={`${label} transcript: ${trace.task}`}
   >
     <div class="spread">
-      <p class="marginal">Recorded run</p>
+      <p class="marginal">{label}</p>
 
       <header>
         <h2 class="trace__task">{trace.task}</h2>

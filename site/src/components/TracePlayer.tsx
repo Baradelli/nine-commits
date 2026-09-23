@@ -7,7 +7,9 @@ import {
 } from '../lib/player-state.ts'
 import { FrameView, type AnyFrame } from './Frame.tsx'
 
-type Trace = {
+// Exported so `TraceCompare` can hold an array of these without restating the
+// shape. The player is still the only thing that renders one.
+export type Trace = {
   id: string
   commit: string
   model: string

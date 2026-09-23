@@ -10,7 +10,7 @@ import {
   COVER_WIDTH,
 } from './covers/layout.ts'
 import { parseCoverFrontmatter } from './covers/frontmatter.ts'
-import { POSTS_DIR } from './paths.ts'
+import { POSTS_DIR, TRACE_FILE } from './paths.ts'
 
 const FONT_DIR = join('node_modules', '@fontsource', 'literata', 'files')
 
@@ -37,10 +37,23 @@ function loadFonts() {
   ]
 }
 
+/**
+ * The line the card carries, taken from the post's trace.
+ *
+ * A compare post has no `trace.json` — spec §3.4 lets it carry `trace-a.json`
+ * and `trace-b.json` instead — and this used to look for that one name and
+ * quietly render a card with an empty rule across the bottom. It now takes the
+ * first trace file the gate itself recognises, in the same sorted order the
+ * gate walks them in, so the card is always built from a run that happened.
+ */
 function firstAssistantLine(postDir: string): string {
-  const tracePath = join(postDir, 'trace.json')
-  if (!existsSync(tracePath)) return ''
-  const trace = JSON.parse(readFileSync(tracePath, 'utf8')) as {
+  const name = readdirSync(postDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && TRACE_FILE.test(entry.name))
+    .map((entry) => entry.name)
+    .sort()[0]
+  if (name === undefined) return ''
+
+  const trace = JSON.parse(readFileSync(join(postDir, name), 'utf8')) as {
     frames: Array<{ type: string; content?: string }>
   }
   const frame = trace.frames.find((f) => f.type === 'assistant')

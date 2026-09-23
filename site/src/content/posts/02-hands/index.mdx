@@ -1,0 +1,276 @@
+---
+order: 2
+title: Giving It Hands
+thesis: "A tool's description is a prompt. Write it badly and the model reaches for the wrong tool."
+pubDate: 2026-09-23
+commit: v2-hands
+cover: ./cover.png
+coverAlt: "Title card for commit 02 of Nine Commits, Giving It Hands, with the opening line of a recorded run printed beneath it"
+---
+
+import TraceCompare from '../../../components/TraceCompare.tsx'
+import TraceTranscript from '../../../components/TraceTranscript.astro'
+import precise from './trace-a-precise.json'
+import thin from './trace-b-thin.json'
+
+The last commit ended with a model that could describe an action and never
+take one. This one gives it two hands: a tool that lists the files in this
+project, and a tool that searches inside them. Both really run. Both read the
+disk on my machine.
+
+And then the interesting part, which is that I have to describe them.
+
+A tool arrives at the model as a name, a schema, and a sentence I wrote. The
+schema is checked and the name is fixed, so the only place my judgement lives
+is the sentence. It is not documentation — nobody reads it but the model, and
+the model reads it at exactly the moment it is deciding what to do. It is a
+prompt, and it is the one prompt in the system that fires without me being in
+the room.
+
+So: the same question, the same model, the same code, twice. The only thing
+that changes is the two sentences.
+
+## What I built
+
+Two tools, defined with the `ai` SDK's `tool()` helper. The descriptions come
+out of a data file and are selected by an environment variable, so both runs
+are one checkout of one program rather than two versions of the code.
+
+```ts
+export function buildTools(style: DescriptionStyle) {
+  const descriptions = DESCRIPTIONS[style]
+
+  return {
+    list_files: tool({
+      description: descriptions.list_files,
+      inputSchema: listInput,
+      execute: ({ directory }) => listFiles(directory),
+    }),
+    search_files: tool({
+      description: descriptions.search_files,
+      inputSchema: searchInput,
+      execute: ({ pattern }) => searchFiles(pattern),
+    }),
+  }
+}
+```
+
+The precise pair says when to use each one, and — this matters later — says
+out loud what each one cannot do:
+
+> **list_files** — List the paths of the files in the project, optionally
+> under one directory. Returns paths only, never the contents of a file. Use
+> it to find out what files exist, or to locate something you can recognise
+> from its name. It cannot tell you anything about what is written inside a
+> file.
+>
+> **search_files** — Search the text inside the project files for a regular
+> expression. Returns every matching line with its file path and line number.
+> Use it when the answer depends on what a file contains rather than on what
+> it is called — a value assigned in code, an import, a string.
+
+The thin pair is what those two sentences look like on the day you add the
+tools and mean to come back to them:
+
+> **list_files** — Lists files.
+>
+> **search_files** — Searches files.
+
+That is the whole experiment. Not a misleading description, not a sabotaged
+one. A true one that is no help.
+
+The input schemas are identical across both runs and carry no descriptions of
+their own, because a parameter description is a description too and leaving
+one in would have leaked the precise wording into the thin run.
+
+There is still no loop. The agent gets two steps: one to choose an action, one
+to answer with whatever that action returned. Tools are switched off for the
+second step, so it cannot go round again. One shot — which is exactly what
+makes the choice worth a post.
+
+The question I asked sits in the overlap on purpose:
+
+> Which file in this project sets the model name the agent uses, and what is
+> it set to?
+
+"Which file" is a question about names, which is `list_files`. "What is it set
+to" is a question about contents, which is `search_files`. A reasonable
+engineer could open with either. Only one of them can finish, because at v2
+there is no second call in which to recover.
+
+The true answer is `agent/src/config.ts`, and `gpt-5-mini`. You can read both
+at the tag.
+
+## The two runs
+
+<TraceCompare
+  traces={[
+    { label: 'Precise descriptions', trace: precise },
+    { label: 'Thin descriptions', trace: thin },
+  ]}
+  client:idle
+/>
+<TraceTranscript trace={precise} label="Precise descriptions" />
+<TraceTranscript trace={thin} label="Thin descriptions" />
+
+Read them in that order and the post you expected is the post you get,
+backwards.
+
+The **precise** run called `list_files`. Its own description had told it, in
+plain English, that the tool *cannot tell you anything about what is written
+inside a file* — and the question asked what something is set to. It got 68
+paths back, named `agent/src/config.ts` as the likely file, and then said
+this:
+
+> I can’t read the repository files from here right now.
+
+It had just read the repository. That sentence sits directly beneath a tool
+result listing every file in it. Then it offered me some `grep` commands and
+asked if I would like it to search — which is the last thing post 1's chatbot
+did, reproduced by an agent that had a working search in its other hand and
+had spent its one action on the other one.
+
+The **thin** run called `search_files`. The right tool. It searched for
+`model_name`, in a codebase that spells it `MODEL_NAME`, with a
+case-sensitive matcher. Zero results. And then:
+
+> I don’t have access to the project files from here.
+
+Same conclusion, arrived at from the opposite direction. One of them looked at
+the project and said it could not; the other asked the project a question so
+badly that the silence read as absence.
+
+So: the precise run picked the wrong tool, the thin run picked the right one,
+and both of them ended by handing me `grep` commands to run myself. On this
+pair, the thesis printed at the top of this page is not just unproven. It is
+backwards.
+
+## What broke
+
+What broke is that I nearly published that.
+
+The two traces above are one run each. I built the whole apparatus around a
+comparison of two, because two runs side by side is what fits in a demo and
+because it is how the claim is usually made. Then I looked at what I had — a
+clean reversal of my own thesis — and realised I had no idea whether it meant
+anything, because there was an earlier pair I had thrown away for an unrelated
+reason, and in *that* pair the precise run had picked `search_files` and
+answered correctly.
+
+Same descriptions. Same question. Different choice. The thing I was measuring
+was a coin I had flipped once per side.
+
+So I ran it again. Twenty-one runs per description — the two above included —
+same question, same model, nothing else changed:
+
+| Descriptions | Reached `search_files` | Answered in full |
+| --- | --- | --- |
+| Precise | 12 of 21 | 4 of 21 |
+| Thin | 2 of 21 | 0 of 21 |
+
+Nineteen of the twenty-one thin runs opened `list_files`, the tool that
+structurally cannot answer the second half of the question. Not one thin run
+finished. Four precise runs did.
+
+The rest split the way a one-shot agent splits: 10 partials and 7 outright
+failures on the precise side, 19 partials and 2 failures on the thin one. A
+partial is a run whose answer carried one of the two facts and not the other.
+
+The thesis holds. It just does not hold in a single pair of runs, and the pair
+I happened to record is the less likely outcome on both sides at once: precise
+picking `list_files`, which 9 of its 21 runs did, against thin picking
+`search_files`, which 2 of its 21 did. I did not choose those two traces.
+They are the first pair I ran once the instrument was working, and they stay
+up there, because a demo that shows the exception beside a table that shows
+the rule is a more honest picture of this than either would be alone.
+
+Your numbers will not match mine — that is the entire point — but the
+experiment is a shell loop at the tag:
+
+```sh
+for i in $(seq 1 21); do
+  TOOL_DESCRIPTIONS=thin TRACE_ID=tally \
+  TRACE_EXPECT="agent/src/config.ts,gpt-5-mini" \
+  npm start --workspace @nine-commits/agent -- \
+    "Which file in this project sets the model name the agent uses, and what is it set to?"
+done
+```
+
+The second thing that broke was smaller and more embarrassing. The agent's
+tools read this repository, and the agent writes its traces into this
+repository. The first comparison I ran had the precise run search for a
+pattern, write its trace to `agent/traces/`, and then the thin run searched
+the project and found *that trace* — the only two matches it got were lines
+from the other run's recording. Two runs of an experiment, looking at
+different projects, because the instrument was inside the sample. Both traces
+went in the bin and the tools stopped walking their own output directory.
+
+Third: the first version of this agent had a two-step cap and nothing
+stopping it from spending both steps on tools. It called `list_files`, then
+called `search_files`, then ran out of steps with nothing to say, and the
+recording ended on a tool result. That is what the `prepareStep` line is for.
+One action, then an answer.
+
+## What the descriptions actually changed
+
+The thesis says a bad description makes the model reach for the wrong tool,
+and the table says that is true: 2 in 21 versus 12 in 21 is not a subtle
+difference. But watching the traces, the reach is not the only thing that
+moved.
+
+The thin run reached for the right tool and then asked it a bad question.
+`model_name`, lowercase, snake case, one guess, against a TypeScript codebase.
+A description that says *search the text inside the project files for a
+regular expression* does not only tell the model which tool this is. It tells
+it what kind of thing a good argument is. The thin one says `search_files`
+takes files and stops.
+
+And there is a cost on the other side, which the meter under the player
+counts. Before either agent has done anything at all, the precise run is
+carrying 204 tokens of context and the thin run 96. The difference is the
+descriptions themselves; a tool definition is part of every request for the
+whole life of the conversation. I paid about a hundred tokens per turn for
+those two sentences. On this question it bought a sixfold better chance of
+the right tool and the only four successes in forty-two runs, which is a
+trade I would take. It is not free, and post 7 is where that bill comes due.
+
+## What the trace says now
+
+Two things in the recorder changed, and both were owed.
+
+It emits `tool_call` and `tool_result` frames, so a run is no longer a
+question and an answer with the interesting part missing. And `outcome` is no
+longer the string `'failure'` written into the source. At v1 that constant was
+true by construction and the code said so; a badge decided at build time is
+decoration, and the moment the agent could act it became a lie waiting to
+happen.
+
+It is now derived from what the run actually said, checked against facts I
+have to name up front:
+
+```sh
+TRACE_EXPECT="agent/src/config.ts,gpt-5-mini"
+```
+
+All of them in the final answer is a success, some is partial, none is a
+failure, and a failed tool call caps it at partial. It is the crudest possible
+check — a case-insensitive substring — and the recorder refuses to write a
+trace at all if I do not supply one, because a run that nobody said what to
+expect from is a run whose outcome I would be guessing. It is also why no
+`list_files` run in the table is a success: that tool returns paths, and half
+the question was a value.
+
+Grading an answer properly is post 4's problem, and it is a much harder one
+than this.
+
+## The commit
+
+The agent can act now. It still cannot try again.
+
+Every run in that table stopped after one action. Twenty-eight of the
+forty-two opened `list_files`, and every single one of them came back partial:
+one of the two facts, never both. The tool hands you paths. The question
+wanted a value. What was needed was one more call, in a tool the model was
+already holding, and there was nowhere for that call to go.
+
+The next commit is the loop.

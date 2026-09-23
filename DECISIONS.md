@@ -238,3 +238,35 @@ fixed the fixtures at HEAD (assembled at runtime from fragments, exercised strin
 
 CI Node pinned to 22, not 20 and not 24. The first real CI run failed - my plan's global constraint said "Node >= 20", written before Astro 7 was chosen, and Astro 7 refuses to run below 22.12.0. It passed locally only because this machine runs Node 24. Chose 22 rather than matching local: testing at the declared floor is what would have caught this before the push. Root engines updated to >=22.12.0 to match. Cost if wrong: CI runs an older Node than the author does, which is the point.
 
+
+## 57. Experiment
+
+the tool pair is `list_files` (paths, never contents) against `search_files` (a regex over file contents), and the question is "Which file in this project sets the model name the agent uses, and what is it set to?" - chosen because the surface words point one way and the semantics the other. "Which file" is a question about names; "what is it set to" is a question about contents. With thin descriptions the English is genuinely ambiguous both ways: "searches files" can mean searching FOR files or searching INSIDE them. Only `search_files` can finish, because at v2 there is no second call. Cost if wrong: an experiment where one tool is obviously right proves nothing, and the post is worthless.
+
+## 58. Experiment
+
+the first recorded pair was DISCARDED, not published. The agent's tools walked `agent/traces/`, so run A wrote its trace into the project and run B's search found it - the only two matches run B got were lines from run A's recording. Two runs of a controlled comparison looking at different corpora is not a comparison. Fixed by adding `traces` to the tools' skip list and re-running both sides from a clean tree. The discarded pair is described in the post; nothing about the outcomes informed the decision to discard, which was made on the corpus difference alone. Cost if wrong: two API calls.
+
+## 59. Experiment
+
+`agent/src/recorder.test.ts` originally used the real task string and the real expected answer as its fixtures. The agent's tools read this repository, so that planted the answer key inside the corpus the experiment searches - and the first run recorded found those exact lines. Fixtures now use an unrelated question and an unrelated file. Any test in this repository is part of the agent's world from v2 on. Cost if wrong: less evocative fixtures.
+
+## 60. Agent
+
+`prepareStep` turns the tools off for step 2. Without it the two-step cap was spent rather than allocated: the first run called `list_files`, then called `search_files`, then hit the limit with nothing to say and the trace ended on a tool result. One action then an answer is what the v2 spec describes, and being unable to have another go is what makes the tool choice worth a post. It is applied identically to both conditions. Cost if wrong: the agent cannot chain two reads, which is exactly post 3's job.
+
+## 61. Experiment
+
+RAN THE EXPERIMENT 21 TIMES PER SIDE rather than the two the plan called for, and this changed the post. The recorded pair shows precise descriptions picking the wrong tool and thin descriptions picking the right one - a clean reversal of the thesis. One run per condition cannot tell a real effect from noise, and I had already seen the precise condition produce both behaviours. Over 21 runs each: precise reached `search_files` 12 times and answered in full 4 times; thin reached it twice and answered in full never. The thesis in series.ts holds and is UNCHANGED. The two recorded traces stand exactly as recorded - the less likely outcome on both sides - and the post says so rather than re-rolling for a demo that agrees with its own table. Cost if wrong: 42 API calls and a post that argues with its own centrepiece, which is the honest shape of this result.
+
+## 62. Recorder
+
+`outcome` is now derived, closing the debt recorded in #51. It is graded against `TRACE_EXPECT`, a list of facts the caller states up front and a reader can check in the repository: all present is success, some is partial, none is failure, and a failed tool call caps it at partial. The recorder THROWS on an empty expectation list rather than guessing, so no trace can carry an outcome nobody checked. Deliberately crude - a case-insensitive substring - because grading an answer properly is post 4 and doing it badly here would pre-empt it. Cost if wrong: the grade is as good as the expectations the author names, which is why they are printed in the post.
+
+## 63. Site
+
+`TraceCompare` takes `{ label, trace }` pairs rather than the bare `traces={[...]}` array the spec sketches. Two recordings of the same task differ only in a variable the trace itself does not record, so an array of traces gives the switch nothing to put on its buttons. The component is otherwise as thin as specified: it holds an index, and mounts the unmodified player keyed by trace id so switching restarts at frame one. Cost if wrong: one prop shape that differs from a one-line sketch in the spec.
+
+## 64. Site
+
+`make-covers` looked for `trace.json` by name and would have rendered post 2's card with an empty rule across the bottom, because a compare post carries `trace-a-*.json` and `trace-b-*.json`. It now takes the first file matching the same `TRACE_FILE` pattern the leak gate walks, in the same sorted order. Two tools that disagree about what a trace file is called is how a post ships a card built from nothing. Cost if wrong: the card quotes whichever trace sorts first, which is stated in the code.
