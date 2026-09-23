@@ -102,17 +102,59 @@ asked me to be the loop.
 
 So the reply is two things at once, and it is worth keeping them apart. One is
 simply wrong: there was no image, and a person on the other end of that message
-would now be working out which image it meant. The other is a correct plan —
-the right commands, for the right platforms, in the right order. The post is
-about the second one, because the plan is not what failed here. It had nowhere
-to run.
+would now be working out which image it meant. The other looks right — the
+right commands, for the right platforms, in the right order — and when I first
+wrote this section I called it a correct plan and left it there. Then, writing
+the short version of this post for somewhere else, I ran it.
 
-That is the gap this series is about, and it is not the gap between a right
-answer and a wrong one — this reply contains both, in the same breath. It is
-the gap between a reply and a result, and nothing in the text tells you which
-of the two you just got. Count what the run contains: one question, one answer,
-245 tokens, and not one byte read from disk. The project on my machine is
-exactly as uncounted as it was before I asked.
+```sh
+$ find . -type f -name "*.ts" | wc -l
+4697
+```
+
+4,660 of those are inside `node_modules`. They are TypeScript that arrived with
+the dependencies, not TypeScript anybody here wrote. The question was how many
+TypeScript files are in this project, and the command answers it two orders of
+magnitude high. The number I was actually after comes from a different
+question:
+
+```sh
+$ git ls-files '*.ts' '*.tsx' | wc -l
+37
+```
+
+So the plan was not correct either. It was correctly shaped — `find` is the
+right tool and that is close to how you reach for it — and quietly wrong, which
+is the worse kind, because a wrong number does not look like anything. It
+arrives formatted exactly like a right one. The failure I had drafted this
+section around did turn up in the end. It was one layer down from where I was
+looking for it.
+
+Both of those figures drift, which is its own small lesson. `find` counts
+whatever is installed, so at the `v1-not-an-agent` tag, freshly installed, the
+same command returns 4,683, of which 4,650 are dependencies; the source count
+there is 35 rather than 37, because this branch has kept moving since the
+commit the post is about. A number that changes depending on when you asked is
+exactly the sort of number that deserves a second look.
+
+Which is the part worth sitting with. Handed 4,697, the model would have
+reported 4,697. Nothing in a single completion weighs an answer against the
+question that produced it — nothing reads "four thousand" and "this project" in
+the same breath and finds the two implausible together. It cannot doubt a
+number it did not produce.
+
+An agent can. It runs the command, gets 4,697, notices that a repository with a
+few dozen source files does not hold four thousand of them, and runs a better
+one. That second look is the loop, and it is the thing this commit does not
+have.
+
+So the gap this series is about is not the gap between a right answer and a
+wrong one. It is the gap between a reply and a result — and under that, the
+narrower one that does the damage: a model without a loop cannot check its own
+work, because there is no second pass in which to check anything. Count what
+the run contains: one question, one answer, 245 tokens, and not one byte read
+from disk. The project on my machine is exactly as uncounted as it was before I
+asked.
 
 ## What is missing
 
@@ -133,5 +175,9 @@ next action and it named the call. Then it handed 3 and 4 to me, and never
 reached 5 at all — it assumed one exchange would settle the matter. That
 assumption is the tell. Repeating until the work is done is not something a
 single completion can want; it is something the program around it has to do.
+
+Step 4 is where the 4,697 lives. Deciding whether what came back was any good
+is a separate act from producing it, and a single completion has nowhere to put
+it.
 
 The next commit gives it hands.

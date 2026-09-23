@@ -29,10 +29,11 @@ diffusion models act on what a prompt describes, not on what it forbids.
 
 ## Why this image
 
-The recorded run contains a wrong fact and a correct plan. It asserted an image
-that did not exist, and it also named the right command for two platforms and
-closed with "I'll tell you the number once you provide the output" — a second
-turn the program has no way to give it.
+The recorded run contains a wrong fact and a plan that was correctly shaped and
+quietly wrong. It asserted an image that did not exist, and it also named a
+command for two platforms — one that counts `node_modules` alongside the source
+— and closed with "I'll tell you the number once you provide the output", a
+second turn the program has no way to give it.
 
 So the picture has two jobs. The bubble throws no light on the laptop, because
 nothing the model said touched the machine. And the tail points back out at the
