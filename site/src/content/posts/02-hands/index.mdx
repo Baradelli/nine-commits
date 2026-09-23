@@ -121,9 +121,9 @@ backwards.
 The **precise** run called `list_files`. Its own description had told it, in
 plain English, that the tool *cannot tell you anything about what is written
 inside a file* — and the question asked what something is set to. It got 68
-paths back — the project was 68 files that morning; the same call at the tag
-returns 75, because this post is in it — named `agent/src/config.ts` as the
-likely file, and then said this:
+paths back — the project as it stood that morning, and smaller than it is now,
+because this page is in it — named `agent/src/config.ts` as the likely file,
+and then said this:
 
 > I can’t read the repository files from here right now.
 
@@ -213,11 +213,22 @@ exactly where it is.
 
 It does not reproduce the setup any more. The agent's tools walk this
 repository, this page is in this repository, and this page states both of the
-facts the runs were graded on. Run the loop at the tag today and
-`search_files("model_name")` comes back with five matches where the recorded
-run got zero — three of them out of this post's own files. The corpus now
-contains the answer key, because I wrote the answer key into it by explaining
-the experiment.
+facts the runs were graded on. The recorded thin run searched for the string
+`model_name` and got nothing back — that zero is in the trace above, and it is
+the reason it gave up. Run the loop today and step to the tool result. Matches
+come out of this page: the trace file quoting the pattern, the paragraph two
+screens up telling you what the model searched for, and this sentence, which
+puts `model_name` into the corpus by naming it.
+
+I am not going to tell you how many there are. I did, in the commit that added
+this section, and the figure was already wrong when I committed it — writing it
+down added a file to the project and put the pattern into this page one more
+time, in the sentence doing the counting. Any number describing what the corpus
+looks like right now is falsified by publishing the sentence that contains it.
+Run it and read your own; mine expired.
+
+The corpus contains the answer key because I wrote the answer key into it by
+explaining the experiment.
 
 That is the same failure as the traces directory, one level up and permanent.
 I could make it go away in one line by adding the post directory to the tools'
