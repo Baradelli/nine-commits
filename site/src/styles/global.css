@@ -774,14 +774,24 @@ pre {
   max-width: 52ch;
 }
 
+/*
+ * The transport is the head of the block, not its foot: the transcript below
+ * it grows by a frame on every step, and controls after it would be pushed
+ * down the page by up to a payload's 22rem each time. Nothing here is stuck
+ * to the viewport — the controls simply sit where the trace starts, which is
+ * a landmark that stops moving instead of one that runs away.
+ *
+ * The hairline stays on the boundary it always marked; it has just changed
+ * which side of the controls the transcript is on.
+ */
 .player__controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2xs) var(--space-xs);
   margin-block-start: var(--space-m);
-  padding-block-start: var(--space-s);
-  border-block-start: 1px solid var(--rule-faint);
+  padding-block-end: var(--space-s);
+  border-block-end: 1px solid var(--rule-faint);
 }
 
 /* Radius appears on exactly one kind of thing: something you can press. */

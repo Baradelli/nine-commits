@@ -80,12 +80,27 @@ export default function TracePlayer({ trace }: { trace: Trace }) {
           </p>
         </header>
 
-        <ol class="transcript full">
-          {shown.map((frame, i) => (
-            <FrameView key={i} frame={frame} />
-          ))}
-        </ol>
+        {/*
+          Playback sits ABOVE the transcript, not below it. The transcript is
+          the only thing on this page that grows while you use it: every Next
+          appends a frame, and a payload frame is capped at 22rem of scroll
+          box, so controls placed after it walk down the page by up to a third
+          of a screen per click. At six frames that is a nuisance; at the
+          length post 7 will record it puts the transport off the bottom of
+          the viewport and keeps it there.
 
+          A sticky bar is the reflex fix and the wrong one here: it needs its
+          own fill to stop the trace running underneath it, and this design
+          spends its one structural device on the margin measure and has no
+          floating chrome anywhere (see `styles/tokens.css`). Putting the
+          transport at the head of the block costs nothing and fixes the same
+          thing — the controls stop moving at all, and the landmark a reader
+          scrolls back to is the top of the trace rather than its ever-moving
+          end.
+
+          It also fixes the tab order: playback now comes before the frames
+          instead of behind all of them.
+        */}
         <div class="player__controls" role="group" aria-label="Playback">
           <button
             type="button"
@@ -134,6 +149,12 @@ export default function TracePlayer({ trace }: { trace: Trace }) {
             </p>
           )}
         </div>
+
+        <ol class="transcript full">
+          {shown.map((frame, i) => (
+            <FrameView key={i} frame={frame} />
+          ))}
+        </ol>
       </div>
     </section>
   )
