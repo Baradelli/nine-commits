@@ -1,0 +1,499 @@
+{
+  "id": "v5-control",
+  "commit": "v5-moving-target",
+  "model": "gpt-5-mini",
+  "task": "Which file in this project decides that a file is binary and should not be searched, and which file extensions does it list?",
+  "outcome": "success",
+  "tokens": [
+    209,
+    290,
+    1018,
+    1160,
+    2003,
+    2076,
+    2137,
+    2191,
+    2258,
+    2353,
+    3957,
+    4344
+  ],
+  "frames": [
+    {
+      "type": "user",
+      "content": "Which file in this project decides that a file is binary and should not be searched, and which file extensions does it list?"
+    },
+    {
+      "type": "tool_call",
+      "id": "call_sxGmguWUT7GeK5w4SoAhxUSh",
+      "name": "search_files",
+      "args": {
+        "pattern": "binary"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_sxGmguWUT7GeK5w4SoAhxUSh",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "pattern": "binary",
+        "filesSearched": 95,
+        "matches": [
+          {
+            "file": "site/src/content/posts/04-does-it-work/index.mdx",
+            "line": 14,
+            "text": "import binary from './trace-b-binary.json'"
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/index.mdx",
+            "line": 267,
+            "text": "<TracePlayer trace={binary} client:idle />"
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/index.mdx",
+            "line": 268,
+            "text": "<TraceTranscript trace={binary} label=\"A question with one answer in the corpus\" />"
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 2,
+            "text": "\"id\": \"v4-b-binary\","
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 5,
+            "text": "\"task\": \"Which file in this project decides that a file is binary and should not be searched, and which file extensions does it list?\","
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 24,
+            "text": "\"content\": \"Which file in this project decides that a file is binary and should not be searched, and which file extensions does it list?\""
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 31,
+            "text": "\"pattern\": \"binary|isBinary|is_binary|BINARY|isBinaryFile|is_text_file|binaryExtensions|binary_extensions|isBinaryFileSync|EXCLUDE|excluded|should not be searched|isBinaryFile|isBinaryPath|file is bin"
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 40,
+            "text": "\"pattern\": \"binary|isBinary|is_binary|BINARY|isBinaryFile|is_text_file|binaryExtensions|binary_extensions|isBinaryFileSync|EXCLUDE|excluded|should not be searched|isBinaryFile|isBinaryPath|file is bin"
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 351,
+            "text": "\"content\": \"The check is in agent/src/tools/fs.ts. It uses this regex:\\n\\n/\\\\.(png|jpe?g|gif|ico|webp|avif|woff2?|ttf|otf|eot|pdf|zip)$/i\\n\\nSo it treats these extensions as binary: .png, .jpg, .jpeg,"
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/verdicts.tsv",
+            "line": 44,
+            "text": "04-does-it-work/trace-b-binary.json\tsearch_files search_files search_files search_files search_files\t44\tsuccess\tsuccess\t-\tgrounded\t1\t0\tThe check is in agent/src/tools/fs.ts. It uses this regex: /\\.(pn"
+          },
+          {
+            "file": "tools/eval/question.ts",
+            "line": 76,
+            "text": "id: 'binary-extensions',"
+          },
+          {
+            "file": "tools/eval/question.ts",
+            "line": 78,
+            "text": "'Which file in this project decides that a file is binary and should not be searched, and which file extensions does it list?',"
+          },
+          {
+            "file": "tools/eval/suite.ts",
+            "line": 90,
+            "text": "file: 'trace-b-binary.json',"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_4UlN4GXHD3Fahn1pjKnRvKBe",
+      "name": "search_files",
+      "args": {
+        "pattern": "agent/src/tools/fs.ts"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_4UlN4GXHD3Fahn1pjKnRvKBe",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "pattern": "agent/src/tools/fs.ts",
+        "filesSearched": 95,
+        "matches": [
+          {
+            "file": "site/src/content/posts/02-hands/trace-a-precise.json",
+            "line": 45,
+            "text": "\"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/03-the-loop/trace.json",
+            "line": 48,
+            "text": "\"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/03-the-loop/trace.json",
+            "line": 295,
+            "text": "\"file\": \"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/index.mdx",
+            "line": 271,
+            "text": "`agent/src/tools/fs.ts` line 42, which is the whole answer; the model then"
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 154,
+            "text": "\"file\": \"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 159,
+            "text": "\"file\": \"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 164,
+            "text": "\"file\": \"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 169,
+            "text": "\"file\": \"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 174,
+            "text": "\"file\": \"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 179,
+            "text": "\"file\": \"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 305,
+            "text": "\"file\": \"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 318,
+            "text": "\"pattern\": \"agent/src/tools/fs.ts\""
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 327,
+            "text": "\"pattern\": \"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 333,
+            "text": "\"text\": \"\\\"agent/src/tools/fs.ts\\\",\""
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 338,
+            "text": "\"text\": \"\\\"agent/src/tools/fs.ts\\\",\""
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 343,
+            "text": "\"text\": \"\\\"file\\\": \\\"agent/src/tools/fs.ts\\\",\""
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/trace-b-binary.json",
+            "line": 351,
+            "text": "\"content\": \"The check is in agent/src/tools/fs.ts. It uses this regex:\\n\\n/\\\\.(png|jpe?g|gif|ico|webp|avif|woff2?|ttf|otf|eot|pdf|zip)$/i\\n\\nSo it treats these extensions as binary: .png, .jpg, .jpeg,"
+          },
+          {
+            "file": "site/src/content/posts/04-does-it-work/verdicts.tsv",
+            "line": 44,
+            "text": "04-does-it-work/trace-b-binary.json\tsearch_files search_files search_files search_files search_files\t44\tsuccess\tsuccess\t-\tgrounded\t1\t0\tThe check is in agent/src/tools/fs.ts. It uses this regex: /\\.(pn"
+          },
+          {
+            "file": "tools/eval/question.ts",
+            "line": 58,
+            "text": "const BINARY_FILE = 'agent/src/tools/fs.ts'"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_2rYms13X0jJOoigwFUoa5lFb",
+      "name": "list_files",
+      "args": {
+        "directory": "agent/src/tools"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_2rYms13X0jJOoigwFUoa5lFb",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "directory": "agent/src/tools",
+        "files": [
+          "agent/src/tools/descriptions.test.ts",
+          "agent/src/tools/descriptions.ts",
+          "agent/src/tools/fs.test.ts",
+          "agent/src/tools/fs.ts",
+          "agent/src/tools/index.ts"
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_vR4M1OAf2UvMXKTVU8zVPQms",
+      "name": "search_files",
+      "args": {
+        "pattern": "\\.(png|jpe?g|gif|ico|webp|avif|woff2?|ttf|otf|eot|pdf|zip)\\$"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_vR4M1OAf2UvMXKTVU8zVPQms",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "pattern": "\\.(png|jpe?g|gif|ico|webp|avif|woff2?|ttf|otf|eot|pdf|zip)\\$",
+        "filesSearched": 95,
+        "matches": [],
+        "truncated": false
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_KMv33L2I5dvtLjBI7RcwTn6r",
+      "name": "search_files",
+      "args": {
+        "pattern": "png|jpe?g|woff2|avif|ttf|otf|eot|pdf|zip|ico|webp"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_KMv33L2I5dvtLjBI7RcwTn6r",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "pattern": "png|jpe?g|woff2|avif|ttf|otf|eot|pdf|zip|ico|webp",
+        "filesSearched": 19,
+        "matches": [
+          {
+            "file": "agent/src/tools/fs.test.ts",
+            "line": 19,
+            "text": "it('never lists a dotfile, which is where the one real secret lives', () => {"
+          },
+          {
+            "file": "agent/src/tools/fs.test.ts",
+            "line": 71,
+            "text": "it('never reads a dotfile', () => {"
+          },
+          {
+            "file": "agent/src/tools/fs.ts",
+            "line": 42,
+            "text": "const BINARY = /\\.(png|jpe?g|gif|ico|webp|avif|woff2?|ttf|otf|eot|pdf|zip)$/i"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 60,
+            "text": "| `site/src/content/posts/01-not-an-agent/` | Post 1: `index.mdx`, `linkedin.md`, `cover.png`, `cover-prompt.md`, `trace.json` |"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 1672,
+            "text": "- `npm run covers` — writes `cover.png` into every post folder that has an `index.mdx`"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 1686,
+            "text": "Satori cannot decode WOFF2 — if only `.woff2` is present, stop and source a TTF instead."
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 1938,
+            "text": "const png = new Resvg(svg, {"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 1944,
+            "text": "const out = join(postDir, 'cover.png')"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 1945,
+            "text": "writeFileSync(out, png)"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 1968,
+            "text": "- Create: `site/src/content/posts/01-not-an-agent/index.mdx`, `linkedin.md`, `cover-prompt.md`, `trace.json` (recorded), `cover.png` (generated)"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 2013,
+            "text": "cover: ./cover.png"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 2117,
+            "text": "Used only if replacing the generated typographic cover (`cover.png`) with"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 2148,
+            "text": "Expected: `wrote site/src/content/posts/01-not-an-agent/cover.png`"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 2152,
+            "text": "Open `site/src/content/posts/01-not-an-agent/cover.png`. Confirm it is"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 2395,
+            "text": "- `cover.png` exists in the post folder, ready to attach to a LinkedIn post"
+          },
+          {
+            "file": "docs/superpowers/specs/2026-09-17-nine-commits-design.md",
+            "line": 107,
+            "text": "├── cover.png          # generated, committed (1200x627)"
+          },
+          {
+            "file": "docs/superpowers/specs/2026-09-17-nine-commits-design.md",
+            "line": 125,
+            "text": "**Track 1 — generated (`cover.png`).** An HTML/JSX template rendered to PNG at"
+          },
+          {
+            "file": "docs/superpowers/specs/2026-09-17-nine-commits-design.md",
+            "line": 311,
+            "text": "6. Post 1 complete: `index.mdx`, `linkedin.md`, `cover.png`, `cover-prompt.md`"
+          },
+          {
+            "file": "package-lock.json",
+            "line": 376,
+            "text": "\"picomatch\": \"^4.0.4\","
+          },
+          {
+            "file": "package-lock.json",
+            "line": 525,
+            "text": "\"picocolors\": \"^1.1.1\""
+          },
+          {
+            "file": "package-lock.json",
+            "line": 2237,
+            "text": "\"picocolors\": \"^1.1.1\","
+          },
+          {
+            "file": "package-lock.json",
+            "line": 2329,
+            "text": "\"picomatch\": \"^2.2.2\""
+          },
+          {
+            "file": "package-lock.json",
+            "line": 2341,
+            "text": "\"node_modules/@prefresh/vite/node_modules/picomatch\": {"
+          },
+          {
+            "file": "package-lock.json",
+            "line": 2343,
+            "text": "\"resolved\": \"https://registry.npmjs.org/picomatch/-/picomatch-2.3.2.tgz\","
+          },
+          {
+            "file": "package-lock.json",
+            "line": 2865,
+            "text": "\"picomatch\": \"^4.0.2\""
+          },
+          {
+            "file": "package-lock.json",
+            "line": 3362,
+            "text": "\"picomatch\": \"^2.0.4\""
+          },
+          {
+            "file": "package-lock.json",
+            "line": 3368,
+            "text": "\"node_modules/anymatch/node_modules/picomatch\": {"
+          },
+          {
+            "file": "package-lock.json",
+            "line": 3370,
+            "text": "\"resolved\": \"https://registry.npmjs.org/picomatch/-/picomatch-2.3.2.tgz\","
+          },
+          {
+            "file": "package-lock.json",
+            "line": 3442,
+            "text": "\"neotraverse\": \"^1.0.1\","
+          },
+          {
+            "file": "package-lock.json",
+            "line": 3448,
+            "text": "\"picomatch\": \"^4.0.4\","
+          },
+          {
+            "file": "package-lock.json",
+            "line": 4288,
+            "text": "\"picomatch\": \"^3 || ^4\""
+          },
+          {
+            "file": "package-lock.json",
+            "line": 4291,
+            "text": "\"picomatch\": {"
+          },
+          {
+            "file": "package-lock.json",
+            "line": 4965,
+            "text": "\"unicode-trie\": \"^2.0.0\""
+          },
+          {
+            "file": "package-lock.json",
+            "line": 5153,
+            "text": "\"node_modules/neotraverse\": {"
+          },
+          {
+            "file": "package-lock.json",
+            "line": 5155,
+            "text": "\"resolved\": \"https://registry.npmjs.org/neotraverse/-/neotraverse-1.0.1.tgz\","
+          },
+          {
+            "file": "package-lock.json",
+            "line": 5382,
+            "text": "\"node_modules/picocolors\": {"
+          },
+          {
+            "file": "package-lock.json",
+            "line": 5384,
+            "text": "\"resolved\": \"https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz\","
+          },
+          {
+            "file": "package-lock.json",
+            "line": 5388,
+            "text": "\"node_modules/picomatch\": {"
+          },
+          {
+            "file": "package-lock.json",
+            "line": 5390,
+            "text": "\"resolved\": \"https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz\","
+          },
+          {
+            "file": "package-lock.json",
+            "line": 5450,
+            "text": "\"picocolors\": \"^1.1.1\","
+          }
+        ],
+        "truncated": true
+      }
+    },
+    {
+      "type": "assistant",
+      "content": "The check is in agent/src/tools/fs.ts.\n\nIt uses this regex:\n/\\.(png|jpe?g|gif|ico|webp|avif|woff2?|ttf|otf|eot|pdf|zip)$/i\n\nSo the extensions treated as binary are:\n- .png\n- .jpg, .jpeg\n- .gif\n- .ico\n- .webp\n- .avif\n- .woff, .woff2\n- .ttf\n- .otf\n- .eot\n- .pdf\n- .zip"
+    }
+  ]
+}

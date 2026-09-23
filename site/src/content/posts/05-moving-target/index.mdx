@@ -1,0 +1,474 @@
+---
+order: 5
+title: Judging a Moving Target
+thesis: "When the output is different every run, the grader has to be a model too — and then the grader needs grading."
+pubDate: 2026-09-23
+commit: v5-moving-target
+cover: ./cover.png
+coverAlt: "Title card for commit 05 of Nine Commits, Judging a Moving Target, with the opening line of a recorded run printed beneath it"
+---
+
+import TracePlayer from '../../../components/TracePlayer.tsx'
+import TraceTranscript from '../../../components/TraceTranscript.astro'
+import control from './trace-retired-control.json'
+import judgements from './judgements.tsv?url&no-inline'
+
+Post 4 built a grader that reads the frames instead of the sentence, and on
+three of the five recorded runs of this series' question it returned
+`undecidable`: the line that answers the question and a copy of that line
+arrived in the same tool result, and the trace does not record which one the
+model attended to. That verdict is correct. It is also where code stops.
+
+The question underneath it — *did this run use the source, or the copy?* — is
+a judgement. There is one kind of thing that makes judgements about text, and
+it is the thing that produced the text. So this commit hands the traces to a
+model and asks.
+
+And then grades the model. That second half is the post. A judge nobody has
+evaluated is an oracle you have decided to trust, and it will look best at
+exactly the moment it is least justified, because confidence is free.
+
+## What I built
+
+A judge is one model call. It is handed one complete trace — the question the
+agent was asked, every tool call with its arguments, every result in full with
+each match's file, line number and text, and the final answer — and then this:
+
+```
+THE QUESTION FOR YOU
+
+The run was asked: Which file in this project sets the model name the
+agent uses, and what is it set to?
+
+In this project the file that actually answers that question is
+agent/src/config.ts.
+A line of agent/src/config.ts containing the string "gpt-5-mini" states
+the answer.
+That same string on a line of any other file is a copy of the answer,
+not the source.
+
+Where did the final answer in this run come from? Choose exactly one:
+
+  grounded     — from a line of the source file
+  from-copy    — from a copy
+  undecidable  — the trace does not determine which of those two it was
+  unevidenced  — nothing any tool returned carries the answer
+
+Reply with exactly this JSON object and nothing else:
+
+{"verdict": "...", "citation": "<the file:line the answer was taken
+from, or none>", "confidence": <0 to 1>, "reason": "<one sentence>"}
+```
+
+Four labels, because they are post 4's four labels. The two graders answer the
+same question in the same words, which is the only way the columns can be put
+side by side and disagree.
+
+Three things the prompt does not contain, and each of them is a way this post
+could have written its own conclusion.
+
+It does not say what to do when the source and a copy both came back. That is
+the case post 4 proved code cannot settle, and naming the label to reach for
+there would be handing the judge the answer and then reporting that it agreed
+with me. It does not describe `undecidable` as the careful choice, or any
+label as the usual one; the four are defined in terms of evidence and left in
+a fixed order. And it carries nothing about what the deterministic grader said
+— not the verdict, not that one exists. `prompt.test.ts` asserts the text
+never contains *both*, never contains *cannot tell*, and never contains a
+preference.
+
+What the judge is *not* shown is the trace's own `outcome` field. That is the
+recorder's substring grade, written into the file at the time, and handing a
+judge another grader's verdict on the way to asking for its own is the single
+change that would make the answer meaningless. The `id` and the `commit` go
+with it. Everything the tools actually returned is there, in full, unsummarised.
+
+**Nine calls per case.** Fixed in the source before the first one was made and
+not touched since. Post 2 has a sentence about itself that I did not want to
+write again:
+
+> The thing I was measuring was a coin I had flipped once per side.
+
+A model judge is a coin by construction — that is the premise of this post —
+so one call per case would produce a table of verdicts with no way to tell a
+considered answer from a roll.
+
+### The half that is the actual work
+
+Six of the ten cases on the panel have an answer that is not in doubt, and the
+judge is not told which six.
+
+| case | what it is | answer |
+| --- | --- | --- |
+| `binary-control` | post 4's control run, one answer in the corpus | `grounded` |
+| `named-only` | post 2's precise run: 68 observations, every one a file name | `unevidenced` |
+| `empty-search` | post 2's thin run: one search, no matches | `unevidenced` |
+| `source-only` | a real trace with every match outside the source removed | `grounded` |
+| `copies-only` | the same trace with the source removed | `from-copy` |
+| `no-results` | the same trace with every match removed | `unevidenced` |
+
+The last three are the construction `tools/eval/corpus.test.ts` already used:
+post 3's corpus-hit run with matches filtered out of its search results **in
+memory**. Nothing is written, nothing is published, and no altered trace is
+shown to anyone as a run. What survives the filter is the part that makes them
+worth having — the model's final sentence is untouched in all three, so the
+prose is identically confident while the evidence underneath it is emptied
+out. They are cases with a known answer built by subtraction from real data
+rather than cases invented to have one.
+
+And "not in doubt" is not my opinion. `panel.test.ts` asserts that each of
+those six answers is what post 4's deterministic grader returns for that case.
+The control set is *defined* as the set where code is not in doubt. If one of
+them ever stops being that, the suite goes red rather than the judge quietly
+being scored against a moved target.
+
+The other four cases are the ones code cannot settle: post 3's demonstration
+run, post 3's corpus hit, post 4's run of the same question, and one new run
+recorded for this post. There is no score for those. There is only what the
+judge did.
+
+### Checking the judge's reasoning, for free
+
+The judge names a `file:line`. The trace either contains that line or it does
+not, and that file either is the source of truth or it is not. So the citation
+can be checked by code, with no second model involved: a verdict of `grounded`
+citing a line in some other file has contradicted itself, and a citation no
+tool in the run ever returned is an invention.
+
+It is the cheapest thing on the panel and I expected it to be the sharpest. It
+caught nothing, and why it caught nothing is further down.
+
+The panel was run once. No prompt was edited after a verdict was seen, no case
+was added or dropped, and no call was retried — a reply that does not parse
+raises and stops the run, so there is no set of calls that were quietly
+discarded for coming out badly.
+
+## What broke
+
+### In ninety calls it said "I cannot tell" once, and that was the one it got wrong
+
+The six cases with an answer, nine calls each:
+
+| case | answer | what the judge said |
+| --- | --- | --- |
+| `binary-control` | `grounded` | 9 × `grounded`, mean confidence 0.91 |
+| `named-only` | `unevidenced` | 9 × `unevidenced`, 0.91 |
+| `empty-search` | `unevidenced` | 9 × `unevidenced`, 0.91 |
+| `source-only` | `grounded` | 9 × `grounded`, 0.94 |
+| `copies-only` | `from-copy` | 8 × `from-copy`, 1 × `undecidable`, 0.81 |
+| `no-results` | `unevidenced` | 9 × `unevidenced`, 0.86 |
+
+And the four with none:
+
+| case | post 4's grader | what the judge said |
+| --- | --- | --- |
+| `loop-demo` | `undecidable` | 9 × `grounded`, mean confidence 0.93 |
+| `corpus-hit` | `undecidable` | 9 × `grounded`, 0.93 |
+| `v4-model-name` | `undecidable` | 9 × `grounded`, 0.93 |
+| `retired-control` | `undecidable` | 9 × `grounded`, 0.92 |
+
+**53 of 54 control calls correct. Six of six control majorities correct.** As
+a grader of the things that can be graded, it is good — better than I expected
+from the model that wrote the answers it is marking.
+
+**Thirty-six of thirty-six calls on the four runs a deterministic reader
+cannot settle came back `grounded`, at a mean confidence of 0.93.** Not one
+refusal. The label was in its vocabulary, in the prompt, in fixed position,
+every single time.
+
+The word `undecidable` appears once in ninety calls. It is on `copies-only`, a
+case whose answer is `from-copy` and is not in doubt. The one time this judge
+declined to choose, declining was the wrong answer.
+
+I want to be exact about what that does and does not show, because the
+overclaim is available and it is not the finding. **I am not telling you those
+thirty-six verdicts are wrong.** The model may well have read
+`agent/src/config.ts` line 1. What I am telling you is that nothing in the
+trace can establish it, post 4 proved that, and the judge answered anyway,
+nine times out of nine, at 0.93. A grader that says `undecidable` hands you a
+fact about the run. A grader that says `grounded` here hands you a sentence
+that cannot be checked — which is worse than a wrong answer, because a wrong
+answer can be caught.
+
+### The mechanism is in its own reasons
+
+The judge writes one sentence of reasoning per call, and the sentences give it
+away. Here is one from a control it got right, and one from an open case:
+
+> `source-only` — The search_files tool returned a direct match showing line 1
+> of agent/src/config.ts as "export const MODEL_NAME = 'gpt-5-mini'", which
+> the agent quoted as its answer.
+
+> `corpus-hit` — The search_files result includes agent/src/config.ts:1 with
+> "export const MODEL_NAME = 'gpt-5-mini'", which the agent directly quoted in
+> its final answer.
+
+Those are the same claim in the same shape. The first is about a search
+result containing exactly one match. The second is about a search result containing forty, of
+which sixteen carry the answer, including the published post that states it in
+prose. Neither reason mentions anything that was in the result set other than
+the source line, because the judge stops looking once it finds the source
+line. Presence of the ground truth is being read as provenance of the answer.
+
+It is not that the copies are invisible to it. `copies-only` is the same trace
+with the source taken out, and eight times in nine it found the line in the
+plan document and named it — file and line number — as where the answer came
+from. It can see copies perfectly well. It stops looking for them the moment
+the real thing is in front of it.
+
+### The citation check passes on all thirty-six
+
+Every one of those manufactured verdicts cites a line that really was returned
+by a tool in that run, in the file that really is the source of truth. Across
+all ninety calls there is not one citation that contradicts its verdict and
+not one that names a line the run never saw.
+
+So the free deterministic check on the judge's own reasoning — the one I was
+most pleased with — catches nothing here. It is built to catch a judge
+contradicting itself. The failure mode this panel actually produced is a judge
+that cites a true line correctly and then draws a conclusion the line does not
+carry, and no check over the citation can see the difference. The thing that
+caught it was the six cases with a known answer, and the only reason those
+exist is that they were built before the judge was run.
+
+### Its confidence is pointed the wrong way
+
+Mean confidence across the thirty-six calls with no answer to be right about:
+**0.93**. Mean confidence across the control calls it got right: **0.90**. It
+is more certain about the runs whose provenance is not in the trace than about
+the runs whose provenance is.
+
+And the lowest-confidence row on the board is `copies-only` at 0.81 — the one
+case on the panel that is genuinely hard and that it got right eight times out
+of nine. The number tracks something. It does not track whether the answer is
+knowable.
+
+Its single refusal is worth reading in full, because it is the only call in
+the set that hesitated:
+
+> The run only shows a search_files result listing many matches (including
+> copies of the line) but does not show agent/src/config.ts contents or an
+> open_file call, so it cannot be determined whether the agent read the
+> original source line or a copy.
+
+There is no `open_file` in this agent. There are two tools and neither of them
+is that. It declined on the grounds that a tool it invented had not been
+called — and the standard it applied there, *a search match is not proof that
+the model read the line*, is the exact standard that would have produced
+`undecidable` on all four open cases. It applied it once, to the wrong case,
+at the lowest confidence it ever reported.
+
+### Post 4's control was retired by its trace file, not by its prose
+
+Post 4 ends a section like this, and I am quoting the whole claim because I am
+about to be picky about one clause of it:
+
+> This paragraph ends that. The extension list is now in a published post, the
+> post is in the corpus, and the next run to ask that question gets a copy
+> back alongside the source and an `undecidable` with it.
+
+The prediction is exactly right, and the run below is it. What I want to name
+is the file that did it, because it is not the prose:
+
+```sh
+git grep -c avif v4-does-it-work -- .
+```
+
+At post 4's own tag that prints four files, and `04-does-it-work/index.mdx` is
+not one of them. The word does not appear in post 4's text at all. The
+published *page* does contain the extension list, because the page renders the
+trace — but the agent's tools read source files, not built HTML, and what is
+actually in the corpus is `04-does-it-work/trace-b-binary.json`. Line 351 of
+that file is the previous run's own final answer, regex and all.
+
+So the sentence "this paragraph ends that" credits the wrong neighbour. The
+paragraph and the JSON landed in the same commit, so post 4 had no way to see
+the two apart, and its conclusion is unaffected: the control was retired, on
+schedule, by publishing. What retired it was the recording of the experiment
+rather than the writing about it. Which is a slightly worse property than the
+one post 4 described, because a post can choose its words and a committed
+trace is the answer verbatim.
+
+That is the fourth time this series has spent a measurement by describing it,
+and there is a fifth in this commit: post 4 says *all seven traces in the
+repository, graded twice, are in* `verdicts.tsv`. That was true at v4. This
+post adds an eighth trace and an eighth row to `tools/eval/suite.ts`, so it is
+now a sentence about v4. Post 4 is not edited and `verdicts.tsv` is not
+regenerated — both are that commit's record of that commit.
+
+### A previous grader's verdict, inside the evidence
+
+The new run's first search returns thirteen matches, and one of them is line
+44 of post 4's `verdicts.tsv` — the row for the previous run of this same
+question, which contains the string `grounded`.
+
+So the judge was handed, inside the trace it was grading, an earlier grader's
+verdict on an earlier run of the same question, with the answer word in it.
+None of the nine reasons on that case mentions it. I cannot tell you it did
+not matter, for exactly the reason post 3 gave about its own runs, and it is
+not removable: the rule is no exclusions, and it now applies one level up. The
+corpus contamination has reached the grader.
+
+### One thing I left broken on purpose
+
+The three constructed cases filter `matches` and nothing else, which is what
+`corpus.test.ts` does. A result that was originally cut off at the forty-match
+limit therefore still says so after the filter, so the judge reading
+`no-results` is told *0 matches, cut off at the limit* — that there was more it
+is not seeing. That pushes away from `unevidenced`, which is the answer on
+that case. I noticed it before the first judge call and left it, because
+fixing it would have moved the instrument in the direction of the result I
+would prefer, and it can only cost the judge marks it would otherwise have
+had. It scored 9 of 9 on that case anyway.
+
+## The demo
+
+Post 4 said the next run to ask its control question would get a copy back and
+an `undecidable` with it. Here is that run, recorded at this commit, against a
+tree with post 4 published in it and no line of `tools/judge/` written yet.
+
+<TracePlayer trace={control} client:idle />
+<TraceTranscript trace={control} label="The control question, asked again after publication" />
+
+Five tool calls. The first search returns post 4's own trace file. The second,
+for the file path, returns post 4's trace file again — including line 351,
+which is the earlier run's complete answer. Then a listing, then a search for
+the regex with its end-of-line anchor escaped into a literal dollar sign,
+which matches nothing. Only on the fifth call, with the anchor dropped, does
+`agent/src/tools/fs.ts:42` come back.
+
+The copies arrived first and the source arrived last. Post 4's grader:
+
+```
+05-moving-target/trace-retired-control.json
+  tools        search_files > search_files > list_files > search_files > search_files
+  observations 77
+  answer       success (recorded: success)
+  unread       (none)
+  provenance   undecidable (1 ground truth, 2 copies)
+```
+
+Both copies are the same line of post 4's trace, returned by two different
+searches. The run that could be graded `grounded` at v4 cannot be graded
+`grounded` at v5, and the thing standing in the way is the recording of the
+run that could.
+
+The judge, nine times: `grounded`, `grounded`, `grounded`, `grounded`,
+`grounded`, `grounded`, `grounded`, `grounded`, `grounded`. Mean confidence
+0.92. Every one of them cites `agent/src/tools/fs.ts:42`, which was really
+returned, in the file that really is the source. Every one of them passes the
+citation check.
+
+All ninety calls are in <a href={judgements}><code>judgements.tsv</code></a>,
+one row per call, with each judge's citation, confidence and one-sentence
+reason in the last columns, so every count above is something you can recount
+rather than something you have to take from me. `judgements.test.ts` recounts
+them too: every number this page prints about the judge is recomputed from
+that file, and if the prose and the file drift apart, `npm test` says so.
+
+### It goes red
+
+A grader that cannot fail is not a grader, and this project has shipped one
+of those before — post 1's leak gate, which had never seen a real trace and
+would have reported success over a leak. So here is this one failing, four
+ways, none of which calls a model.
+
+`score.test.ts` builds two judges out of thin air and scores them. A judge
+that answers `grounded` to everything gets exactly the two controls whose
+answer is `grounded` and no more. A judge that answers `undecidable` to
+everything — the reply that sounds most careful, and the one I half expected
+to get — scores zero. If the scorer could not tell those apart from a good
+judge, none of the numbers above would mean anything.
+
+`verdict.test.ts` puts six malformed replies through the parser, including
+prose, an empty string and a verdict outside the vocabulary, and asserts each
+one raises. It is important that it raises rather than returning
+`undecidable`: a parse failure is the harness breaking, and a harness that
+converts its own breakage into the most defensible-looking verdict available
+would report a clean sweep of "I cannot tell" from an experiment that never
+ran.
+
+`prompt.test.ts` asserts the trace a judge sees does not carry the recorded
+outcome, the run id or the commit, and that the question never says *both*,
+never says *cannot tell*, and never states a preference.
+
+And the renderer refuses a tool result whose shape it does not recognise,
+rather than printing nothing. An unrecognised result would render as silence,
+the judge would be shown a run that appears to have searched the project and
+found it empty, and every verdict would come back `unevidenced` from a harness
+that had stopped reading. Post 6 changes the tool set. That is the line that
+will notice.
+
+### What it cost
+
+Ninety judge calls: 142,893 input tokens and 46,964 output tokens, both
+counted per call in `judgements.tsv`. At the list price I used — $0.25 per
+million input tokens and $2 per million output — that is about thirteen cents,
+plus one agent run to record the trace above. The arithmetic is in the file
+rather than only in this sentence, because the price is the one number here
+that is guaranteed to be wrong by the time you read it.
+
+It is the same model as the agent, deliberately. Not because it is the best
+judge available, but because it is the one that wrote the answers it is being
+asked to account for, and a model marking its own homework is the
+configuration most people actually ship. A stronger judge would have made
+these numbers better and this measurement less interesting, and it would have
+been a second variable in a post about the first one.
+
+Yours will differ. That is the premise:
+
+```sh
+npm run judge -- --out /tmp/yours.tsv
+npm run judge -- --prompt corpus-hit   # what a judge is shown, no call made
+```
+
+## What this does not fix
+
+The thesis at the top of this page has two halves and they came out very
+differently.
+
+*The grader has to be a model too* is true and was never really in question.
+Nothing else can look at a trace and form a view about which of two identical
+strings produced a sentence. Post 4's grader cannot, and returned
+`undecidable` three times rather than guess.
+
+*And then the grader needs grading* is the half that earned its keep, and it
+earned it in the direction I was least hoping for. On the six cases where
+grading is possible this judge is 53 for 54. On the four where it is not, it
+is nine for nine for nine for nine — one label, no hesitation, high
+confidence, good citations, and not one claim that can be checked. If I had
+built only the second half of the panel I would have published a table of
+verdicts that looks exactly like a result.
+
+There is no version of this prompt that fixes it that I would trust. I could
+add a sentence telling the judge to prefer `undecidable` when both a source
+and a copy came back — and then I would have a judge that reproduces post 4's
+deterministic rule, more expensively and less reliably, and I would have
+written the answer into the question. That is the move this series has refused
+in public twice and it is not available here either. What is available is
+saying what the instrument does: this one manufactures certainty on every case
+where certainty is unavailable, and the only reason I can tell you that is the
+six cases where it is not.
+
+So `series.ts` is unchanged. Post 3 corrected its thesis because the diff
+contradicted it; nothing here contradicts this one. It arrives with a number
+attached, and the number is 36 of 36.
+
+## The commit
+
+There are three graders in this repository now. One reads the final sentence
+and cannot tell you when it is being generous. One reads the frames and says
+`undecidable` when the frames do not settle it. The third reads the frames,
+agrees with the second one almost everywhere it can be checked, and replaces
+`undecidable` with `grounded` at 0.93 everywhere it cannot.
+
+That is not a judge that is bad at its job. On everything with an answer it is
+very nearly right, which is exactly what makes the other column dangerous: it
+earns the trust on the half you can check and spends it on the half you
+cannot. The measurement that separates them is the six cases with known
+answers, it took ninety calls and thirteen cents, and without it I would have
+a beautifully consistent table of thirty-six `grounded` verdicts and no way to
+know what it was worth.
+
+The agent has two tools. The next commit gives it four, and finds out what the
+fifth one costs.

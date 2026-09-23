@@ -17,13 +17,16 @@
     "eval": "tsx tools/run-evals.ts",
     "record": "tsx tools/record-trace.ts",
     "covers": "tsx tools/make-covers.ts",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "judge": "tsx --env-file=agent/.env tools/run-judge.ts"
   },
   "devDependencies": {
+    "@ai-sdk/openai": "^4.0.69",
     "@fontsource/literata": "^5.3.0",
     "@playwright/test": "^1.63.0",
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^26.6.1",
+    "ai": "^7.0.105",
     "gray-matter": "^4.0.3",
     "satori": "^0.33.4",
     "tsx": "^4.23.13",

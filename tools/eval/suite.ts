@@ -21,6 +21,13 @@ import {
  * down whatever it said — makes a suite that cannot disagree with anything,
  * and one of these rows disagrees with the grade a published post shipped.
  *
+ * The eighth row arrived with post 5, and it keeps that ordering in an
+ * unusual way: post 4 printed its expectation, in prose, before the run
+ * existed. It said publishing would put a copy of that question's answer into
+ * the corpus, and that "the next run to ask that question gets a copy back
+ * alongside the source and an `undecidable` with it". That run is in the tree
+ * now, and so is the verdict.
+ *
  * What they buy is a gate. A trace that changes, a grader that changes, or a
  * question whose corpus moves underneath it makes one of these rows stop
  * matching, and `npm test` says which. That is the only thing an offline eval
@@ -91,6 +98,13 @@ export const CASES: readonly Case[] = [
     question: BINARY_QUESTION,
     expect: { answer: 'success', provenance: 'grounded', unread: [] },
     note: 'a question the corpus answers in one place, so the trace can say where the answer came from',
+  },
+  {
+    post: '05-moving-target',
+    file: 'trace-retired-control.json',
+    question: BINARY_QUESTION,
+    expect: { answer: 'success', provenance: 'undecidable', unread: [] },
+    note: "the same question again, after publishing put post 4's own answer into the corpus",
   },
 ]
 
