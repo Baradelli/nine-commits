@@ -1,0 +1,244 @@
+{
+  "id": "v4-a-model-name",
+  "commit": "v4-does-it-work",
+  "model": "gpt-5-mini",
+  "task": "Which file in this project sets the model name the agent uses, and what is it set to?",
+  "outcome": "success",
+  "tokens": [
+    204,
+    410,
+    1773,
+    1908
+  ],
+  "frames": [
+    {
+      "type": "user",
+      "content": "Which file in this project sets the model name the agent uses, and what is it set to?"
+    },
+    {
+      "type": "tool_call",
+      "id": "call_40jD2bjne0SoZXlX0P2rp8Pa",
+      "name": "search_files",
+      "args": {
+        "pattern": "model|MODEL|model_name|MODEL_NAME|gpt|gpt-4|gpt-4o|gpt-4o-mini|gpt-4o-mini-1|gpt-4o-realtime-preview|gpt-4o-mini-tts|gpt-4o-mini-transcribe|gpt-3.5|gpt-3.5-turbo|text-davinci|openai|ChatCompletion|chat.completions|ChatCompletion.create|ChatCompletion.create|ChatCompletion.create\\(|openai.ChatCompletion|openai.ChatCompletion.create|agent|Agent|AGENT"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_40jD2bjne0SoZXlX0P2rp8Pa",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "pattern": "model|MODEL|model_name|MODEL_NAME|gpt|gpt-4|gpt-4o|gpt-4o-mini|gpt-4o-mini-1|gpt-4o-realtime-preview|gpt-4o-mini-tts|gpt-4o-mini-transcribe|gpt-3.5|gpt-3.5-turbo|text-davinci|openai|ChatCompletion|chat.completions|ChatCompletion.create|ChatCompletion.create|ChatCompletion.create\\(|openai.ChatCompletion|openai.ChatCompletion.create|agent|Agent|AGENT",
+        "filesSearched": 10,
+        "matches": [
+          {
+            "file": "agent/package.json",
+            "line": 2,
+            "text": "\"name\": \"@nine-commits/agent\","
+          },
+          {
+            "file": "agent/package.json",
+            "line": 9,
+            "text": "\"@ai-sdk/openai\": \"^4.0.69\","
+          },
+          {
+            "file": "agent/src/cli.ts",
+            "line": 13,
+            "text": "* its own log from here on, and it lives in `agent/traces/` — gitignored, and"
+          },
+          {
+            "file": "agent/src/cli.ts",
+            "line": 14,
+            "text": "* outside what the agent's own tools can see, so a tally can never become part"
+          },
+          {
+            "file": "agent/src/cli.ts",
+            "line": 20,
+            "text": "* v3 adds `steps` and `stopped_by`. Once the agent can go round again, how"
+          },
+          {
+            "file": "agent/src/cli.ts",
+            "line": 35,
+            "text": "* Read and checked BEFORE the model is called. The recorder refuses to grade a"
+          },
+          {
+            "file": "agent/src/cli.ts",
+            "line": 48,
+            "text": "'must contain, e.g. TRACE_EXPECT=\"agent/src/config.ts,gpt-5-mini\". ' +"
+          },
+          {
+            "file": "agent/src/cli.ts",
+            "line": 63,
+            "text": "console.error('usage: npm start --workspace @nine-commits/agent -- \"<task>\"')"
+          },
+          {
+            "file": "agent/src/cli.ts",
+            "line": 75,
+            "text": "model: result.model,"
+          },
+          {
+            "file": "agent/src/config.ts",
+            "line": 1,
+            "text": "export const MODEL_NAME = 'gpt-5-mini'"
+          },
+          {
+            "file": "agent/src/recorder.test.ts",
+            "line": 19,
+            "text": "* the answer they were graded against. The agent's tools read this repository,"
+          },
+          {
+            "file": "agent/src/recorder.test.ts",
+            "line": 53,
+            "text": "model: 'a-model',"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 8,
+            "text": "model: string"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 22,
+            "text": "/** The last thing the model actually said, across however many steps it took. */"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 35,
+            "text": "* — a single model call cannot act, so no v1 run could finish a task — and it"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 36,
+            "text": "* stops being true the moment the agent has hands. A badge under a trace that"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 82,
+            "text": "*   own input count. That is why the same run costs more before the model has"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 126,
+            "text": "model: input.model,"
+          },
+          {
+            "file": "agent/src/run.test.ts",
+            "line": 33,
+            "text": "it('reads the model when the last step asked for no tool', () => {"
+          },
+          {
+            "file": "agent/src/run.test.ts",
+            "line": 34,
+            "text": "expect(whatStopped([step('tool-calls'), step('stop')])).toBe('model')"
+          },
+          {
+            "file": "agent/src/run.test.ts",
+            "line": 37,
+            "text": "it.each(NOT_TOOL_CALLS)('treats %s as the model stopping', (reason) => {"
+          },
+          {
+            "file": "agent/src/run.test.ts",
+            "line": 38,
+            "text": "expect(whatStopped([step(reason)])).toBe('model')"
+          },
+          {
+            "file": "agent/src/run.test.ts",
+            "line": 48,
+            "text": "* the model. It is not a state `generateText` produces; the branch exists so"
+          },
+          {
+            "file": "agent/src/run.test.ts",
+            "line": 52,
+            "text": "expect(whatStopped([])).toBe('model')"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 2,
+            "text": "import { openai } from '@ai-sdk/openai'"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 3,
+            "text": "import { INSTRUCTIONS, MODEL_NAME } from './config.ts'"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 14,
+            "text": "/** Context the model was handed for this step. */"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 16,
+            "text": "/** That context plus what the model produced from it. */"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 23,
+            "text": "* `model` is the one that is meant to fire: a step came back asking for no"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 25,
+            "text": "* `step-cap` is the backstop firing instead, and it means the model was still"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 28,
+            "text": "export type StopReason = 'model' | 'step-cap'"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 31,
+            "text": "model: string"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 40,
+            "text": "* What ends a run is the model declining to call a tool: the SDK goes round"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 55,
+            "text": "* model. With these two tools that something is the cap, and only because the"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 67,
+            "text": "return steps.at(-1)?.finishReason === 'tool-calls' ? 'step-cap' : 'model'"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 81,
+            "text": "* v3: call the model, run whatever tool it asked for, append the call and the"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 87,
+            "text": "* the second, so there was never a turn in which the model could act on what"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 94,
+            "text": "model: openai(MODEL_NAME),"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 118,
+            "text": "model: MODEL_NAME,"
+          },
+          {
+            "file": "agent/src/tools/descriptions.ts",
+            "line": 6,
+            "text": "* versions of the code. Everything else — model, instructions, task, the tools"
+          }
+        ],
+        "truncated": true
+      }
+    },
+    {
+      "type": "assistant",
+      "content": "The model name is set in agent/src/config.ts — it exports MODEL_NAME = 'gpt-5-mini'."
+    }
+  ]
+}

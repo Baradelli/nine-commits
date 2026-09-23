@@ -1,0 +1,44 @@
+# Nine Commits, post 4 — every trace committed in this repository, graded twice.
+#
+# The rows below are generated, not typed. This header is not:
+#
+#   npm run eval -- --tsv
+#
+# answer_grade is the recorder's rule recomputed from the committed file: a
+# case-insensitive substring check of the final answer against the facts the
+# run was told to expect. It is the column posts 2 and 3 published as the
+# outcome, and it agrees with the recorded_outcome column on every row it
+# grades. Row 1 is the exception and is not a disagreement: post 1's
+# question has no fact a substring could check, so there is nothing to
+# recompute and the column reads `ungraded` against a recorded `failure`.
+#
+# The rest read the frames instead of the sentence.
+#
+# tools_called    the tools the run asked for, in order.
+# observations    how many things a tool actually put in front of the model: a
+#                 file name from list_files, or a line of file contents from
+#                 search_files. The two are counted the same here and are NOT
+#                 the same thing anywhere else in this file.
+# unread_claims   facts the final answer states that appear in no line any
+#                 tool returned. The agent either inferred them from a file
+#                 name or supplied them itself.
+# provenance      grounded    the ground-truth line was observed, no copy was
+#                 undecidable both were observed; the trace cannot say which
+#                             one the answer came from
+#                 from-copy   a copy was observed, the ground truth was not
+#                 unevidenced neither was observed
+#                 ungradable  the question has no single line for an answer
+# ground_truth_sightings / copy_sightings  the counts behind that verdict. A
+#                 copy is any line OUTSIDE the source file carrying the value
+#                 the answer turns on. The rule over-counts on purpose.
+#
+# Rows 4, 5 and 6 carry the same final answer, character for character, and
+# three different evidence sets behind it.
+run	tools_called	observations	recorded_outcome	answer_grade	unread_claims	provenance	ground_truth_sightings	copy_sightings	final_answer
+01-not-an-agent/trace.json	none	0	failure	ungraded	-	ungradable	0	0	I can’t directly count files from the image alone. Please either: - Upload a listing of the project files (e.g., output of `find . -name "*.ts" | wc -l` or `tree -a`), or - Give me the repository or a screenshot that clearly shows all files and folders (with contents). If you can run commands, run one of these in the project root and paste the result: - Linux/macOS: - Count TypeScript files: find . -type f -name "*.ts" | wc -l - Show list: find . -type f -name "*.ts" - Windows PowerShell: - Count: Get-ChildItem -Recurse -Filter *.ts | Measure-Object | Select-Object -ExpandProperty Count I’ll tell you the number once you provide the output.
+02-hands/trace-a-precise.json	list_files	68	partial	partial	file	unevidenced	0	0	I can’t read the repository files from here right now. If you want the exact file and value I can search the project — allow me to run a code search — or you can run one of these commands in the repo to find it: - grep -RIn "model" . - rg "model" -n - grep -RIn "OPENAI" . - rg "gpt" -n The file is likely agent/src/config.ts or agent/src/run.ts — try opening agent/src/config.ts (cat agent/src/config.ts) to see the model name declaration. If you want, say “search now” and I’ll locate the exact file and value.
+02-hands/trace-b-thin.json	search_files	0	failure	failure	-	unevidenced	0	0	I don’t have access to the project files from here. I can’t tell which file sets the agent’s model name without seeing the repo. You can find it quickly yourself with one of these commands run from the project root: - Search likely variable names: - grep -RnE "MODEL_NAME|model_name|OPENAI_MODEL|openai_model" . - Search for actual model strings: - grep -RnE "gpt-4|gpt-3.5|gpt-4o|gpt-4o-mini" . - Search general “model” occurrences: - rg -n "model" . - (or) grep -Rn "model" . Likely files to check: .env, config.py, settings.py, constants.py, agent.py, or a file under src/ or config/. If you paste the matching file or the grep output here, I’ll tell you exactly which file sets the model name and what it’s set to.
+03-the-loop/trace.json	list_files search_files	117	success	success	-	undecidable	1	1	The model name is set in agent/src/config.ts — it exports MODEL_NAME = 'gpt-5-mini'.
+03-the-loop/trace2-corpus-hit.json	search_files	40	success	success	-	undecidable	1	16	The model name is set in agent/src/config.ts — it exports MODEL_NAME = 'gpt-5-mini'.
+04-does-it-work/trace-a-model-name.json	search_files	40	success	success	-	undecidable	1	1	The model name is set in agent/src/config.ts — it exports MODEL_NAME = 'gpt-5-mini'.
+04-does-it-work/trace-b-binary.json	search_files search_files search_files search_files search_files	44	success	success	-	grounded	1	0	The check is in agent/src/tools/fs.ts. It uses this regex: /\.(png|jpe?g|gif|ico|webp|avif|woff2?|ttf|otf|eot|pdf|zip)$/i So it treats these extensions as binary: .png, .jpg, .jpeg, .gif, .ico, .webp, .avif, .woff, .woff2, .ttf, .otf, .eot, .pdf, .zip.

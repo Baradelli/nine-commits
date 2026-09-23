@@ -1,0 +1,368 @@
+---
+order: 4
+title: But Does It Work?
+thesis: "Single-turn evals test the decision the model made, not the prose it wrapped around it."
+pubDate: 2026-09-23
+commit: v4-does-it-work
+cover: ./cover.png
+coverAlt: "Title card for commit 04 of Nine Commits, But Does It Work?, with the opening line of a recorded run printed beneath it"
+---
+
+import TracePlayer from '../../../components/TracePlayer.tsx'
+import TraceTranscript from '../../../components/TraceTranscript.astro'
+import modelName from './trace-a-model-name.json'
+import binary from './trace-b-binary.json'
+import verdicts from './verdicts.tsv?url&no-inline'
+
+Post 3 finished with an agent that answered its question forty-one times out
+of forty-two, and a grader that could not tell you why. The check was a
+case-insensitive substring: put `agent/src/config.ts` and `gpt-5-mini` in the
+final sentence and the run is a success. Twenty-one runs passed it. All
+twenty-one also had the ground truth and a published post *about* the ground
+truth in the same set of search results, and a sentence naming the file and
+the value is consistent with either.
+
+So the last post said, in public, that it was handing the grading problem
+here. This is that.
+
+## What I built
+
+The trace already knows. Every recorded run in this repository is a list of
+frames, and the union is short enough to read in one go — a question, a tool
+call with its arguments, the result that came back, a step of text, and the
+two frame types the later commits will need. Nothing in it is prose about what
+happened. It *is* what happened, including the parts the model did not mention
+afterwards.
+
+An eval that reads a trace is therefore already an eval that reads a decision.
+What it needed was one distinction the schema does not draw, because the
+schema does not care and the grader has to:
+
+```ts
+export type Observation =
+  | { frame: number; tool: string; kind: 'path'; file: string }
+  | { frame: number; tool: string; kind: 'line';
+      file: string; line: number; text: string }
+```
+
+`list_files` returns names. `search_files` returns lines. A name tells the
+model that a file exists; a line tells it what is written inside one. By the
+time the answer is written both are just tokens in the context, which is
+exactly why a check over the answer cannot separate them — and separating them
+turns out to be most of the value.
+
+On top of that, three grades per run instead of one.
+
+**The answer grade** is the recorder's own rule, recomputed from the committed
+file rather than from the live run: all the expected facts present is a
+success, some is partial, none is a failure. It is here to be compared
+against, not to be believed. A test asserts that it agrees with the `outcome`
+each trace was written with, on all six runs there are facts to check — post
+1's question has no fact a substring could check, so it grades `ungraded` and
+the test skips it — so that when the two columns diverge it is the run that
+moved and not the reimplementation.
+
+**Unread claims** is the first thing the frames can say that the sentence
+cannot. For each fact the answer states, did any tool actually return it? A
+fact that appears in a line is `read`. A fact that appears only as a file name
+in a listing is `named-only` — the model inferred it. A fact that appears in
+nothing at all is `unsupported`; it came out of the model. Anything in the
+answer that is not `read` is an unread claim, and the substring grader gives
+it full marks.
+
+**Provenance** is the axis post 3 asked for, and the useful part of it is the
+verdict that admits defeat:
+
+```ts
+export type Provenance =
+  | 'grounded'     // the ground-truth line was observed, no copy of it was
+  | 'undecidable'  // both were observed; the trace cannot say which was used
+  | 'from-copy'    // a copy was observed, the ground truth was not
+  | 'unevidenced'  // neither was observed
+  | 'ungradable'   // the question has no single line for an answer
+```
+
+A copy is any line **outside** the source file carrying the value the answer
+turns on. That rule over-counts on purpose: it flags a line that restates the
+value without naming the file, which could not by itself have produced the
+answer. A grader whose mistakes all run toward *I cannot tell* is one you can
+act on. One whose mistakes run toward *grounded* is the thing this post exists
+to complain about.
+
+### Why this is vitest and not an eval framework
+
+The `ai` SDK's ecosystem has an eval story and the course this series follows
+uses Laminar, and I used neither, because the thing being graded here is a
+pure function from a committed JSON file to a verdict. No model is called. No
+score is averaged. Nothing is non-deterministic, nothing needs a dashboard,
+and nothing needs to be uploaded anywhere to be looked at later. An eval
+framework earns its keep when runs are live and scores are noisy — which is
+post 5, and post 5 can have one. Here the unit under test is a function, the
+repository already runs vitest in CI, and adding a service dependency to a
+check whose entire virtue is that it runs offline from a clean checkout would
+be paying for the opposite of what I want.
+
+So the suite is `tools/eval/`, the gate rides in `npm test`, and there is a
+report:
+
+```sh
+npm run eval           # one block per run
+npm run eval -- --tsv  # the same thing as a table
+```
+
+Each committed trace has a row in `tools/eval/suite.ts` saying which question
+it was answering and what this eval says about it. Those expectations were
+written down as predictions, from reading the traces, before the grader was
+run over them; all seven matched on the first run and none has been changed
+since. That ordering matters, because the other ordering — run it, then write
+down whatever it said — produces a suite that agrees with everything.
+
+## What broke
+
+### What post 2's `partial` was actually worth
+
+Post 2's precise run is the one that called `list_files`, got the whole
+project back, and then said it could not read the project. The recorder graded
+it `partial`, and post 2 defines a partial as a run whose answer carried one
+of the two facts and not the other. The fact it carried was the file.
+
+This eval counts 68 observations in that trace and every one of them is a file
+name. Not one line of file contents was ever returned to the model. So the
+fact it was credited with is an unread claim, and here is the sentence it was
+credited for:
+
+> The file is likely `agent/src/config.ts` or `agent/src/run.ts` — try opening
+> `agent/src/config.ts` (`cat agent/src/config.ts`) to see the model name
+> declaration.
+
+That is two guesses and an instruction to go and check. The substring grader
+sees the first guess, finds one of its two strings, and awards half. Post 2
+called its own check "the crudest possible" and handed grading here, so this
+is a prediction coming true rather than a claim being overturned — no number
+in post 2's tables changes. What changes is what `partial` is worth in the
+column it was counted in.
+
+### Not one run of this series' question can be shown to have answered from the source
+
+Five recorded runs across posts 2, 3 and this one ask the same question,
+character for character. The grader can return `grounded`. It returns it for
+none of them:
+
+| run | answer | what the frames say |
+| --- | --- | --- |
+| 2 · `trace-a-precise` | partial | unevidenced, 1 unread claim |
+| 2 · `trace-b-thin` | failure | unevidenced |
+| 3 · `trace` | success | undecidable, 1 copy |
+| 3 · `trace2-corpus-hit` | success | undecidable, 16 copies |
+| 4 · `trace-a-model-name` | success | undecidable, 1 copy |
+
+Three of those runs end with this sentence:
+
+> The model name is set in `agent/src/config.ts` — it exports `MODEL_NAME =
+> 'gpt-5-mini'`.
+
+Not approximately. The same string, three times, from three separate runs
+across two commits:
+
+```sh
+for t in site/src/content/posts/03-the-loop/trace.json \
+         site/src/content/posts/03-the-loop/trace2-corpus-hit.json \
+         site/src/content/posts/04-does-it-work/trace-a-model-name.json; do
+  node -e "console.log(require('./$t').frames.filter(f=>f.type==='assistant').at(-1).content)"
+done | sort -u | wc -l
+```
+
+That prints `1`. Behind those three identical sentences are three different
+result sets, with one, sixteen and one copies of the answer in them. A grader
+reading the sentence has nothing to work with. It is looking at the same bytes
+each time, and it is right to give the same grade, and the grade is worthless.
+
+### A contrast post 3 drew is weaker than it reads
+
+Post 3 puts two runs on the page: the demonstration of the loop at the top,
+and `tally-06` further down as the run that was handed the answer key. Of the
+first it says it *never saw any of the prose* — and I want to be exact about
+what that sentence claims, because I drafted a correction to it that it does
+not deserve.
+
+It sits under the heading *The corpus now contains posts about the answer*,
+four lines after post 3 works out that the run's search hit the forty-match
+cap fourteen files in and — post 3's words — *never got as far as `site/`.
+That is luck, not hygiene.* So "the prose" there means the published posts,
+and on its own terms the claim is true: **0 of that run's 40 matches are under
+`site/`**. Post 3 also reaches this post's conclusion before this post does,
+in the same section: *I cannot tell you it did not happen, because
+`config.ts` was in the same result set every single time … The recorder's
+substring check cannot tell "read the source" from "read the post about the
+source", and neither can I.*
+
+The eval does not disagree with any of that. It agrees and puts a number on
+it. What it adds is one thing the framing of those two runs leaves standing.
+The featured run's results are not free of the answer: they contain
+`agent/src/cli.ts` line 48, which post 3 quotes from that very trace two
+sections earlier — *step to frame five and read the third match* — and
+describes as naming both graded facts in one string. One line is enough. So
+the distance between the two runs is sixteen copies against one, which is a
+difference of degree, and both verdicts come out `undecidable`. The contrast
+is real as contamination. It is not a contrast of provenance, which is what a
+reader flipping between the two players might take it for.
+
+Two counts of the same trace, and they do not conflict. Post 3 counts the
+`TRACE_EXPECT`-shaped pair — path and value on one line with a comma between
+them — and gets five lines in four files, which is exact; I checked it. This
+eval counts any line outside `config.ts` carrying the value at all, and gets
+sixteen in eight, because it deliberately includes lines that hand over the
+value without naming the file. Two rules, one trace, both printed.
+
+Nothing in post 3 needs editing. This is a reading of it, and it goes here
+because that is where this series puts its readings.
+
+### A fixture caught a bug the whole corpus would have hidden
+
+The first version of the support check asked whether a fact appeared in the
+*text* of a line. But a search match arrives as a file, a line number and the
+line, all at once, so a run that reads `agent/src/config.ts:1` has read the
+path as surely as it has read the assignment. The first version called that
+file fact unsupported.
+
+All seven committed traces graded identically before and after the fix,
+because in this repository the path is also spelled out inside other lines, so
+the wrong rule reached the right answer for the wrong reason on every real run
+I have. The thing that caught it was a fixture about a fictional project with
+a port number in it, written deliberately against a question this project does
+not ask. An eval tested only against the corpus it was built for cannot tell
+you whether it is measuring that corpus or remembering it.
+
+### The control retires the moment this page is published
+
+The second run below asks about something this repository stated in exactly
+one place at `v3-the-loop`, which is the tree both runs below were recorded
+against and the only reason one of them can be graded `grounded`. This
+paragraph ends that. The extension list is now in a published post, the post
+is in the corpus, and the next run to ask that question gets a copy back
+alongside the source and an `undecidable` with it.
+
+That is the third time this series has spent a measurement by describing it,
+and it is beginning to look less like an accident than like a property. An
+experiment run against the repository that documents it has a half-life.
+
+## The demo
+
+Same question as posts 2 and 3. Both runs below carry `v4-does-it-work` as
+their commit, which is the tag this post is bound to, but the tree they
+actually walked was `v3-the-loop` — they were recorded before a line of
+`tools/eval/` existed, so nothing the grader says about them can have been
+arranged by writing the grader.
+
+<TracePlayer trace={modelName} client:idle />
+<TraceTranscript trace={modelName} label="The same question, one commit later" />
+
+One search, forty matches, the answer in the first sweep, and the sentence
+again. `agent/src/config.ts:1` is in there. So is `agent/src/cli.ts:48`.
+Verdict: `undecidable`. The loop works, the answer is correct, and the run
+cannot prove it.
+
+Then the control — a question this repository answers in exactly one line:
+
+<TracePlayer trace={binary} client:idle />
+<TraceTranscript trace={binary} label="A question with one answer in the corpus" />
+
+Five searches for one question. The first sweep already contained
+`agent/src/tools/fs.ts` line 42, which is the whole answer; the model then
+searched for the matched line verbatim and got nothing back twice, because it
+was searching for a regular expression using its own text as the pattern.
+Then it searched for the doc comment above it, got one hit, searched for the
+file path, and answered. Four of its five calls were the model checking a
+thing it had already been told, and two of those four came back with nothing.
+
+None of that is visible in the final sentence. All of it is in the trace.
+Verdict: `grounded` — the source line observed, no copy of it anywhere in what
+came back.
+
+Which is the finding under the finding. The model-name question is
+undecidable in this corpus and no grader fixes that, because the trace does
+not record which of the forty matches the model attended to and the API does
+not expose it. What changed the verdict was not a better grader. It was a
+question the corpus answers once.
+
+All seven traces in the repository, graded twice, are in
+<a href={verdicts}><code>verdicts.tsv</code></a>, generated by
+`npm run eval -- --tsv`, with each run's final answer in the last column so
+the identical-sentence claim above is something you can check rather than
+something you have to take from me.
+
+### It goes red
+
+An eval suite that cannot fail is the defect this project has already shipped
+once: post 1's leak gate had never seen a real trace and would have reported
+success over a leak, because a gate that finds nothing and a gate that is not
+looking print the same line.
+
+So, three ways this one fails.
+
+Claim that post 3's demonstration run answered from the source — change its
+one expectation in `tools/eval/suite.ts` from `undecidable` to `grounded` —
+and the gate says so, and exits 1:
+
+```
+03-the-loop/trace.json
+  tools        list_files > search_files
+  observations 117
+  answer       success (recorded: success)
+  unread       (none)
+  provenance   undecidable (1 ground truth, 1 copies)
+  MISMATCH     provenance: expected grounded, got undecidable
+
+1 of 7 case(s) no longer match their recorded verdict:
+  03-the-loop/trace.json: provenance: expected grounded, got undecidable
+```
+
+Second, `tools/eval/corpus.test.ts` takes the real committed corpus-hit trace
+and removes matches from its search result in memory — nothing is written and
+no altered trace is shown to anyone as a run — and asserts that the verdict
+moves to `grounded` with the copies gone, to `from-copy` with the source gone,
+and to `unevidenced` with both gone, while the answer grade stays `success`
+through all four, because the sentence never changed. That is post 3's
+complaint, reproduced on demand.
+
+Third, and this is the one I would actually rely on: a tool result whose shape
+the eval does not recognise raises rather than returning nothing. An
+unrecognised result would contribute zero observations, every claim would
+grade unsupported, and the suite would look most rigorous at the exact moment
+it had stopped reading. Post 6 changes the tool set; this is the line that
+will notice.
+
+## What this does not fix
+
+The thesis at the top of this page says a single-turn eval tests the decision
+rather than the prose, and it survives, with a condition it did not come with:
+**a decision eval can only distinguish what the run recorded.** Where the
+ground truth and a copy of it arrive in the same tool result, the decision the
+model made is genuinely not in the trace, and a grader that reported
+`grounded` there would be inventing. The three ways out are a question the
+corpus answers once, which is the run above and which publishing retires; an
+API that reports which part of a result the model attended to, which does not
+exist; and deleting the copies, which this series has forbidden itself twice
+in writing.
+
+So I have left `series.ts` alone. Post 3 changed its thesis because the diff
+contradicted it. Nothing here contradicts this one — it just arrives with a
+limit printed on the side.
+
+## The commit
+
+There are now two graders in this repository. One reads the sentence, and on
+four of the seven traces in the tree it has been cheerfully, publicly
+overgenerous. The other reads the frames and says that three of those four are
+undecidable and the fourth was credited for a guess. On the other three —
+post 1's chatbot, post 2's thin run, and the control above — the substring
+check is not overgenerous about anything, which is worth saying too. A crude
+grader is not a grader that is always wrong. It is a grader that cannot tell
+you when it is.
+
+Neither of them is judging quality. Both are checking a run against facts I
+wrote down before it started, which works precisely as long as the answer is a
+string I already know. The next question does not have one of those, and then
+the grader has to be a model too.
+
+The next commit is about judging a moving target.

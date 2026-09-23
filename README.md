@@ -52,6 +52,21 @@ npm start --workspace @nine-commits/agent -- \
 The model is not deterministic, so one run per side will not reproduce the
 post's conclusion. The post says so, and gives the counts over 21 runs each.
 
+## Grading a trace
+
+```
+npm run eval           # one block per committed run
+npm run eval -- --tsv  # the same table, for piping
+```
+
+`TRACE_EXPECT` grades the final sentence. `npm run eval` grades the frames:
+which tools were called, whether each fact the answer states appears in
+something a tool actually returned, and whether the ground truth reached the
+model alongside a copy of itself — in which case the verdict is `undecidable`
+rather than `success`. The questions live in `tools/eval/question.ts` and the
+per-trace verdicts in `tools/eval/suite.ts`, which `npm test` gates. This is
+post 4.
+
 ## Attribution
 
 Built while following **"Build an AI Agent from Scratch"** by

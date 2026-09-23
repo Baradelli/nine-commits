@@ -1,0 +1,354 @@
+{
+  "id": "v4-b-binary",
+  "commit": "v4-does-it-work",
+  "model": "gpt-5-mini",
+  "task": "Which file in this project decides that a file is binary and should not be searched, and which file extensions does it list?",
+  "outcome": "success",
+  "tokens": [
+    209,
+    382,
+    1955,
+    2062,
+    2133,
+    2230,
+    2265,
+    2401,
+    2475,
+    2497,
+    2627,
+    3094
+  ],
+  "frames": [
+    {
+      "type": "user",
+      "content": "Which file in this project decides that a file is binary and should not be searched, and which file extensions does it list?"
+    },
+    {
+      "type": "tool_call",
+      "id": "call_etIbO58fvqKZfdDBA25mOtKn",
+      "name": "search_files",
+      "args": {
+        "pattern": "binary|isBinary|is_binary|BINARY|isBinaryFile|is_text_file|binaryExtensions|binary_extensions|isBinaryFileSync|EXCLUDE|excluded|should not be searched|isBinaryFile|isBinaryPath|file is binary|skip binary|binary file|isBinaryFile|isBinary|isBinaryPath|isBinaryFileSync|binaryExtensions|binaryExt|isText|text|searchable"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_etIbO58fvqKZfdDBA25mOtKn",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "pattern": "binary|isBinary|is_binary|BINARY|isBinaryFile|is_text_file|binaryExtensions|binary_extensions|isBinaryFileSync|EXCLUDE|excluded|should not be searched|isBinaryFile|isBinaryPath|file is binary|skip binary|binary file|isBinaryFile|isBinary|isBinaryPath|isBinaryFileSync|binaryExtensions|binaryExt|isText|text|searchable",
+        "filesSearched": 15,
+        "matches": [
+          {
+            "file": "agent/src/cli.ts",
+            "line": 70,
+            "text": "console.log(result.steps.at(-1)?.text ?? '')"
+          },
+          {
+            "file": "agent/src/recorder.test.ts",
+            "line": 8,
+            "text": "text: '',"
+          },
+          {
+            "file": "agent/src/recorder.test.ts",
+            "line": 42,
+            "text": "text: `It is set in ${FILE}, to ${VALUE}.`,"
+          },
+          {
+            "file": "agent/src/recorder.test.ts",
+            "line": 85,
+            "text": "it('reports context size per frame, not deltas', () => {"
+          },
+          {
+            "file": "agent/src/recorder.test.ts",
+            "line": 87,
+            "text": "// The question already sits in a context holding the system instruction"
+          },
+          {
+            "file": "agent/src/recorder.test.ts",
+            "line": 97,
+            "text": "steps: [step({ text: VALUE, inputTokens: 900, totalTokens: 950 })],"
+          },
+          {
+            "file": "agent/src/recorder.test.ts",
+            "line": 113,
+            "text": "text: `${VALUE} is set in ${FILE}`,"
+          },
+          {
+            "file": "agent/src/recorder.test.ts",
+            "line": 151,
+            "text": "step({ text: `${FILE} sets it to ${VALUE}.` }),"
+          },
+          {
+            "file": "agent/src/recorder.test.ts",
+            "line": 161,
+            "text": "const shouted: RunStep[] = [step({ text: 'IT IS PORT 4321.' })]"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 25,
+            "text": "const text = steps[i]?.text ?? ''"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 26,
+            "text": "if (text.trim() !== '') return text"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 76,
+            "text": "* `tokens` is one entry per frame, and it is the size of the context at that"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 80,
+            "text": "* - the user's question sits in a context that already holds the system"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 117,
+            "text": "if (step.text.trim() !== '') {"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 118,
+            "text": "frames.push({ type: 'assistant', content: step.text })"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 11,
+            "text": "text: string"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 14,
+            "text": "/** Context the model was handed for this step. */"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 16,
+            "text": "/** That context plus what the model produced from it. */"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 102,
+            "text": "text: step.text,"
+          },
+          {
+            "file": "agent/src/tools/descriptions.ts",
+            "line": 29,
+            "text": "'Search the text inside the project files for a regular expression. ' +"
+          },
+          {
+            "file": "agent/src/tools/fs.test.ts",
+            "line": 67,
+            "text": "expect(hit?.text).toContain('MAX_STEPS')"
+          },
+          {
+            "file": "agent/src/tools/fs.test.ts",
+            "line": 73,
+            "text": "// the assignment line in `agent/.env` if that file were ever searchable."
+          },
+          {
+            "file": "agent/src/tools/fs.ts",
+            "line": 41,
+            "text": "/** Files whose bytes are not text, so searching them is noise. */"
+          },
+          {
+            "file": "agent/src/tools/fs.ts",
+            "line": 42,
+            "text": "const BINARY = /\\.(png|jpe?g|gif|ico|webp|avif|woff2?|ttf|otf|eot|pdf|zip)$/i"
+          },
+          {
+            "file": "agent/src/tools/fs.ts",
+            "line": 85,
+            "text": "export type SearchMatch = { file: string; line: number; text: string }"
+          },
+          {
+            "file": "agent/src/tools/fs.ts",
+            "line": 125,
+            "text": "/** Every line in every text file that matches `pattern`, with its file and line number. */"
+          },
+          {
+            "file": "agent/src/tools/fs.ts",
+            "line": 149,
+            "text": "if (BINARY.test(file)) continue"
+          },
+          {
+            "file": "agent/src/tools/fs.ts",
+            "line": 169,
+            "text": "text: line.trim().slice(0, LINE_LIMIT),"
+          },
+          {
+            "file": "DECISIONS.md",
+            "line": 75,
+            "text": "credential-rule over-match on prose is ACCEPTED, not narrowed. On a security boundary, over-redacting prose is the correct direction to err, and once G1 is fixed it degrades content rather than failin"
+          },
+          {
+            "file": "DECISIONS.md",
+            "line": 79,
+            "text": "ESCALATE EARLY to a fresh implementer on a more capable model for round 3, rather than resuming the original for its third round as the default allows. Two consecutive rounds patched the measured symp"
+          },
+          {
+            "file": "DECISIONS.md",
+            "line": 83,
+            "text": "round 3 requires a GENERATED test corpus (secrets x wrappers x contexts, several hundred cases) instead of an enumerated table. Both prior rounds passed green because the tests only ever re-checked th"
+          },
+          {
+            "file": "DECISIONS.md",
+            "line": 91,
+            "text": "round 4 RESUMES the round-3 implementer instead of dispatching a fresh one as the rounds-4-5 rule prescribes. Two reasons: no model tier above opus is available here, so the capability-bump half of th"
+          },
+          {
+            "file": "DECISIONS.md",
+            "line": 119,
+            "text": "the reviewer found F1 SURVIVING in validate-traces.ts. The plan wrote that file before F1 was discovered in normalize.ts, so it still scans findSecrets(JSON.stringify(trace)) - the exact pattern norma"
+          },
+          {
+            "file": "DECISIONS.md",
+            "line": 195,
+            "text": "the design refuses the conventional AI aesthetic on purpose. The user asked for something that \"remete AI\", and the obvious reading is gradients, glow and neural-net imagery. Decided against it: the s"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 17,
+            "text": "- **Published site language is English.** Every string that reaches a reader — post prose, UI labels, alt text, LinkedIn copy, README — is English. Code comments are English too."
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 409,
+            "text": "it('leaves innocent text untouched', () => {"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 435,
+            "text": "it('returns nothing for clean text', () => {"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 815,
+            "text": "`RunResult = { text: string; model: string; totalTokens: number }`"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 958,
+            "text": "text: string"
+          },
+          {
+            "file": "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+            "line": 975,
+            "text": "text: result.text,"
+          }
+        ],
+        "truncated": true
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_TSCllpjduh1vvOEiTBCT3Spd",
+      "name": "search_files",
+      "args": {
+        "pattern": "const BINARY = /\\\\.(png|jpe?g|gif|ico|webp|avif|woff2?|ttf|otf|eot|pdf|zip)$/i"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_TSCllpjduh1vvOEiTBCT3Spd",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "pattern": "const BINARY = /\\\\.(png|jpe?g|gif|ico|webp|avif|woff2?|ttf|otf|eot|pdf|zip)$/i",
+        "filesSearched": 82,
+        "matches": [],
+        "truncated": false
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_Rg4j7CDustRhsIaZfCgjZm1A",
+      "name": "search_files",
+      "args": {
+        "pattern": "BINARY.test(file)"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_Rg4j7CDustRhsIaZfCgjZm1A",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "pattern": "BINARY.test(file)",
+        "filesSearched": 82,
+        "matches": [],
+        "truncated": false
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_oeawGy5rPejqNDeQrm43IFbT",
+      "name": "search_files",
+      "args": {
+        "pattern": "Files whose bytes are not text, so searching them is noise."
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_oeawGy5rPejqNDeQrm43IFbT",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "pattern": "Files whose bytes are not text, so searching them is noise.",
+        "filesSearched": 82,
+        "matches": [
+          {
+            "file": "agent/src/tools/fs.ts",
+            "line": 41,
+            "text": "/** Files whose bytes are not text, so searching them is noise. */"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_e7dcAfthFr36SJr8wVkrVdNI",
+      "name": "search_files",
+      "args": {
+        "pattern": "agent/src/tools/fs.ts"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_e7dcAfthFr36SJr8wVkrVdNI",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "pattern": "agent/src/tools/fs.ts",
+        "filesSearched": 82,
+        "matches": [
+          {
+            "file": "site/src/content/posts/02-hands/trace-a-precise.json",
+            "line": 45,
+            "text": "\"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/03-the-loop/trace.json",
+            "line": 48,
+            "text": "\"agent/src/tools/fs.ts\","
+          },
+          {
+            "file": "site/src/content/posts/03-the-loop/trace.json",
+            "line": 295,
+            "text": "\"file\": \"agent/src/tools/fs.ts\","
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "type": "assistant",
+      "content": "The check is in agent/src/tools/fs.ts. It uses this regex:\n\n/\\.(png|jpe?g|gif|ico|webp|avif|woff2?|ttf|otf|eot|pdf|zip)$/i\n\nSo it treats these extensions as binary: .png, .jpg, .jpeg, .gif, .ico, .webp, .avif, .woff, .woff2, .ttf, .otf, .eot, .pdf, .zip."
+    }
+  ]
+}

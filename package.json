@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.base.json --noEmit",
     "validate": "tsx tools/validate-traces.ts",
+    "eval": "tsx tools/run-evals.ts",
     "record": "tsx tools/record-trace.ts",
     "covers": "tsx tools/make-covers.ts",
     "e2e": "playwright test"
