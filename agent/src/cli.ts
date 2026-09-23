@@ -2,6 +2,7 @@ import { writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { runOnce } from './run.ts'
 import { toRawTrace } from './recorder.ts'
+import { UnsafeRoot } from './tools/sandbox.ts'
 
 const TRACE_DIR = 'traces'
 
@@ -138,6 +139,14 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
+  // A refused root is a configuration mistake, not a crash, and the likeliest
+  // one is a typo in AGENT_ROOT. Printing the whole Error object for that
+  // shows a stack through `buildTools` and buries the one sentence that says
+  // what to do. Everything else still prints in full.
+  if (error instanceof UnsafeRoot) {
+    console.error(`AGENT_ROOT was refused: ${error.message}`)
+    process.exit(1)
+  }
   console.error(error)
   process.exit(1)
 })

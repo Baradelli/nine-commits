@@ -149,7 +149,42 @@ describe('resolveInside', () => {
   })
 })
 
+describe('a root that is not there any more', () => {
+  it('refuses rather than raising, which is what the fail-closed sentence promises', () => {
+    // `realpathSync(root)` sat outside the try that catches everything else,
+    // so a deleted sandbox produced a raw ENOENT that left the guard, escaped
+    // the tool, and killed the run — the exact exclusion SandboxEscape exists
+    // to avoid. The message also carried the absolute path that every other
+    // error string in this module is written to keep out.
+    const doomed = mkdtempSync(join(tmpdir(), 'nine-doomed-'))
+    rmSync(doomed, { recursive: true, force: true })
+
+    for (const candidate of ['.', 'a.txt', 'nested/a.txt']) {
+      try {
+        resolveInside(doomed, candidate)
+        expect.unreachable('should have thrown')
+      } catch (error) {
+        expect(error, candidate).toBeInstanceOf(SandboxEscape)
+        expect((error as SandboxEscape).message).not.toContain(doomed)
+      }
+    }
+  })
+})
+
 describe('assertWritableRoot', () => {
+  it('refuses a root that does not exist, in its own vocabulary', () => {
+    // The likeliest mistake is a typo in AGENT_ROOT, and unwrapped realpathSync
+    // answered it with an ENOENT stack trace out of buildTools.
+    const missing = join(tmpdir(), 'nine-definitely-not-here-4f2b')
+    expect(() => assertWritableRoot(missing)).toThrow(UnsafeRoot)
+    expect(() => assertWritableRoot(missing)).toThrow(/does not exist/)
+    try {
+      assertWritableRoot(missing)
+    } catch (error) {
+      expect((error as Error).message).not.toContain(missing)
+    }
+  })
+
   it('accepts a scratch directory under the system temporary directory', () => {
     expect(() => assertWritableRoot(root)).not.toThrow()
   })

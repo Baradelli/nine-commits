@@ -148,21 +148,28 @@ export function resolveInside(root: string, candidate: unknown): string {
   const anchor = deepestPresent(target)
 
   let real: string
+  let realRoot: string
   try {
     if (lstatSync(anchor).isSymbolicLink()) {
       throw new SandboxEscape(candidate, 'passes through a link')
     }
     real = realpathSync(anchor)
+    // Inside the try, and it was outside it once. A sandbox that has been
+    // deleted makes this raise `ENOENT`, and an `ENOENT` leaving this function
+    // is two failures at once: the caller gets an exception the design
+    // promises it will never get, and the message carries the absolute path
+    // that every other error string in this module is written to avoid.
+    realRoot = realpathSync(root)
   } catch (error: unknown) {
     // Fail closed. A link this process cannot resolve, a path it cannot stat,
-    // a permission error — none of them are evidence that the path is inside
-    // the sandbox, and treating "could not check" as "checked" is how a guard
-    // becomes decoration.
+    // a permission error, a root that is no longer there — none of them are
+    // evidence that the path is inside the sandbox, and treating "could not
+    // check" as "checked" is how a guard becomes decoration.
     if (error instanceof SandboxEscape) throw error
     throw new SandboxEscape(candidate, 'could not be checked')
   }
 
-  if (!contains(realpathSync(root), real)) {
+  if (!contains(realRoot, real)) {
     throw new SandboxEscape(candidate, 'follows a link out of the sandbox')
   }
 
@@ -196,7 +203,23 @@ export function resolveInside(root: string, candidate: unknown): string {
  * expressed in terms of it.
  */
 export function assertWritableRoot(root: string): void {
-  const real = realpathSync(root)
+  // The likeliest way to get this wrong is not a malicious root, it is a typo
+  // in `AGENT_ROOT`. Unwrapped, `realpathSync` answered that with a raw
+  // `ENOENT` carrying the absolute path — a stack trace out of `buildTools`,
+  // from the one function whose whole job is to give clear answers about
+  // roots. A root that cannot be resolved is not a safe root, so it is refused
+  // like any other, in this function's own vocabulary and without echoing the
+  // path back.
+  let real: string
+  try {
+    real = realpathSync(root)
+  } catch {
+    throw new UnsafeRoot(
+      'the write root does not exist, or cannot be resolved — it must be an ' +
+        'existing directory under the system temporary directory',
+    )
+  }
+
   if (!statSync(real).isDirectory()) {
     throw new UnsafeRoot(`writable root is not a directory`)
   }

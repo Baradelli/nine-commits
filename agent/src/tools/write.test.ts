@@ -146,6 +146,52 @@ describe('append_file', () => {
   })
 })
 
+describe('a sandbox that disappears under the tools', () => {
+  it('turns every tool into a refusal, and records each one', () => {
+    const tools = fs()
+    rmSync(root, { recursive: true, force: true })
+
+    const calls: Array<[string, () => { ok: boolean }]> = [
+      ['list_files', () => tools.listFiles('.') as { ok: boolean }],
+      ['read_file', () => tools.readFile('settings.json') as { ok: boolean }],
+      ['write_file', () => tools.writeFile('a.txt', 'x') as { ok: boolean }],
+      ['edit_file', () => tools.editFile('a.txt', 'a', 'b') as { ok: boolean }],
+      ['append_file', () => tools.appendFile('a.txt', 'x') as { ok: boolean }],
+    ]
+
+    for (const [name, call] of calls) {
+      // Not a throw. A throw here leaves `execute`, kills the run, and takes a
+      // row out of the tally, which is the one thing this design refuses.
+      expect(call().ok, name).toBe(false)
+    }
+    expect(escapes).toHaveLength(calls.length)
+  })
+})
+
+describe('what search_files is protected by, which is not the guard', () => {
+  it('skips a link rather than resolving it, so it never reaches outside', () => {
+    // `search_files` takes a pattern and no path, so it never calls
+    // `resolveInside` at all. What keeps it inside is `walk`, which asks a
+    // Dirent whether it is a directory or a file — both false for a link — so
+    // a planted junction is skipped and its contents are never opened.
+    writeFileSync(join(outside, 'needle.txt'), 'NEEDLE-9137-OUTSIDE\n', 'utf8')
+    symlinkSync(outside, join(root, 'escape'), 'junction')
+
+    const result = fs().searchFiles('NEEDLE-9137')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.matches).toEqual([])
+
+    // And the same rule keeps it out of a listing.
+    const listed = fs().listFiles('.')
+    expect(listed.ok).toBe(true)
+    if (!listed.ok) return
+    expect(listed.files.some((file) => file.startsWith('escape/'))).toBe(false)
+
+    rmSync(join(root, 'escape'), { recursive: true, force: true })
+  })
+})
+
 describe('every write tool is behind the guard', () => {
   const escapeCases: Array<[string, (f: ReturnType<typeof fs>) => unknown]> = [
     ['parent traversal', (f) => f.writeFile('../escaped.txt', 'x')],

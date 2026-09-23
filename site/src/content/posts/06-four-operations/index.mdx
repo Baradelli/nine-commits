@@ -77,7 +77,16 @@ and a write tool is mostly asked for paths that do not exist yet, so the link
 check has to run against the nearest ancestor that is really there. Walk up
 with the wrong `fs` call and the whole check is skippable.
 
-It throws, and every path any tool in this program opens comes out of it.
+It throws, and every path a *caller* hands a tool comes out of it — which is
+four of the five tools, and is not the same as every path this program opens.
+`search_files` takes a pattern and no path at all, so it never calls the guard;
+what keeps it inside the root is a different mechanism, and it is worth naming
+because it is the one doing the work in the wider blast radius. `walk` asks
+each `Dirent` whether it is a directory or a file. **A link is neither** — both
+predicates are false for a junction — so a planted link is skipped rather than
+followed, and nothing under it is ever opened. Two mechanisms, and a test for
+each, is better than one sentence covering both badly.
+
 `sandbox.test.ts` asserts the throw for `..`, for a path whose every segment is
 inside the sandbox until the last two normalise it out, for an absolute path,
 for a junction pointing at another directory — including for a file under that
@@ -85,7 +94,8 @@ junction that does not exist yet, and including a junction whose target does
 not exist at all — and, on Windows, for a UNC path, an extended-length path and
 the drive-relative `C:foo.txt`, which is the one form that looks absolute and
 is not. Every branch of it fails closed: an `lstat` or `realpath` that raises
-becomes a refusal, because "could not check" is not "checked".
+becomes a refusal, because "could not check" is not "checked". That sentence
+was not true when I first wrote it either, and the section below says so.
 
 ### Where the agent is allowed to write
 
@@ -117,7 +127,14 @@ The second rule exists because "outside the repository" would permit a typo
 pointing at a home directory — and an environment already pointing `TMP` there
 defeats it, which is precisely why the first rule is not expressed in terms of
 the second. With `TMP` set to this repository, both rules disagree and the
-repository check still wins; there is a test that runs that out of process.
+repository check still wins. There is a test for that, and it re-imports the
+module in process, with `vi.resetModules()`, so `SCRATCH_ROOT` is recomputed
+under the hostile environment — not a child process, which is what I wrote here
+first. The first version of the test *did* spawn a child, and with `TMP`
+pointed at the checkout node and tsx wrote their cache directories **into this
+repository**: a test for the commit about the agent not writing into this
+repository, writing into this repository. The re-import is the better technique
+and it is also the one that is actually there.
 
 It is enforced where the tools are built, which means the strongest thing I can
 say about it is a unit test rather than a promise:
@@ -285,6 +302,48 @@ a legitimate reason to reach through a link.
 The test is beside the junction test that was already there, and I checked it
 the only way worth checking a regression test — by putting the old walk back
 and watching it go red, with the other sixteen still green.
+
+### Then the fix broke the sentence the fix had just written
+
+The commit that added *every branch of it fails closed* put one branch outside
+the try that does the failing closed. `realpathSync(root)`, the last line of
+the check, sat after the `catch`. So a sandbox that had been **deleted** — not
+attacked, just gone — raised a bare `ENOENT` that left the guard, left the
+tool, and killed the run. Measured, with the root removed after `createFs`:
+
+```
+list_files:  THREW Error: ENOENT: no such file or directory, lstat 'C:\Users\...
+read_file:   THREW Error: ENOENT ...
+write_file:  THREW Error: ENOENT ...
+escapes recorded: 0
+```
+
+Nobody's file was at risk; no path outside the root is ever returned. What
+broke is two promises this page makes about itself. The sentence three screens
+up said every branch fails closed, and one did not. And `SandboxEscape`'s own
+doc comment says a throw out of `execute` kills a run, a killed run is a run
+missing from the tally, and this design does not do that — while producing
+exactly that. The `ENOENT` also carried the absolute path of the sandbox, which
+is the string every other error message in that module is written to avoid.
+
+The fix is moving one line inside the `try`. Now:
+
+```
+list_files: returned {"ok":false,"error":"refused \".\": could not be checked"}
+escapes recorded: 5
+```
+
+The same mistake had a second address. `assertWritableRoot` called
+`realpathSync` on the root before any of its own checks, so `AGENT_ROOT` with a
+typo in it produced an `ENOENT` stack trace out of `buildTools` — from the one
+function whose entire job is to give clear answers about roots. It now refuses
+in its own vocabulary, and the CLI prints that one sentence rather than an
+Error object.
+
+There is a pattern here I am going to name rather than dress up. The round that
+fixed the guard introduced two defects, and one of them was in the sentence the
+round existed to make true. Both were found by someone attacking the code
+again, not by me re-reading it.
 
 ### The guard's first defect was refusing a legitimate call
 
