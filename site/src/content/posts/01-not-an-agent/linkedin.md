@@ -26,7 +26,7 @@ find . -type f -name "*.ts" | wc -l
 
 And signed off with "I'll tell you the number once you provide the output."
 
-So I ran it. It returns 4,697.
+So I ran it. I got 4,697 files back.
 
 4,660 of those are inside node_modules. The real answer is 37.
 
