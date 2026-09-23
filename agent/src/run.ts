@@ -1,4 +1,4 @@
-import { generateText, stepCountIs } from 'ai'
+import { generateText, stepCountIs, type FinishReason } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { INSTRUCTIONS, MODEL_NAME } from './config.ts'
 import { buildTools } from './tools/index.ts'
@@ -17,33 +17,50 @@ export type RunStep = {
   totalTokens: number
 }
 
+/**
+ * Which of the two things that can end a run ended this one.
+ *
+ * `model` is the one that is meant to fire: a step came back asking for no
+ * tool, so there was nothing to feed forward and the loop ran out of work.
+ * `step-cap` is the backstop firing instead, and it means the model was still
+ * mid-task when the program took the pen away.
+ */
+export type StopReason = 'model' | 'step-cap'
+
 export type RunResult = {
   model: string
   style: DescriptionStyle
   steps: RunStep[]
+  stoppedBy: StopReason
 }
 
 /**
- * Two, and it is a cap rather than a condition: one step for the model to
- * choose a tool, one for it to answer with what came back. Nothing here asks
- * whether the work is done, and nothing goes round again if it is not. That
- * is post 3.
+ * The backstop, not the stop condition.
+ *
+ * What ends a run is the model declining to call a tool: the SDK goes round
+ * again only while a step finishes with `tool-calls`. This number is what
+ * stops a run in which that never happens, and there is nothing principled
+ * about the value — high enough that this question does not reach it, low
+ * enough that a loop which has stopped making progress costs ten requests
+ * rather than an afternoon. v2's cap was 2, which is this same mechanism set
+ * low enough to forbid the loop outright.
  */
-export const MAX_STEPS = 2
+export const MAX_STEPS = 10
 
 /**
- * One action, then an answer.
+ * Which condition ended the run, read back off the steps.
  *
- * Without this the cap is spent rather than allocated: the first recorded run
- * called `list_files`, then called `search_files`, then hit the limit with
- * nothing to say, and the trace ended on a tool result. Turning the tools off
- * for the second step makes the agent what v2 is supposed to be — it gets one
- * action, and has to answer with whatever that action returned. Being unable
- * to have another go is the point, and it is also what makes the choice of
- * tool worth a whole post.
+ * A step whose finish reason is `tool-calls` is a step that wanted a next one.
+ * If the last step says that and the run stopped anyway, the only thing that
+ * can have stopped it is the cap. Kept out of `runOnce` so it can be checked
+ * without a network call: "what stopped it" is the question the loop
+ * introduces, and every recorded run has to answer it.
  */
-const oneActionThenAnswer = ({ stepNumber }: { stepNumber: number }) =>
-  stepNumber === 0 ? undefined : { toolChoice: 'none' as const }
+export function whatStopped(
+  steps: readonly { finishReason: FinishReason }[],
+): StopReason {
+  return steps.at(-1)?.finishReason === 'tool-calls' ? 'step-cap' : 'model'
+}
 
 /** A tool that returned `{ ok: false }` reports itself as failed. */
 function succeeded(output: unknown): boolean {
@@ -56,8 +73,14 @@ function succeeded(output: unknown): boolean {
 }
 
 /**
- * v2: one model call, one tool call, one more model call, stop. The model can
- * now reach the filesystem; it still cannot decide to have another go.
+ * v3: call the model, run whatever tool it asked for, append the call and the
+ * result to the conversation, call it again with the longer conversation —
+ * until it asks for no tool.
+ *
+ * `generateText` has been able to do that since the moment v2 handed it
+ * `tools`. What v2 did was hold it to two steps and switch the tools off for
+ * the second, so there was never a turn in which the model could act on what
+ * it had just read. Deleting those two lines is the whole of the loop.
  */
 export async function runOnce(task: string): Promise<RunResult> {
   const style = resolveStyle()
@@ -68,7 +91,6 @@ export async function runOnce(task: string): Promise<RunResult> {
     prompt: task,
     tools: buildTools(style),
     stopWhen: stepCountIs(MAX_STEPS),
-    prepareStep: oneActionThenAnswer,
   })
 
   const steps: RunStep[] = result.steps.map((step) => ({
@@ -87,5 +109,10 @@ export async function runOnce(task: string): Promise<RunResult> {
     totalTokens: step.usage.totalTokens ?? 0,
   }))
 
-  return { model: MODEL_NAME, style, steps }
+  return {
+    model: MODEL_NAME,
+    style,
+    steps,
+    stoppedBy: whatStopped(result.steps),
+  }
 }

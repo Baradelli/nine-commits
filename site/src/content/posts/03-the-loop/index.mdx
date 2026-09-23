@@ -1,0 +1,289 @@
+---
+order: 3
+title: The Loop
+thesis: "History, tool results, and a stop condition. The first two came with the SDK. The loop was three lines deleted and a cap raised from two to ten."
+pubDate: 2026-09-23
+commit: v3-the-loop
+cover: ./cover.png
+coverAlt: "Title card for commit 03 of Nine Commits, The Loop, with the opening line of a recorded run printed beneath it"
+---
+
+import TracePlayer from '../../../components/TracePlayer.tsx'
+import TraceTranscript from '../../../components/TraceTranscript.astro'
+import trace from './trace.json'
+import runs from './runs.tsv?url&no-inline'
+import corpus from './corpus-reach.tsv?url&no-inline'
+
+Post 1 ended with a list of what answering a question actually takes: decide on
+an action, take it, read what came back, decide whether that was enough, repeat.
+It said steps 1 and 3 need tools and steps 4 and 5 need a loop.
+
+Post 2 built 1 to 3 and then spent forty-two runs showing what it is like to
+have them without 4 and 5. Twenty-eight of those runs opened `list_files`,
+learned the name of the file they wanted, and came back with half an answer,
+because the turn in which to open it did not exist.
+
+This commit is that turn.
+
+## What I built
+
+Here is the whole of the agent, unchanged from v2 except in one respect:
+
+```ts
+const result = await generateText({
+  model: openai(MODEL_NAME),
+  instructions: INSTRUCTIONS,
+  prompt: task,
+  tools: buildTools(style),
+  stopWhen: stepCountIs(MAX_STEPS),
+})
+```
+
+The respect is what is no longer there. v2 passed one more option:
+
+```ts
+const oneActionThenAnswer = ({ stepNumber }: { stepNumber: number }) =>
+  stepNumber === 0 ? undefined : { toolChoice: 'none' as const }
+```
+
+That is a gag. It let the model call a tool on the first step and then took
+the tools away, so the second step had to be an answer whether or not the
+first step had produced one. Deleting it, and raising `MAX_STEPS` from 2 to
+10, is the entire change in behaviour: **three lines deleted and one number
+changed.**
+
+I am not going to pretend that is thirty. The thesis printed at the top of this
+page said thirty lines when I planned the series, and this commit is where that
+claim met the diff. The line in `site/src/lib/series.ts` now says what the diff
+says, and the commit that changed it is in this post's history.
+
+### The loop was never mine
+
+The mechanism is the `ai` SDK's `stopWhen`, and the reason the number is so
+small is that `generateText` has been running the loop since the moment v2
+handed it a `tools` object. Its own type definition lists what ends one:
+
+> - The model returns a finish reason other than `tool-calls`
+> - A tool without an execute function is called
+> - A tool call needs approval
+> - One of the provided stop conditions returns `true`
+
+Conversation history that accumulates, and tool results fed back so the next
+step can use them, are the first two thirds of this post's thesis, and neither
+of them is code I wrote. The SDK appends the assistant's tool call and the
+tool's result to the message list and calls the model again with the longer
+list. v2 had all of that. What v2 did not have was a second turn in which any
+of it could matter.
+
+So post 1's definition survives — a model, actions, and a loop — but the thing
+I was calling "no loop" in two published posts was a loop held to one turn by
+two expressions. That is worth knowing before you go looking for the loop in
+somebody else's agent and cannot find it. It is probably a default.
+
+The rest of the diff in those two files is bookkeeping: every run now records
+how many steps it took and which condition stopped it. Counting only lines that
+execute, comments and blanks excluded, there are twenty-two added lines across
+`run.ts` and `cli.ts` and exactly one of them — the cap — is the loop:
+
+```sh
+git diff -U0 v2-hands..v3-the-loop -- agent/src/run.ts agent/src/cli.ts \
+  | grep '^+' | grep -v '^+++' | grep -vE '^\+\s*($|\*|//|/\*)' | wc -l
+```
+
+## What stops it
+
+This is the question the loop introduces, and it deserves a plain answer.
+
+**The run ends when the model returns a step that asks for no tool.** That is
+it. Nothing inspects the answer, nothing checks the task against the result,
+nothing decides the work is done. The model's own decision to stop calling
+tools *is* the stop condition, which means the agent stops when the model feels
+finished rather than when it is.
+
+`stopWhen: stepCountIs(10)` is not that condition. It is the backstop for the
+case where the model never stops, and there is nothing principled about the
+ten. In all forty-two runs behind this post the `stopped_by` column reads
+`model`; the cap never fired once.
+
+What happens when it does fire is already on the record. Post 2's third
+confession was a run that called `list_files`, called `search_files`, and hit
+the two-step limit with nothing to say — the recording ended on a tool result.
+That is the cap firing, and it produces a run with no answer in it. The
+recorder grades that a failure, correctly, but the failure belongs to the
+harness rather than to the model: it was mid-sentence when the program stopped
+calling it. Raising the cap to ten does not fix that, it just makes it cost ten
+requests instead of two. A cap that is too low truncates work; a cap that is
+too high pays for a model going round in circles. Neither is a stop condition.
+Both are a budget.
+
+## The run
+
+Post 1 asked how many TypeScript files this project has and got prose. Post 2
+asked which file sets the model name and got one tool call that could not
+answer it. This is post 2's question, character for character, with post 2's
+precise tool descriptions, the same model, the same two tools. The only new
+variable is the loop.
+
+<TracePlayer trace={trace} client:idle />
+<TraceTranscript trace={trace} />
+
+It opened with `list_files` — the same opening move that killed post 2's
+precise run, on a tool whose own description says it *cannot tell you anything
+about what is written inside a file*. It got 77 paths back. Then, instead of
+apologising, it searched.
+
+The search is worth looking at. Post 2's thin run guessed `model_name`, once,
+and read the zero results as an absence. This one wrote twenty-five
+alternatives joined by pipes, which is not elegant and is exactly what you
+do when you get more than one go: cast wide, then narrow. It did not need to
+narrow. `agent/src/config.ts` line 1 came back in the first sweep, and the
+last frame is one sentence with both halves of the answer in it.
+
+Same question, same tools, same descriptions, same opening move as the run that
+failed. The difference is that frames four and five exist at all.
+
+The meter under the player is the size of the context the agent is carrying.
+This run starts at 204 tokens — the system instruction and two tool
+definitions, before anything has happened — and post 2's precise run starts at
+exactly the same 204, because those definitions are identical. Post 2's ends at
+1,610 with half the answer. This one ends at 2,646 with all of it. Both numbers
+are in the committed traces. That is what a loop costs: the history is in every
+subsequent request, so the second tool result is paid for in every turn after
+it. Post 7 is where that stops being affordable.
+
+## What broke
+
+### The answer key is inside the agent
+
+Step to frame five and read the third match:
+
+```
+agent/src/cli.ts:48
+'must contain, e.g. TRACE_EXPECT="agent/src/config.ts,gpt-5-mini". ' +
+```
+
+That is the CLI's usage message. It was written at v2 so that nobody could run
+the recorder without saying what a correct answer contains, and it names both
+graded facts in one string, in the agent's own source, where the agent's own
+search can find it. Ten of the twenty-one runs I have full traces for hit that
+line. Neither of post 2's two published runs did — one never searched at all,
+and the other searched for `model_name`, which is not on that line. I have no
+traces for the other forty, so that is the whole of what I can tell you.
+
+I am leaving it there, for the same reason post 2 left the reproduction loop
+broken: the instrument does not get adjusted after the result is in.
+
+### The corpus now contains posts about the answer
+
+Post 2 said this was coming. The agent's tools walk this repository, published
+posts live in this repository, and post 2's text states both graded facts in
+one sentence. A looped agent with a working search can answer this question by
+reading the blog post about the question.
+
+The run above did not. The walk is alphabetical, and its twenty-five-alternative
+regex hit `search_files`'s forty-match limit fourteen files in — the last file
+it reached was `DECISIONS.md`, which sorts directly after `agent/`. It never got
+as far as `site/`. That is luck, not hygiene.
+
+Across the twenty-one runs whose traces I kept:
+
+| | of 21 |
+| --- | --- |
+| had a published post in their search results | 14 |
+| got `02-hands/index.mdx` line 102, which states both facts in one sentence | 3 |
+| got `agent/src/cli.ts` line 48, which also states both facts | 10 |
+| got `agent/src/config.ts` line 1, which is the ground truth | 21 |
+| named a post, a README or a `.mdx` file in their answer | 0 |
+
+That table is <a href={corpus}><code>corpus-reach.tsv</code></a>, one row per
+run, derived from the traces by walking every search result.
+
+Read the bottom two rows together, because they are the honest finding. The
+documentation-instead-of-ground-truth failure was available fourteen times and
+nothing in any answer points at it — and I cannot tell you it did not happen,
+because `config.ts` was in the same result set every single time. When both
+sources arrive in one tool result, a final answer naming the file and the value
+is consistent with either. The recorder's substring check cannot tell "read the
+source" from "read the post about the source", and neither can I. Grading
+whether an answer was reached the right way is post 4, and this is now a
+concrete reason it has to exist rather than a methodological nicety.
+
+**The rule, and it is permanent: no exclusions.** I am not adding
+`site/src/content/posts` to the tools' skip list, now or later. Post 2 refused
+to tune the instrument after seeing the result and said so in public; doing it
+one commit later because the contamination finally got interesting would
+retract that. The corpus is the repository as it stands, this post is in it
+from today, and every post after this one joins it too. What has to change is
+the grading, not the filesystem.
+
+### I had to run it twice to ask the second question
+
+The tally records which tools were called, how many steps it took, what stopped
+it, and how the recorder graded the answer. It does not record what came back.
+So after twenty-one runs I could say the loop worked and could not say what it
+had read.
+
+Rows 2–21 were run with a single `TRACE_ID`, which means each run's trace
+overwrote the last. Rows 22–42 are the same command with a distinct one per
+run, so all twenty-one survived, and `corpus-reach.tsv` is derived from those.
+Both blocks are in <a href={runs}><code>runs.tsv</code></a> with their
+timestamps: the first block's outcomes were written before the second block
+ran, which is the only thing that makes this an instrumentation fix rather than
+a second roll of the dice. Forty-two rows, none removed.
+
+## What the loop changed
+
+Forty-two runs, one condition — precise descriptions, post 2's question, this
+commit:
+
+| | of 42 |
+| --- | --- |
+| answered in full | 41 |
+| answered half | 1 |
+| answered neither half | 0 |
+| opened with `list_files`, the tool that cannot read a value | 16 |
+| ...of which finished | 16 |
+| called a tool on a turn v2 did not have | 30 |
+| stopped by the cap instead of by the model | 0 |
+
+Post 2's precise column, over twenty-one runs of the same question, answered in
+full four times. This is the payoff the first two commits were built to set up,
+and the sixteen matter more than the forty-one: sixteen runs made the exact
+move that was fatal at v2 — opening on the tool that returns paths — and all
+sixteen recovered, because recovering is a thing you can do when there is
+another turn.
+
+Two honest deductions from that. It is not a controlled comparison: post 2's
+runs and these ran against different repositories, and you can see the drift in
+the two committed traces, where post 2's listing has 68 paths and the one above
+has 77. And forty-two runs of one question is forty-two runs of one question.
+
+Yours will differ, and they are meant to. It is post 2's loop with a distinct
+trace id per run, so nothing overwrites anything:
+
+```sh
+for i in $(seq 1 21); do
+  TOOL_DESCRIPTIONS=precise TRACE_ID=tally-$i TRACE_COMMIT=v3-the-loop   TRACE_EXPECT="agent/src/config.ts,gpt-5-mini"   npm start --workspace @nine-commits/agent --     "Which file in this project sets the model name the agent uses, and what is it set to?"
+done
+cut -f3,4,5,6 agent/traces/runs.tsv
+```
+
+It still does not reproduce the setup, for the reason post 2 gave and for one
+more this page has just added. Run it and read your own numbers; anything I
+print about what the corpus looks like today is false by the time you read it.
+
+## The commit
+
+The thing is an agent now, by post 1's definition and by mine. It decides on an
+action, takes it, reads the result, decides the result was not enough, and goes
+again — and on this question it does that well enough that the interesting
+column in the tally is no longer the outcome.
+
+Which is the problem. Forty-one successes were graded by asking whether two
+substrings appear in a sentence. That check cannot see the difference between
+an agent that read `config.ts` and an agent that read a blog post about
+`config.ts`, and this post has just demonstrated that both were on the table.
+An agent that works and an evaluation that cannot tell you why is not a result.
+It is a number I would like to be true.
+
+The next commit is about whether it works.

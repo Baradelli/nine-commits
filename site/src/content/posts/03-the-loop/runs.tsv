@@ -1,0 +1,74 @@
+# Nine Commits, post 3 — every run behind the numbers in index.mdx.
+#
+# 42 runs of one question against gpt-5-mini at commit v3-the-loop:
+#   "Which file in this project sets the model name the agent uses, and what is it set to?"
+# It is post 2's question, unchanged, with TOOL_DESCRIPTIONS=precise — post 2's
+# precise condition. The only new variable is the loop.
+#
+# WRITTEN BY THE AGENT, not typed out of a terminal. agent/src/cli.ts appends
+# one row per run to agent/traces/runs.tsv, and this file is that log with this
+# comment block in front of it. The rows are in the order they ran.
+#
+# Row 1 is the run published as trace.json. It was the first run, and it was
+# not chosen.
+#
+# Rows 2-21 were run with TRACE_ID=tally, which overwrites one trace file, so
+# their individual traces are gone. That was an instrumentation gap, not a
+# choice: the tally records which tools were called and what the recorder
+# graded, never what the tool results contained, and this post needed to know
+# what the agent had READ. Rows 22-42 are the same command with a distinct
+# TRACE_ID per run, so every trace survived. corpus-reach.tsv is derived from
+# those 21. Nothing was changed between the two blocks; the corpus is the same
+# repository in both, because the tools skip the directory the traces are
+# written to.
+#
+# steps is the number of model calls. At v2 it could not exceed 2.
+# stopped_by is which condition ended the run: `model` means the model returned
+# a step that asked for no tool, `step-cap` means MAX_STEPS fired mid-task.
+#
+# outcome is derived by agent/src/recorder.ts against
+#   TRACE_EXPECT="agent/src/config.ts,gpt-5-mini"
+# success = the final answer carried both facts, partial = one, failure = none.
+when	descriptions	tools_called	steps	stopped_by	outcome	trace_id	task
+2026-09-23T16:07:03.913Z	precise	list_files, search_files	3	model	success	loop	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:07:55.072Z	precise	search_files, list_files, search_files	4	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:08:05.606Z	precise	list_files, search_files, search_files	4	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:08:13.684Z	precise	list_files, search_files	3	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:08:21.535Z	precise	search_files, search_files	3	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:08:29.172Z	precise	search_files, search_files	3	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:08:35.484Z	precise	search_files	2	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:08:42.464Z	precise	search_files, search_files	3	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:08:53.977Z	precise	list_files, search_files	3	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:09:00.926Z	precise	search_files	2	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:09:09.120Z	precise	search_files, search_files, search_files, search_files, search_files	2	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:09:20.368Z	precise	search_files	2	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:09:27.459Z	precise	search_files, search_files	3	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:09:37.558Z	precise	list_files, search_files, search_files	4	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:09:47.097Z	precise	list_files, search_files	3	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:09:53.529Z	precise	list_files, search_files	3	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:10:03.318Z	precise	list_files, search_files	3	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:10:13.625Z	precise	search_files, search_files	3	model	partial	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:10:23.621Z	precise	list_files, search_files	3	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:10:33.557Z	precise	list_files, search_files	3	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:10:40.881Z	precise	search_files, search_files	3	model	success	tally	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:11:29.561Z	precise	list_files, search_files	3	model	success	tally-01	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:11:36.615Z	precise	search_files, search_files	3	model	success	tally-02	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:11:44.052Z	precise	list_files, search_files	3	model	success	tally-03	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:11:50.984Z	precise	search_files, search_files	3	model	success	tally-04	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:11:56.318Z	precise	search_files	2	model	success	tally-05	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:12:01.726Z	precise	search_files	2	model	success	tally-06	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:12:08.263Z	precise	search_files	2	model	success	tally-07	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:12:16.396Z	precise	list_files, search_files	3	model	success	tally-08	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:12:26.164Z	precise	search_files, search_files	3	model	success	tally-09	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:12:37.129Z	precise	list_files, search_files, search_files	4	model	success	tally-10	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:12:43.917Z	precise	search_files	2	model	success	tally-11	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:12:54.674Z	precise	search_files	2	model	success	tally-12	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:13:01.733Z	precise	search_files	2	model	success	tally-13	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:13:11.604Z	precise	list_files, search_files, search_files	4	model	success	tally-14	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:13:19.120Z	precise	search_files	2	model	success	tally-15	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:13:25.091Z	precise	search_files	2	model	success	tally-16	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:13:32.575Z	precise	search_files, search_files	3	model	success	tally-17	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:13:43.384Z	precise	search_files, search_files, list_files, search_files	5	model	success	tally-18	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:13:53.047Z	precise	search_files, search_files, list_files, search_files	5	model	success	tally-19	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:14:04.239Z	precise	list_files, search_files, search_files	4	model	success	tally-20	Which file in this project sets the model name the agent uses, and what is it set to?
+2026-09-23T16:14:14.108Z	precise	search_files, search_files, list_files, search_files	5	model	success	tally-21	Which file in this project sets the model name the agent uses, and what is it set to?

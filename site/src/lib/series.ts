@@ -36,8 +36,13 @@ export const PLANNED: readonly PlannedPost[] = [
     order: 3,
     tag: 'v3-the-loop',
     title: 'The Loop',
+    // The plan's thesis was "thirty lines that turn a text completion into an
+    // agent". Built, the honest count is three lines deleted and a cap raised:
+    // history and tool results were already the SDK's job at v2. The index is
+    // a claim the commits have to earn, so the claim changed rather than the
+    // count. Post 3 shows the diff.
     thesis:
-      'History, tool results, and a stop condition. Thirty lines that turn a text completion into an agent.',
+      'History, tool results, and a stop condition. The first two came with the SDK. The loop was three lines deleted and a cap raised from two to ten.',
   },
   {
     order: 4,

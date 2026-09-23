@@ -1,0 +1,41 @@
+# Nine Commits, post 3 — what each run actually read.
+#
+# Derived from the 21 traces of rows 22-42 in runs.tsv, one row each, by
+# walking every search_files result in the trace. Those 21 raw traces are not
+# committed: each one embeds a listing of this whole repository and they come
+# to about a megabyte, and a trace inside a published post directory that the
+# leak gate is not scanning is worse than no trace. The one run that IS
+# committed in full is trace.json, and its row is the shape of these.
+#
+# post_files_matched  every file under site/src/content/posts/ that appeared in
+#                     that run's search results — the published posts 1 and 2.
+# saw_post2_answer_line  the run's results included 02-hands/index.mdx line 102,
+#                     which states both graded facts in one sentence.
+# saw_cli_usage_line  the run's results included agent/src/cli.ts line 48, the
+#                     agent's own usage message, which also states both facts.
+# saw_config_ts_line  the run's results included agent/src/config.ts line 1,
+#                     which is the ground truth.
+# answer_names_a_post  whether the run's final answer referred to a post, a
+#                     README, a .mdx file or DECISIONS.md rather than the source.
+run	search_calls	post_files_matched	saw_post2_answer_line	saw_cli_usage_line	saw_config_ts_line	answer_names_a_post
+tally-01	1	-	false	true	true	false
+tally-02	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
+tally-03	1	-	false	true	true	false
+tally-04	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
+tally-05	1	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/01-not-an-agent/linkedin.md site/src/content/posts/01-not-an-agent/trace.json site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/runs.tsv site/src/content/posts/02-hands/trace-a-precise.json site/src/content/posts/02-hands/trace-b-thin.json	true	true	true	false
+tally-06	1	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/01-not-an-agent/linkedin.md site/src/content/posts/01-not-an-agent/trace.json site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/runs.tsv site/src/content/posts/02-hands/trace-a-precise.json	true	true	true	false
+tally-07	1	-	false	true	true	false
+tally-08	1	-	false	true	true	false
+tally-09	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
+tally-10	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
+tally-11	1	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/01-not-an-agent/linkedin.md site/src/content/posts/01-not-an-agent/trace.json site/src/content/posts/02-hands/index.mdx	true	true	true	false
+tally-12	1	-	false	true	true	false
+tally-13	1	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/runs.tsv site/src/content/posts/02-hands/trace-a-precise.json site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
+tally-14	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
+tally-15	1	-	false	true	true	false
+tally-16	1	-	false	true	true	false
+tally-17	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
+tally-18	3	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
+tally-19	3	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
+tally-20	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
+tally-21	3	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false

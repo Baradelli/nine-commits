@@ -1,0 +1,343 @@
+{
+  "id": "loop",
+  "commit": "v3-the-loop",
+  "model": "gpt-5-mini",
+  "task": "Which file in this project sets the model name the agent uses, and what is it set to?",
+  "outcome": "success",
+  "tokens": [
+    204,
+    243,
+    888,
+    1025,
+    2514,
+    2646
+  ],
+  "frames": [
+    {
+      "type": "user",
+      "content": "Which file in this project sets the model name the agent uses, and what is it set to?"
+    },
+    {
+      "type": "tool_call",
+      "id": "call_tCqsBoHwWno4OKNseDlSm5xG",
+      "name": "list_files",
+      "args": {
+        "directory": ""
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_tCqsBoHwWno4OKNseDlSm5xG",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "directory": ".",
+        "files": [
+          "DECISIONS.md",
+          "README.md",
+          "agent/package.json",
+          "agent/src/cli.ts",
+          "agent/src/config.ts",
+          "agent/src/recorder.test.ts",
+          "agent/src/recorder.ts",
+          "agent/src/run.test.ts",
+          "agent/src/run.ts",
+          "agent/src/tools/descriptions.test.ts",
+          "agent/src/tools/descriptions.ts",
+          "agent/src/tools/fs.test.ts",
+          "agent/src/tools/fs.ts",
+          "agent/src/tools/index.ts",
+          "agent/tsconfig.json",
+          "docs/superpowers/plans/2026-09-17-nine-commits-phase-1.md",
+          "docs/superpowers/specs/2026-09-17-nine-commits-design.md",
+          "e2e/compare.spec.ts",
+          "e2e/post.spec.ts",
+          "package-lock.json",
+          "package.json",
+          "playwright.config.ts",
+          "site/astro.config.mjs",
+          "site/package.json",
+          "site/public/favicon.ico",
+          "site/public/favicon.svg",
+          "site/src/components/Frame.tsx",
+          "site/src/components/TraceCompare.tsx",
+          "site/src/components/TracePlayer.tsx",
+          "site/src/components/TraceTranscript.astro",
+          "site/src/content.config.ts",
+          "site/src/content/posts/01-not-an-agent/cover-prompt.md",
+          "site/src/content/posts/01-not-an-agent/cover.png",
+          "site/src/content/posts/01-not-an-agent/index.mdx",
+          "site/src/content/posts/01-not-an-agent/linkedin.md",
+          "site/src/content/posts/01-not-an-agent/trace.json",
+          "site/src/content/posts/02-hands/cover-prompt.md",
+          "site/src/content/posts/02-hands/cover.png",
+          "site/src/content/posts/02-hands/index.mdx",
+          "site/src/content/posts/02-hands/runs.tsv",
+          "site/src/content/posts/02-hands/trace-a-precise.json",
+          "site/src/content/posts/02-hands/trace-b-thin.json",
+          "site/src/layouts/BaseLayout.astro",
+          "site/src/layouts/PostLayout.astro",
+          "site/src/lib/paths.ts",
+          "site/src/lib/player-state.test.ts",
+          "site/src/lib/player-state.ts",
+          "site/src/lib/series.ts",
+          "site/src/lib/speech.test.ts",
+          "site/src/lib/speech.ts",
+          "site/src/pages/index.astro",
+          "site/src/pages/posts/[...slug].astro",
+          "site/src/styles/global.css",
+          "site/src/styles/tokens.css",
+          "site/tsconfig.json",
+          "tools/covers/frontmatter.test.ts",
+          "tools/covers/frontmatter.ts",
+          "tools/covers/layout.test.ts",
+          "tools/covers/layout.ts",
+          "tools/make-covers.ts",
+          "tools/paths.test.ts",
+          "tools/paths.ts",
+          "tools/record-trace.ts",
+          "tools/trace/env-file.test.ts",
+          "tools/trace/env-file.ts",
+          "tools/trace/normalize.leak.test.ts",
+          "tools/trace/normalize.test.ts",
+          "tools/trace/normalize.ts",
+          "tools/trace/redact.config.ts",
+          "tools/trace/redact.test.ts",
+          "tools/trace/redact.ts",
+          "tools/trace/schema.test.ts",
+          "tools/trace/schema.ts",
+          "tools/validate-traces.test.ts",
+          "tools/validate-traces.ts",
+          "tsconfig.base.json",
+          "vitest.config.ts"
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_PRqLp93z6ulazcQtnJni3WgK",
+      "name": "search_files",
+      "args": {
+        "pattern": "modelName|model|gpt-4|gpt|openai|anthropic|model:|model =|modelName =|MODEL|setModel|modelName\"|model:\"|modelName:|defaultModel|MODEL_NAME|model_name|chat.completions|client.create|gpt-4o|gpt-4o-mini|openai.apiKey|openai.createCompletion|agent's model|const model"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_PRqLp93z6ulazcQtnJni3WgK",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "pattern": "modelName|model|gpt-4|gpt|openai|anthropic|model:|model =|modelName =|MODEL|setModel|modelName\"|model:\"|modelName:|defaultModel|MODEL_NAME|model_name|chat.completions|client.create|gpt-4o|gpt-4o-mini|openai.apiKey|openai.createCompletion|agent's model|const model",
+        "filesSearched": 14,
+        "matches": [
+          {
+            "file": "agent/package.json",
+            "line": 9,
+            "text": "\"@ai-sdk/openai\": \"^4.0.69\","
+          },
+          {
+            "file": "agent/src/cli.ts",
+            "line": 35,
+            "text": "* Read and checked BEFORE the model is called. The recorder refuses to grade a"
+          },
+          {
+            "file": "agent/src/cli.ts",
+            "line": 48,
+            "text": "'must contain, e.g. TRACE_EXPECT=\"agent/src/config.ts,gpt-5-mini\". ' +"
+          },
+          {
+            "file": "agent/src/cli.ts",
+            "line": 75,
+            "text": "model: result.model,"
+          },
+          {
+            "file": "agent/src/config.ts",
+            "line": 1,
+            "text": "export const MODEL_NAME = 'gpt-5-mini'"
+          },
+          {
+            "file": "agent/src/recorder.test.ts",
+            "line": 53,
+            "text": "model: 'a-model',"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 8,
+            "text": "model: string"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 22,
+            "text": "/** The last thing the model actually said, across however many steps it took. */"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 35,
+            "text": "* — a single model call cannot act, so no v1 run could finish a task — and it"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 82,
+            "text": "*   own input count. That is why the same run costs more before the model has"
+          },
+          {
+            "file": "agent/src/recorder.ts",
+            "line": 126,
+            "text": "model: input.model,"
+          },
+          {
+            "file": "agent/src/run.test.ts",
+            "line": 33,
+            "text": "it('reads the model when the last step asked for no tool', () => {"
+          },
+          {
+            "file": "agent/src/run.test.ts",
+            "line": 34,
+            "text": "expect(whatStopped([step('tool-calls'), step('stop')])).toBe('model')"
+          },
+          {
+            "file": "agent/src/run.test.ts",
+            "line": 37,
+            "text": "it.each(NOT_TOOL_CALLS)('treats %s as the model stopping', (reason) => {"
+          },
+          {
+            "file": "agent/src/run.test.ts",
+            "line": 38,
+            "text": "expect(whatStopped([step(reason)])).toBe('model')"
+          },
+          {
+            "file": "agent/src/run.test.ts",
+            "line": 48,
+            "text": "* the model. It is not a state `generateText` produces; the branch exists so"
+          },
+          {
+            "file": "agent/src/run.test.ts",
+            "line": 52,
+            "text": "expect(whatStopped([])).toBe('model')"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 2,
+            "text": "import { openai } from '@ai-sdk/openai'"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 3,
+            "text": "import { INSTRUCTIONS, MODEL_NAME } from './config.ts'"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 14,
+            "text": "/** Context the model was handed for this step. */"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 16,
+            "text": "/** That context plus what the model produced from it. */"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 23,
+            "text": "* `model` is the one that is meant to fire: a step came back asking for no"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 25,
+            "text": "* `step-cap` is the backstop firing instead, and it means the model was still"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 28,
+            "text": "export type StopReason = 'model' | 'step-cap'"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 31,
+            "text": "model: string"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 40,
+            "text": "* What ends a run is the model declining to call a tool: the SDK goes round"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 62,
+            "text": "return steps.at(-1)?.finishReason === 'tool-calls' ? 'step-cap' : 'model'"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 76,
+            "text": "* v3: call the model, run whatever tool it asked for, append the call and the"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 82,
+            "text": "* the second, so there was never a turn in which the model could act on what"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 89,
+            "text": "model: openai(MODEL_NAME),"
+          },
+          {
+            "file": "agent/src/run.ts",
+            "line": 113,
+            "text": "model: MODEL_NAME,"
+          },
+          {
+            "file": "agent/src/tools/descriptions.ts",
+            "line": 6,
+            "text": "* versions of the code. Everything else — model, instructions, task, the tools"
+          },
+          {
+            "file": "agent/src/tools/fs.ts",
+            "line": 68,
+            "text": "* cannot. The model chooses this string, so it is untrusted input: `..` and"
+          },
+          {
+            "file": "agent/src/tools/index.ts",
+            "line": 10,
+            "text": "* thing that tells the model which side of it a question is on."
+          },
+          {
+            "file": "DECISIONS.md",
+            "line": 79,
+            "text": "ESCALATE EARLY to a fresh implementer on a more capable model for round 3, rather than resuming the original for its third round as the default allows. Two consecutive rounds patched the measured symp"
+          },
+          {
+            "file": "DECISIONS.md",
+            "line": 91,
+            "text": "round 4 RESUMES the round-3 implementer instead of dispatching a fresh one as the rounds-4-5 rule prescribes. Two reasons: no model tier above opus is available here, so the capability-bump half of th"
+          },
+          {
+            "file": "DECISIONS.md",
+            "line": 211,
+            "text": "the two overclaiming sentences get fixed rather than defended. \"The model was not wrong\" sits three paragraphs after the post establishes that the model asserted an image that does not exist, and \"It "
+          },
+          {
+            "file": "DECISIONS.md",
+            "line": 223,
+            "text": "the implementer's re-pointing of the v1-not-an-agent tag from 33909f4 to d7b409d is UPHELD. agent/, tools/trace/ and player-state.ts are byte-identical between the two, so the design's contract - chec"
+          },
+          {
+            "file": "DECISIONS.md",
+            "line": 244,
+            "text": "the tool pair is `list_files` (paths, never contents) against `search_files` (a regex over file contents), and the question is \"Which file in this project sets the model name the agent uses, and what "
+          },
+          {
+            "file": "DECISIONS.md",
+            "line": 280,
+            "text": "the printed reproduction loop NO LONGER REPRODUCES THE SETUP, and it stays printed with the defect disclosed beside it. `index.mdx` states both graded facts, the tools walk the post directory from v2,"
+          }
+        ],
+        "truncated": true
+      }
+    },
+    {
+      "type": "assistant",
+      "content": "The model name is set in agent/src/config.ts — it exports MODEL_NAME = 'gpt-5-mini'."
+    }
+  ]
+}

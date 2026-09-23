@@ -15,7 +15,18 @@ const TRACE_DIR = 'traces'
  * of the corpus the next run searches.
  */
 const RUNS_FILE = join(TRACE_DIR, 'runs.tsv')
-const RUNS_HEADER = 'when\tdescriptions\ttools_called\toutcome\ttrace_id\ttask\n'
+
+/**
+ * v3 adds `steps` and `stopped_by`. Once the agent can go round again, how
+ * many times it went round and what made it stop are the two facts a row most
+ * needs to carry — a run that ran out of steps and a run that finished are
+ * otherwise indistinguishable in the tally.
+ *
+ * The header is written only when the file does not exist, so a runs file
+ * started under the v2 columns has to be moved aside rather than appended to.
+ */
+const RUNS_HEADER =
+  'when\tdescriptions\ttools_called\tsteps\tstopped_by\toutcome\ttrace_id\ttask\n'
 
 /**
  * Facts the final answer must contain for the run to count as having answered
@@ -46,7 +57,7 @@ function expectations(): string[] {
 async function main(): Promise<void> {
   const task = process.argv.slice(2).join(' ').trim()
   const traceId = process.env.TRACE_ID ?? 'run'
-  const commit = process.env.TRACE_COMMIT ?? 'v2-hands'
+  const commit = process.env.TRACE_COMMIT ?? 'v3-the-loop'
 
   if (task === '') {
     console.error('usage: npm start --workspace @nine-commits/agent -- "<task>"')
@@ -84,6 +95,8 @@ async function main(): Promise<void> {
       new Date().toISOString(),
       result.style,
       called === '' ? 'none' : called,
+      String(result.steps.length),
+      result.stoppedBy,
       outcome,
       traceId,
       task.replace(/\s+/g, ' '),
@@ -92,7 +105,8 @@ async function main(): Promise<void> {
   )
 
   console.error(
-    `\n[${result.style} descriptions — called ${called === '' ? 'no tool' : called} — ${outcome}]`,
+    `\n[${result.style} descriptions — called ${called === '' ? 'no tool' : called} — ` +
+      `${result.steps.length} steps, stopped by ${result.stoppedBy} — ${outcome}]`,
   )
   console.error(`[recorded ${out}, logged ${RUNS_FILE}]`)
 }
