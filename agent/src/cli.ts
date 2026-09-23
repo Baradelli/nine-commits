@@ -1,18 +1,46 @@
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { runOnce } from './run.ts'
 import { toRawTrace } from './recorder.ts'
 
+const TRACE_DIR = 'traces'
+
+/**
+ * One row per run, appended next to the traces.
+ *
+ * Post 2's table was typed out of a terminal by hand, which is a weaker
+ * artifact than the claim it supports deserved. A repeated experiment writes
+ * its own log from here on, and it lives in `agent/traces/` — gitignored, and
+ * outside what the agent's own tools can see, so a tally can never become part
+ * of the corpus the next run searches.
+ */
+const RUNS_FILE = join(TRACE_DIR, 'runs.tsv')
+const RUNS_HEADER = 'when\tdescriptions\ttools_called\toutcome\ttrace_id\ttask\n'
+
 /**
  * Facts the final answer must contain for the run to count as having answered
- * the question, given as `TRACE_EXPECT="a,b"`. The recorder refuses a run with
- * none, so a trace can never claim an outcome nobody checked.
+ * the question, given as `TRACE_EXPECT="a,b"`.
+ *
+ * Read and checked BEFORE the model is called. The recorder refuses to grade a
+ * run with no expectations, and discovering that after the request has been
+ * paid for throws away a real run for a typo.
  */
 function expectations(): string[] {
-  return (process.env.TRACE_EXPECT ?? '')
+  const facts = (process.env.TRACE_EXPECT ?? '')
     .split(',')
     .map((fact) => fact.trim())
     .filter((fact) => fact !== '')
+
+  if (facts.length === 0) {
+    console.error(
+      'TRACE_EXPECT is required: a comma-separated list of facts the answer ' +
+        'must contain, e.g. TRACE_EXPECT="agent/src/config.ts,gpt-5-mini". ' +
+        'A trace has to say whether the run worked.',
+    )
+    process.exit(1)
+  }
+
+  return facts
 }
 
 async function main(): Promise<void> {
@@ -25,6 +53,8 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
+  const expected = expectations()
+
   const result = await runOnce(task)
   console.log(result.steps.at(-1)?.text ?? '')
 
@@ -35,21 +65,36 @@ async function main(): Promise<void> {
     task,
     userMessage: task,
     steps: result.steps,
-    expected: expectations(),
+    expected,
   })
 
-  mkdirSync('traces', { recursive: true })
-  const out = join('traces', `${traceId}.json`)
+  mkdirSync(TRACE_DIR, { recursive: true })
+  const out = join(TRACE_DIR, `${traceId}.json`)
   writeFileSync(out, `${JSON.stringify(raw, null, 2)}\n`, 'utf8')
 
   const called = result.steps
     .flatMap((step) => step.toolCalls.map((call) => call.name))
     .join(', ')
+  const outcome = (raw as { outcome: string }).outcome
+
+  if (!existsSync(RUNS_FILE)) appendFileSync(RUNS_FILE, RUNS_HEADER, 'utf8')
+  appendFileSync(
+    RUNS_FILE,
+    [
+      new Date().toISOString(),
+      result.style,
+      called === '' ? 'none' : called,
+      outcome,
+      traceId,
+      task.replace(/\s+/g, ' '),
+    ].join('\t') + '\n',
+    'utf8',
+  )
 
   console.error(
-    `\n[${result.style} descriptions — called ${called === '' ? 'no tool' : called}]`,
+    `\n[${result.style} descriptions — called ${called === '' ? 'no tool' : called} — ${outcome}]`,
   )
-  console.error(`[recorded ${out}]`)
+  console.error(`[recorded ${out}, logged ${RUNS_FILE}]`)
 }
 
 main().catch((error: unknown) => {

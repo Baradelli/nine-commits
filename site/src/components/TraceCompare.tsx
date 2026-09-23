@@ -21,7 +21,21 @@ export type ComparedRun = {
   trace: Trace
 }
 
-export default function TraceCompare({ traces }: { traces: ComparedRun[] }) {
+export default function TraceCompare({
+  traces,
+  caption,
+}: {
+  traces: ComparedRun[]
+  /**
+   * What these recordings are, and are not, printed with the switch.
+   *
+   * A comparison invites a conclusion, and this block travels: a reader
+   * screenshots the player, or watches it and scrolls straight past. Whatever
+   * qualifies the comparison has to sit inside it rather than two screens
+   * below it.
+   */
+  caption?: string
+}) {
   const [selected, setSelected] = useState(0)
   const current = traces[selected] ?? traces[0]
   if (current === undefined) return null
@@ -48,6 +62,11 @@ export default function TraceCompare({ traces }: { traces: ComparedRun[] }) {
             </button>
           ))}
         </div>
+        {caption !== undefined && (
+          <p class="compare__caption" data-compare-caption>
+            {caption}
+          </p>
+        )}
       </div>
 
       <TracePlayer key={current.trace.id} trace={current.trace} />

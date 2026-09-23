@@ -14,6 +14,29 @@ test('the post renders with its cover', async ({ page }) => {
   await expect(page.locator('img.post__cover')).toBeVisible()
 })
 
+test('the comparison carries its own caveat, and the tally is downloadable', async ({
+  page,
+}) => {
+  await page.goto(`posts/${SLUG}/`)
+
+  // The caption has to live inside the compare block. This block travels —
+  // screenshotted or scrolled past — and on its own it shows the thesis
+  // reversed.
+  const caption = page.locator('[data-trace-compare] [data-compare-caption]')
+  await expect(caption).toBeVisible()
+  await expect(caption).toContainText('One run per side')
+
+  // And the table's claim is only checkable if the rows actually ship.
+  const link = page.getByRole('link', { name: 'runs.tsv' })
+  await expect(link).toBeVisible()
+  const rows = await page.request.get((await link.getAttribute('href')) ?? '')
+  expect(rows.ok()).toBe(true)
+  const dataRows = (await rows.text())
+    .split('\n')
+    .filter((line) => /^\d+\t/.test(line))
+  expect(dataRows).toHaveLength(42)
+})
+
 test('the compare switch changes which run is playing', async ({ page }) => {
   await page.goto(`posts/${SLUG}/`)
 

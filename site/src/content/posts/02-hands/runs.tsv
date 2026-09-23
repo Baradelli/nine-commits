@@ -1,0 +1,67 @@
+# Nine Commits, post 2 — every run behind the table in index.mdx.
+#
+# 42 runs of one question against gpt-5-mini at commit v2-hands:
+#   "Which file in this project sets the model name the agent uses, and what is it set to?"
+# The only variable is TOOL_DESCRIPTIONS. Everything else is held fixed.
+#
+# TRANSCRIBED BY HAND from each run's stderr line and the outcome the recorder
+# derived for it. It is a weaker artifact than a machine-written log — the rows
+# were read off a terminal by a person — and this file says so rather than
+# letting you find out. From v2 the CLI appends its own row to
+# agent/traces/runs.tsv, so the next post's tally is generated, not typed.
+#
+# Rows are in BOOKKEEPING ORDER, not run order. The two runs published as
+# traces are last, at rows 41 and 42; they were chronologically first. The
+# blocks above them are, in order: 5 precise, 5 thin, 15 precise, 15 thin.
+#
+# tools_called is what the model actually called, comma separated: one run
+# (row 23) called both in a single step, which prepareStep does not prevent
+# because it caps steps rather than calls within a step.
+#
+# outcome is derived by agent/src/recorder.ts against
+#   TRACE_EXPECT="agent/src/config.ts,gpt-5-mini"
+# success = the final answer carried both facts, partial = one, failure = none.
+
+row	descriptions	tools_called	outcome	note
+1	precise	search_files	failure	
+2	precise	list_files	partial	
+3	precise	list_files	partial	
+4	precise	search_files	success	
+5	precise	list_files	partial	
+6	thin	list_files	partial	
+7	thin	list_files	partial	
+8	thin	list_files	partial	
+9	thin	list_files	partial	
+10	thin	list_files	partial	
+11	precise	search_files	success	
+12	precise	search_files	failure	
+13	precise	search_files	failure	
+14	precise	search_files	partial	
+15	precise	search_files	failure	
+16	precise	search_files	failure	
+17	precise	list_files	partial	
+18	precise	list_files	partial	
+19	precise	list_files	partial	
+20	precise	search_files	success	
+21	precise	list_files	partial	
+22	precise	search_files	failure	
+23	precise	search_files, list_files	success	
+24	precise	list_files	partial	
+25	precise	search_files	failure	
+26	thin	list_files	partial	
+27	thin	list_files	partial	
+28	thin	list_files	partial	
+29	thin	list_files	partial	
+30	thin	list_files	partial	
+31	thin	list_files	partial	
+32	thin	list_files	partial	
+33	thin	list_files	partial	
+34	thin	list_files	partial	
+35	thin	list_files	partial	
+36	thin	search_files	failure	
+37	thin	list_files	partial	
+38	thin	list_files	partial	
+39	thin	list_files	partial	
+40	thin	list_files	partial	
+41	precise	list_files	partial	shipped trace-a-precise.json
+42	thin	search_files	failure	shipped trace-b-thin.json

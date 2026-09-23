@@ -12,6 +12,7 @@ import TraceCompare from '../../../components/TraceCompare.tsx'
 import TraceTranscript from '../../../components/TraceTranscript.astro'
 import precise from './trace-a-precise.json'
 import thin from './trace-b-thin.json'
+import runs from './runs.tsv?url&no-inline'
 
 The last commit ended with a model that could describe an action and never
 take one. This one gives it two hands: a tool that lists the files in this
@@ -83,10 +84,10 @@ The input schemas are identical across both runs and carry no descriptions of
 their own, because a parameter description is a description too and leaving
 one in would have leaked the precise wording into the thin run.
 
-There is still no loop. The agent gets two steps: one to choose an action, one
-to answer with whatever that action returned. Tools are switched off for the
-second step, so it cannot go round again. One shot — which is exactly what
-makes the choice worth a post.
+There is still no loop. The agent gets two steps: one to act, one to answer
+with whatever came back. Tools are switched off for the second step, so it
+cannot go round again. One shot — which is exactly what makes the choice worth
+a post.
 
 The question I asked sits in the overlap on purpose:
 
@@ -108,6 +109,7 @@ at the tag.
     { label: 'Precise descriptions', trace: precise },
     { label: 'Thin descriptions', trace: thin },
   ]}
+  caption="One run per side, recorded, not chosen. Both are the less likely outcome for their description — over 21 runs each, precise reached search_files 12 times and thin twice. The counts are below, and so is why these two are still the ones on the page."
   client:idle
 />
 <TraceTranscript trace={precise} label="Precise descriptions" />
@@ -119,8 +121,9 @@ backwards.
 The **precise** run called `list_files`. Its own description had told it, in
 plain English, that the tool *cannot tell you anything about what is written
 inside a file* — and the question asked what something is set to. It got 68
-paths back, named `agent/src/config.ts` as the likely file, and then said
-this:
+paths back — the project was 68 files that morning; the same call at the tag
+returns 75, because this post is in it — named `agent/src/config.ts` as the
+likely file, and then said this:
 
 > I can’t read the repository files from here right now.
 
@@ -168,6 +171,15 @@ same question, same model, nothing else changed:
 | Precise | 12 of 21 | 4 of 21 |
 | Thin | 2 of 21 | 0 of 21 |
 
+All forty-two rows are in the post directory as <a href={runs}><code>runs.tsv</code></a>,
+one line per run, so the table can be recounted rather than believed. Two
+things about that file. The rows were typed by hand out of a terminal, from
+each run's stderr line and the outcome the recorder derived for it — a weaker
+artifact than the claim it supports, which is why the agent now appends its own
+row and the next tally will be generated instead. And they are in bookkeeping
+order rather than chronological: the two published traces are rows 41 and 42,
+and they were the first two runs.
+
 Nineteen of the twenty-one thin runs opened `list_files`, the tool that
 structurally cannot answer the second half of the question. Not one thin run
 finished. Four precise runs did.
@@ -195,6 +207,32 @@ for i in $(seq 1 21); do
     "Which file in this project sets the model name the agent uses, and what is it set to?"
 done
 ```
+
+And here is the thing that loop no longer does, which I am going to leave
+exactly where it is.
+
+It does not reproduce the setup any more. The agent's tools walk this
+repository, this page is in this repository, and this page states both of the
+facts the runs were graded on. Run the loop at the tag today and
+`search_files("model_name")` comes back with five matches where the recorded
+run got zero — three of them out of this post's own files. The corpus now
+contains the answer key, because I wrote the answer key into it by explaining
+the experiment.
+
+That is the same failure as the traces directory, one level up and permanent.
+I could make it go away in one line by adding the post directory to the tools'
+skip list, and I am not going to, because changing the instrument after seeing
+the result is the one move this post is not allowed to make. It goes in the
+open instead: from this commit onward every published post is part of what the
+agent can read, and any experiment run against this repository has to account
+for a repository that is now partly *about* the experiment.
+
+While I am confessing: the answer key was already in the corpus when I recorded
+the pair. `docs/superpowers/plans/` carries the plan this project was built
+from, and that document names both `agent/src/config.ts` and `gpt-5-mini`. It
+sat there identically for all forty-two runs, so it cannot have moved the
+comparison one way or the other — but a post making a point of corpus hygiene
+should say what was in the corpus.
 
 The second thing that broke was smaller and more embarrassing. The agent's
 tools read this repository, and the agent writes its traces into this
@@ -267,10 +305,15 @@ than this.
 
 The agent can act now. It still cannot try again.
 
-Every run in that table stopped after one action. Twenty-eight of the
-forty-two opened `list_files`, and every single one of them came back partial:
-one of the two facts, never both. The tool hands you paths. The question
-wanted a value. What was needed was one more call, in a tool the model was
-already holding, and there was nowhere for that call to go.
+Forty-one of the forty-two runs made a single call and stopped. Twenty-eight
+of them opened `list_files`, and every single one came back partial: one of the
+two facts, never both. The tool hands you paths. The question wanted a value.
+What was needed was one more call, in a tool the model was already holding, and
+there was nowhere for that call to go.
+
+The forty-second run is the interesting exception. It called both tools at
+once, in the same step, and it is one of the four that finished — because
+`prepareStep` caps steps, not calls within a step. Asking for two things in
+one breath is not the loop. It is the shape of the thing that is missing.
 
 The next commit is the loop.

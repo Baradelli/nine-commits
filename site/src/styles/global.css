@@ -735,6 +735,20 @@ pre {
   color: var(--ink);
 }
 
+/*
+ * What the two recordings are, set like the player's own note because it
+ * qualifies them the same way that one does. It sits inside the block rather
+ * than in the prose below, because this block gets screenshotted and a
+ * comparison with nothing beside it invites a conclusion it cannot carry.
+ */
+.compare__caption {
+  margin-block-start: var(--space-xs);
+  font-size: var(--text-s);
+  color: var(--ink-3);
+  max-width: 52ch;
+  text-wrap: pretty;
+}
+
 /* The budget measure is a different instrument from the reading measure:
    heavier, and on a track you can actually see. */
 .player > .rail {

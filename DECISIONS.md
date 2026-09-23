@@ -270,3 +270,19 @@ RAN THE EXPERIMENT 21 TIMES PER SIDE rather than the two the plan called for, an
 ## 64. Site
 
 `make-covers` looked for `trace.json` by name and would have rendered post 2's card with an empty rule across the bottom, because a compare post carries `trace-a-*.json` and `trace-b-*.json`. It now takes the first file matching the same `TRACE_FILE` pattern the leak gate walks, in the same sorted order. Two tools that disagree about what a trace file is called is how a post ships a card built from nothing. Cost if wrong: the card quotes whichever trace sorts first, which is stated in the code.
+
+## 65. Fix round 1
+
+the 42-run tally SHIPS as `site/src/content/posts/02-hands/runs.tsv`, linked from the table. The post's strongest claim was 12 of 21 against 2 of 21 while the only committed artifacts were the two runs that show the opposite - the checkable thing showed the reversal and the unfalsifiable prose showed the rule, on a site whose entire premise is that claims are checkable. Deliberately NOT named `trace*.json`, so it stays out of the leak gate, which has nothing to contribute to a tally. Emitted with `?url&no-inline` because Vite inlines a 2KB asset as a base64 data URI by default, and a data URI is not a URL a reader can cite. The file says in its own header that its rows were typed by hand, and `cli.ts` now appends a machine-written row to `agent/traces/runs.tsv` so the next post's tally is generated rather than transcribed. Cost if wrong: 2KB in the post directory.
+
+## 66. Fix round 1
+
+the printed reproduction loop NO LONGER REPRODUCES THE SETUP, and it stays printed with the defect disclosed beside it. `index.mdx` states both graded facts, the tools walk the post directory from v2, and `search_files('model_name')` now returns 5 matches where the recorded run got 0 - three from this post's own files. Same failure class as the discarded pair, except permanent and sitting inside the instructions. The one-line fix - add the post directory to the skip set - was REJECTED: changing the instrument after seeing the result is the one move this post may not make, and the fix would also be invisible to a reader who only has the tag. Disclosed in the post instead, along with the fact that `docs/superpowers/plans/` already carried both facts for all 42 runs. Cost if wrong: a reader who runs the loop gets different numbers, which the post already told them to expect.
+
+## 67. Fix round 1
+
+`TraceCompare` gains a caption rendered inside the compare block. The widget travels - screenshotted, or watched and scrolled past - and on its own it shows the thesis reversed with the qualifying table two screens below. Sixteen words of caveat next to the thing that needs it beats a correct paragraph nobody reaches. The player is untouched and `player-state.ts` stays frozen. Cost if wrong: one line of ink under the switch.
+
+## 68. Fix round 1
+
+"Every run in that table stopped after one action" was WRONG and is corrected to 41 of 42. One precise run called both tools in a single step, because `prepareStep` caps steps rather than calls within a step, and it is one of only four runs that finished. The exception is now written into the closing section rather than papered over - it is the shape of the loop arriving early. Also named both states of the file count, the way post 1 was forced to: 68 paths at record time, 75 at the tag, because this post is now in the project it counts.
