@@ -34,6 +34,23 @@ const search = z.object({
   truncated: z.boolean().optional(),
 })
 
+/** v6's `read_file`: the whole file, printed the way a search match is printed. */
+const read = z.object({
+  ok: z.literal(true),
+  file: z.string(),
+  lines: z.number().optional(),
+  truncated: z.boolean().optional(),
+  content: z.string(),
+})
+
+/** v6's `write_file`, `edit_file` and `append_file`. */
+const mutation = z.object({
+  ok: z.literal(true),
+  file: z.string(),
+  bytes: z.number(),
+  created: z.boolean(),
+})
+
 const refusal = z.object({ ok: z.literal(false), error: z.string().optional() })
 
 function renderResult(index: number, ok: boolean, result: unknown): string {
@@ -66,12 +83,32 @@ function renderResult(index: number, ok: boolean, result: unknown): string {
     return [head, ...files.map((file) => `    ${file}`)].join('\n')
   }
 
+  const asRead = read.safeParse(result)
+  if (asRead.success) {
+    const { file, lines, truncated, content } = asRead.data
+    const head =
+      `  read ${file} — ${lines ?? content.split('\n').length} line(s)` +
+      `${truncated === true ? ', cut off at the limit' : ''}`
+    const body = content
+      .split(/\r\n|\r|\n/)
+      .map((text, line) => `    ${file}:${line + 1}  ${text}`)
+    return [head, ...body].join('\n')
+  }
+
+  const asMutation = mutation.safeParse(result)
+  if (asMutation.success) {
+    const { file, bytes, created } = asMutation.data
+    return `  ${created ? 'created' : 'wrote'} ${file} — ${bytes} byte(s) afterwards`
+  }
+
   // The same rule `observationsOf` applies, for the same reason. A result
   // shape this file does not understand would be rendered as nothing, the
   // judge would be handed a run that appears to have read the project and
   // found it empty, and every verdict would come back `unevidenced` from a
   // harness that had stopped reading. Post 6 changes the tool set; this is the
-  // line that will notice.
+  // line that will notice, and at v6 it did: the first trace containing a
+  // `read_file` result raised here, and the two shapes above are what it
+  // caught missing.
   throw new UnrenderableFrame(
     `frame ${index}: a tool result shape this renderer does not understand`,
   )

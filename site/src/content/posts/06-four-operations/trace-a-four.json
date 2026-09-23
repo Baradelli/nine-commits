@@ -1,0 +1,96 @@
+{
+  "id": "four-add-setting-1",
+  "commit": "v6-four-operations",
+  "model": "gpt-5-mini",
+  "task": "Add a maxBatch setting of 250 to this project’s settings.",
+  "outcome": "success",
+  "tokens": [
+    397,
+    446,
+    506,
+    537,
+    613,
+    796,
+    823,
+    863
+  ],
+  "frames": [
+    {
+      "type": "user",
+      "content": "Add a maxBatch setting of 250 to this project’s settings."
+    },
+    {
+      "type": "tool_call",
+      "id": "call_l7viENnsTEZwyJsDBaWr2MU0",
+      "name": "list_files",
+      "args": {
+        "directory": "."
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_l7viENnsTEZwyJsDBaWr2MU0",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "directory": ".",
+        "files": [
+          "README.md",
+          "config/settings.json",
+          "docs/CHANGELOG.md",
+          "notes/todo.md",
+          "package.json",
+          "src/dispatch.ts",
+          "src/queue.ts",
+          "src/server.ts"
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_k7ocCw9niNqPdPyU21yApnwj",
+      "name": "read_file",
+      "args": {
+        "path": "config/settings.json"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_k7ocCw9niNqPdPyU21yApnwj",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "file": "config/settings.json",
+        "lines": 7,
+        "truncated": false,
+        "content": "{\n  \"region\": \"eu-west-2\",\n  \"timeoutMs\": 4500,\n  \"retries\": 3,\n  \"queueName\": \"parcel-inbound\"\n}\n"
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_XXgFJd9KSLVYfpJxUkZkaay5",
+      "name": "edit_file",
+      "args": {
+        "path": "config/settings.json",
+        "old_text": "{\n  \"region\": \"eu-west-2\",\n  \"timeoutMs\": 4500,\n  \"retries\": 3,\n  \"queueName\": \"parcel-inbound\"\n}\n",
+        "new_text": "{\n  \"region\": \"eu-west-2\",\n  \"timeoutMs\": 4500,\n  \"retries\": 3,\n  \"queueName\": \"parcel-inbound\",\n  \"maxBatch\": 250\n}\n"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_XXgFJd9KSLVYfpJxUkZkaay5",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "file": "config/settings.json",
+        "bytes": 117,
+        "created": false
+      }
+    },
+    {
+      "type": "assistant",
+      "content": "Updated config/settings.json — added \"maxBatch\": 250."
+    }
+  ]
+}

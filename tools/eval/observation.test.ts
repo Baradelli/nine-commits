@@ -120,6 +120,67 @@ describe('observationsOf', () => {
   })
 })
 
+describe('observationsOf, on the tools v6 added', () => {
+  it('reads a file read as one line observation per line, numbered from one', () => {
+    const trace = traceOf([
+      { type: 'user', content: 'q' },
+      { type: 'tool_call', id: '1', name: 'read_file', args: { path: 'a.json' } },
+      {
+        type: 'tool_result',
+        id: '1',
+        ok: true,
+        result: {
+          ok: true,
+          file: 'a.json',
+          lines: 2,
+          truncated: false,
+          content: ['{', '  "timeoutMs": 4500', '}'].join('\n'),
+        },
+      },
+    ])
+
+    expect(observationsOf(trace)).toEqual([
+      { frame: 2, tool: 'read_file', kind: 'line', file: 'a.json', line: 1, text: '{' },
+      {
+        frame: 2,
+        tool: 'read_file',
+        kind: 'line',
+        file: 'a.json',
+        line: 2,
+        text: '  "timeoutMs": 4500',
+      },
+      { frame: 2, tool: 'read_file', kind: 'line', file: 'a.json', line: 3, text: '}' },
+    ])
+  })
+
+  it('reads a write as an event, not as something the model was shown', () => {
+    const trace = traceOf([
+      { type: 'user', content: 'q' },
+      { type: 'tool_call', id: '1', name: 'write_file', args: { path: 'a.md' } },
+      {
+        type: 'tool_result',
+        id: '1',
+        ok: true,
+        result: { ok: true, file: 'a.md', bytes: 12, created: true },
+      },
+    ])
+
+    // Zero observations, and it matters that this is a recognised zero: the
+    // line below is what tells the two kinds of zero apart.
+    expect(observationsOf(trace)).toEqual([])
+  })
+
+  it('still raises on a result shape nobody taught it about', () => {
+    const trace = traceOf([
+      { type: 'user', content: 'q' },
+      { type: 'tool_call', id: '1', name: 'rename_file', args: {} },
+      { type: 'tool_result', id: '1', ok: true, result: { ok: true, from: 'a', to: 'b' } },
+    ])
+
+    expect(() => observationsOf(trace)).toThrow(UnreadableResult)
+  })
+})
+
 describe('toolPath', () => {
   it('is the calls in order, which is the decision with the prose removed', () => {
     const trace = traceOf([

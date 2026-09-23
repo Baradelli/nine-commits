@@ -151,3 +151,57 @@ describe('the question put to a judge', () => {
     )
   })
 })
+
+describe('the trace a judge is shown, on the tools v6 added', () => {
+  const wrote = trace([
+    { type: 'user', content: 'change the timeout' },
+    { type: 'tool_call', id: 'r1', name: 'read_file', args: { path: 'config.json' } },
+    {
+      type: 'tool_result',
+      id: 'r1',
+      ok: true,
+      result: {
+        ok: true,
+        file: 'config.json',
+        lines: 3,
+        truncated: false,
+        content: ['{', '  "timeoutMs": 4500', '}'].join('\n'),
+      },
+    },
+    {
+      type: 'tool_call',
+      id: 'w1',
+      name: 'edit_file',
+      args: { path: 'config.json', old_text: '4500', new_text: '9000' },
+    },
+    {
+      type: 'tool_result',
+      id: 'w1',
+      ok: true,
+      result: { ok: true, file: 'config.json', bytes: 27, created: false },
+    },
+    { type: 'assistant', content: 'Done.' },
+  ])
+
+  it('prints a read line by line, with the file and line number on each', () => {
+    const rendered = renderTrace(wrote)
+    expect(rendered).toContain('read config.json — 3 line(s)')
+    expect(rendered).toContain('config.json:2    "timeoutMs": 4500')
+  })
+
+  it('prints a write as the event it is, not as silence', () => {
+    // Silence is the failure this renderer exists to avoid: a judge shown
+    // nothing for a write would grade a run that changed a file as a run that
+    // did not.
+    expect(renderTrace(wrote)).toContain('wrote config.json — 27 byte(s) afterwards')
+  })
+
+  it('still refuses a result shape nobody taught it about', () => {
+    const renamed = trace([
+      { type: 'user', content: 'rename it' },
+      { type: 'tool_call', id: 'x', name: 'rename_file', args: {} },
+      { type: 'tool_result', id: 'x', ok: true, result: { ok: true, from: 'a', to: 'b' } },
+    ])
+    expect(() => renderTrace(renamed)).toThrow(UnrenderableFrame)
+  })
+})

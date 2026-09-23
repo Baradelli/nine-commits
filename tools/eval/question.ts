@@ -101,3 +101,30 @@ export const FILE_COUNT_QUESTION: Question = {
     'Count how many TypeScript files are in this project and tell me the number.',
   facts: [],
 }
+
+/**
+ * The task the two runs published with post 6 were given.
+ *
+ * The first question in this series whose corpus is not this repository. The
+ * agent at v6 can write, so it may not have the checkout under it; it works in
+ * a copy of a small invented project instead, and that copy states each graded
+ * value in exactly one file. The contamination posts 2, 3, 4 and 5 all paid
+ * for is simply absent here, and it is absent because of a safety rule rather
+ * than because anybody solved it.
+ *
+ * `tell` is `maxBatch`, which is the thing the run was asked to put there. So
+ * provenance reads slightly differently on a task that writes: the ground
+ * truth is not a line the run had to find, it is a line the run had to create,
+ * and a `grounded` verdict means the run observed the state it claims to have
+ * produced rather than asserting it.
+ */
+export const ADD_SETTING_QUESTION: Question = {
+  id: 'add-setting',
+  prompt: 'Add a maxBatch setting of 250 to this project\u2019s settings.',
+  facts: [
+    { id: 'file', text: 'config/settings.json' },
+    { id: 'value', text: '250' },
+  ],
+  truthFile: 'config/settings.json',
+  tell: 'maxBatch',
+}

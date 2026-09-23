@@ -37,9 +37,10 @@ describe('listFiles', () => {
   })
 
   it('refuses to climb out of the project', () => {
+    // v6 moved this check into `sandbox.ts`, so the wording is the guard's.
     expect(listFiles('../..')).toEqual({
       ok: false,
-      error: '"../.." is outside the project.',
+      error: 'refused "../..": resolves outside the sandbox',
     })
   })
 

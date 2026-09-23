@@ -18,7 +18,9 @@
     "record": "tsx tools/record-trace.ts",
     "covers": "tsx tools/make-covers.ts",
     "e2e": "playwright test",
-    "judge": "tsx --env-file=agent/.env tools/run-judge.ts"
+    "judge": "tsx --env-file=agent/.env tools/run-judge.ts",
+    "roster": "tsx --env-file=agent/.env tools/run-roster.ts",
+    "roster:tally": "tsx tools/roster/report.ts"
   },
   "devDependencies": {
     "@ai-sdk/openai": "^4.0.69",

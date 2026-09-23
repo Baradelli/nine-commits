@@ -3,6 +3,9 @@ import { openai } from '@ai-sdk/openai'
 import { INSTRUCTIONS, MODEL_NAME } from './config.ts'
 import { buildTools } from './tools/index.ts'
 import { resolveStyle, type DescriptionStyle } from './tools/descriptions.ts'
+import { resolveRoster, ROSTERS, type Roster } from './tools/roster.ts'
+import { PROJECT_ROOT } from './tools/fs.ts'
+import type { SandboxEscape } from './tools/sandbox.ts'
 
 export type ToolCallRecord = { id: string; name: string; args: unknown }
 export type ToolResultRecord = { id: string; ok: boolean; result: unknown }
@@ -30,8 +33,33 @@ export type StopReason = 'model' | 'step-cap'
 export type RunResult = {
   model: string
   style: DescriptionStyle
+  roster: Roster
+  /** The tool names the model was actually handed, in order. */
+  tools: string[]
   steps: RunStep[]
   stoppedBy: StopReason
+  /**
+   * Every path the sandbox guard refused during this run.
+   *
+   * It is on the result rather than only on the terminal because a refusal is
+   * a fact about the run: a condition that produces them is a condition where
+   * the model tried to leave the directory it was given, and a tally that
+   * cannot show that is a tally reporting a safety property it never measured.
+   */
+  escapes: string[]
+}
+
+/**
+ * Everything the experiment varies, in one place.
+ *
+ * Each field falls back to the environment, so the CLI keeps working exactly
+ * as it did at v3 and the roster harness can drive many runs in one process
+ * without setting and unsetting variables around each of them.
+ */
+export type RunOptions = {
+  root?: string
+  roster?: Roster
+  style?: DescriptionStyle
 }
 
 /**
@@ -87,14 +115,32 @@ function succeeded(output: unknown): boolean {
  * the second, so there was never a turn in which the model could act on what
  * it had just read. Deleting those two lines is the whole of the loop.
  */
-export async function runOnce(task: string): Promise<RunResult> {
-  const style = resolveStyle()
+export async function runOnce(
+  task: string,
+  options: RunOptions = {},
+): Promise<RunResult> {
+  const style = options.style ?? resolveStyle()
+  const roster = options.roster ?? resolveRoster()
+  const root = options.root ?? PROJECT_ROOT
+
+  const escapes: SandboxEscape[] = []
 
   const result = await generateText({
     model: openai(MODEL_NAME),
     instructions: INSTRUCTIONS,
     prompt: task,
-    tools: buildTools(style),
+    tools: buildTools({
+      root,
+      roster,
+      style,
+      onEscape: (error) => {
+        escapes.push(error)
+        // Loud, and on the terminal rather than only in the trace: a blocked
+        // path is the one event in this run that is about the program's
+        // safety rather than about the model's answer.
+        console.error(`[sandbox] ${error.message}`)
+      },
+    }),
     stopWhen: stepCountIs(MAX_STEPS),
   })
 
@@ -117,7 +163,10 @@ export async function runOnce(task: string): Promise<RunResult> {
   return {
     model: MODEL_NAME,
     style,
+    roster,
+    tools: [...ROSTERS[roster]],
     steps,
     stoppedBy: whatStopped(result.steps),
+    escapes: escapes.map((error) => error.attempted),
   }
 }

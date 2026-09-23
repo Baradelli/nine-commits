@@ -62,8 +62,16 @@ export const PLANNED: readonly PlannedPost[] = [
     order: 6,
     tag: 'v6-four-operations',
     title: 'Four Operations',
+    // The plan's thesis was "four filesystem primitives are enough to do real
+    // work, and adding a fifth makes the agent worse". The first half held:
+    // fifty runs with four tools finished fifty tasks. The second half did not
+    // survive a hundred runs with five — same completion, no misuse of the
+    // extra tool, and on the one task the fifth existed for it was chosen ten
+    // times out of ten. What the fifth did cost was its own definition, in
+    // every request. The index is a claim the commits have to earn, so the
+    // claim changed rather than the tasks. Post 6 shows the tally.
     thesis:
-      'List, read, write, edit. Four filesystem primitives are enough to do real work, and adding a fifth makes the agent worse.',
+      'List, read, write, edit. Four filesystem primitives finished every task, fifty of fifty. So did a fifth — it cost eighty-eight tokens in every request and changed nothing else.',
   },
   {
     order: 7,

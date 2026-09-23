@@ -57,7 +57,11 @@ function expectations(): string[] {
 async function main(): Promise<void> {
   const task = process.argv.slice(2).join(' ').trim()
   const traceId = process.env.TRACE_ID ?? 'run'
-  const commit = process.env.TRACE_COMMIT ?? 'v3-the-loop'
+  const commit = process.env.TRACE_COMMIT ?? 'v6-four-operations'
+  // A root other than the repository is how a single run is pointed at a
+  // scratch directory. Write tools refuse any root that is not scratch space,
+  // so this cannot be used to aim the agent at something that matters.
+  const root = process.env.AGENT_ROOT
 
   if (task === '') {
     console.error('usage: npm start --workspace @nine-commits/agent -- "<task>"')
@@ -66,7 +70,7 @@ async function main(): Promise<void> {
 
   const expected = expectations()
 
-  const result = await runOnce(task)
+  const result = await runOnce(task, root === undefined ? {} : { root })
   console.log(result.steps.at(-1)?.text ?? '')
 
   const raw = toRawTrace({
@@ -93,6 +97,7 @@ async function main(): Promise<void> {
     RUNS_FILE,
     [
       new Date().toISOString(),
+      result.roster,
       result.style,
       called === '' ? 'none' : called,
       String(result.steps.length),

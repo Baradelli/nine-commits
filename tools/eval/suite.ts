@@ -4,6 +4,7 @@ import { POSTS_DIR } from '../paths.ts'
 import { parseTrace } from '../trace/schema.ts'
 import { grade, type Grade, type Provenance, type AnswerGrade } from './grade.ts'
 import {
+  ADD_SETTING_QUESTION,
   BINARY_QUESTION,
   FILE_COUNT_QUESTION,
   MODEL_NAME_QUESTION,
@@ -105,6 +106,20 @@ export const CASES: readonly Case[] = [
     question: BINARY_QUESTION,
     expect: { answer: 'success', provenance: 'undecidable', unread: [] },
     note: "the same question again, after publishing put post 4's own answer into the corpus",
+  },
+  {
+    post: '06-four-operations',
+    file: 'trace-a-four.json',
+    question: ADD_SETTING_QUESTION,
+    expect: { answer: 'success', provenance: 'unevidenced', unread: ['value'] },
+    note: 'four tools: read, edit, done — it never looked at what it had written',
+  },
+  {
+    post: '06-four-operations',
+    file: 'trace-b-five.json',
+    question: ADD_SETTING_QUESTION,
+    expect: { answer: 'success', provenance: 'grounded', unread: [] },
+    note: 'the same decisions with a fifth tool in hand, plus one read that checked the result',
   },
 ]
 

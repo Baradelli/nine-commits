@@ -1,0 +1,522 @@
+---
+order: 6
+title: Four Operations
+thesis: "List, read, write, edit. Four filesystem primitives finished every task, fifty of fifty. So did a fifth — it cost eighty-eight tokens in every request and changed nothing else."
+pubDate: 2026-09-23
+commit: v6-four-operations
+cover: ./cover.png
+coverAlt: "Title card for commit 06 of Nine Commits, Four Operations, with the opening line of a recorded run printed beneath it"
+---
+
+import TraceCompare from '../../../components/TraceCompare.tsx'
+import TraceTranscript from '../../../components/TraceTranscript.astro'
+import four from './trace-a-four.json'
+import five from './trace-b-five.json'
+import runs from './runs.tsv?url&no-inline'
+
+The thesis printed at the top of this page is not the one that was on the
+index when I started. That one said four primitives are enough **and adding a
+fifth makes the agent worse**. The second half is gone, because a hundred and
+fifty runs did not support it, and the rule in this series is that the index
+is a claim the commits have to earn.
+
+What is left is the half that held, and one number that survived the other
+half's funeral.
+
+But first: until this commit the agent could only read. A bad run cost a wrong
+answer. This commit gives it a write, in a public repository with five
+published posts in it, and that is the part I want to talk about before any
+of the measuring.
+
+## The thing that had to be right before anything else
+
+The agent's tools have resolved paths against a project root since v2. Here is
+what that check was:
+
+```ts
+const rel = relative(PROJECT_ROOT, target)
+if (rel.startsWith('..') || isAbsolute(rel)) return { error: '...' }
+```
+
+It is fine for a read and it is not enough for a write, in two ways I could
+name and at least one I could not.
+
+It is a **lexical** check. `..` and absolute paths are the traversals that are
+written down in the path. A symlink is a traversal that is not: `sandbox/out`
+can be a junction to anywhere on the disk, and every string reaching through it
+is, lexically, inside the sandbox. And `rel.startsWith('..')` is a string
+prefix test, which also rejects a file called `..gitkeep` and — the direction
+that matters — would accept `/a/bc` as being inside `/a/b` if the comparison
+ran the other way.
+
+So the guard moved into its own file, and every path the model writes goes
+through one function:
+
+```ts
+export function resolveInside(root: string, candidate: unknown): string {
+  // ... rejects a NUL byte and anything that is not a string
+  const target = resolve(root, path)
+  if (!contains(root, target)) {
+    throw new SandboxEscape(candidate, 'resolves outside the sandbox')
+  }
+  const real = realpathSync(deepestExisting(target))
+  if (!contains(realpathSync(root), real)) {
+    throw new SandboxEscape(candidate, 'follows a link out of the sandbox')
+  }
+  return target
+}
+```
+
+`deepestExisting` is the part I would get wrong if I wrote it quickly.
+`realpathSync` throws on a path that does not exist, and a write tool is
+mostly asked for paths that do not exist yet, so the link check has to run
+against the nearest ancestor that is really there. Without it,
+`sandbox/link-to-elsewhere/brand-new.txt` passes every check and then creates a
+file somewhere else.
+
+It throws, and nothing that calls it can get a path out of it any other way.
+`sandbox.test.ts` asserts the throw for `..`, for a path whose every segment is
+inside the sandbox until the last two normalise it out, for an absolute path,
+for a junction pointing at another directory — including for a file under that
+junction that does not exist yet — and, on Windows, for a UNC path, an
+extended-length path and the drive-relative `C:foo.txt`, which is the one form
+that looks absolute and is not.
+
+### Where the agent is allowed to write, and it is not a setting
+
+A guard that confines writes to a root is only as good as the root. So the root
+is checked too, and the rule has no switch:
+
+```ts
+export function assertWritableRoot(root: string): void {
+  if (contains(realpathSync(REPO_ROOT), real)) throw new UnsafeRoot(...)
+  if (!contains(realpathSync(tmpdir()), real)) throw new UnsafeRoot(...)
+}
+```
+
+The agent may write inside the operating system's temporary directory and
+nowhere else. Not "outside the repository", which would already protect the
+thing at risk and would also permit a typo pointing at a home directory. There
+is no environment variable that relaxes it, because the failure I am defending
+against is a mistake in a prompt, a task file or a shell loop, and every one of
+those can set an environment variable.
+
+It is enforced where the tools are built, which means the strongest thing I can
+say about it is a unit test rather than a promise:
+
+```ts
+expect(() => buildTools({ roster: 'four' })).toThrow(UnsafeRoot)
+expect(() => buildTools({ root: PROJECT_ROOT, roster: 'five-append' })).toThrow(UnsafeRoot)
+```
+
+There is no argument to `buildTools` that returns a write tool pointed at this
+checkout. The read-only pair from commits 2 to 5 still builds against the
+repository, and asking that object for `writeFile` raises rather than
+returning a refusal, because a read-only root should not have a write tool to
+call at all.
+
+One decision inside that I would defend and you might not. `resolveInside`
+throws; the tool layer catches it, hands the model `{ ok: false }`, prints
+`[sandbox] refused "…"` to the terminal and counts it on the run. A throw that
+escapes `execute` would kill the run instead, and a killed run is a run missing
+from the tally — which is an exclusion, and this series does not have a
+mechanism for those. The block is absolute either way. What is negotiable is
+whether the experiment gets to see it, and I think it has to.
+
+### What the agent can no longer see
+
+The corpus stopped being this repository, and that is a consequence of the
+safety rule rather than a solution to anything. The agent works in a copy of a
+small invented project — eight files, a config, a changelog, a server — made
+fresh in scratch space for every run and deleted afterwards.
+
+Which quietly fixes the thing posts 2, 3, 4 and 5 each paid for. In that
+workspace the timeout is `4500` in exactly one file and the port is `8137` in
+exactly one file; there is no README paraphrasing them, no post about them, no
+plan document naming them. `tasks.test.ts` asserts that each graded value
+appears in exactly one file, so if that ever stops being true the suite says
+so.
+
+I did not earn this. It arrived because the agent is not allowed near the
+repository any more.
+
+## The experiment
+
+Four tools: `list_files`, `read_file`, `write_file`, `edit_file`. `read_file`
+returns bytes verbatim — untrimmed, unnumbered — because `edit_file` matches
+the text it is given against the bytes on disk, and a read whose output cannot
+be pasted into an edit quietly makes the edit tool unusable. `edit_file`
+replaces exactly one occurrence and refuses zero or two: zero means the model
+is editing a file it has not read, two means it does not know which line it is
+changing, and picking the first would be the tool deciding that for it.
+
+Then a fifth, and the word doing the work is *plausible*.
+
+I picked **`append_file`**, and the reason is that it adds no capability at
+all. Everything it does, `write_file` and `edit_file` can already do. That is
+the claim under test: not *do five capabilities beat four*, which is a
+different and much less interesting question, but *does a redundant fifth
+degrade the choice among the four*. A fifth that can do something the four
+cannot is not a test of "four are enough".
+
+It is also a tool people ship. Appending a line to a changelog through a read,
+a string concatenation and a whole-file write is worse code than appending it,
+and the failure mode of the long way round is that you rewrite a file from
+memory of it. And it is built to win rather than to lose: it creates the file
+if it is missing and inserts the newline the caller forgot, so appending to a
+file that does not end in one produces a new last line instead of a corrupted
+one. Its description is written to post 2's precise standard, same as the other
+four, and `descriptions.test.ts` asserts it is not materially shorter than the
+shortest of them and that it says what it cannot do. A fifth tool described worse than its neighbours
+would be measuring post 2's variable and calling the result this post's.
+
+There is a second five-tool condition, `five-search`, which adds back the
+`search_files` this agent carried from commit 2 to commit 5. That one *does*
+add a capability, so it answers a different question, and it is reported
+separately rather than folded in. It is here because one choice of fifth tool
+would have made the result a fact about that choice.
+
+### Five tasks, and why those
+
+Ground truth had to be checkable by code, and post 4 is the reason: a task
+whose success you can only judge by reading prose is a task this series has
+already shown you cannot grade. So four of the five are graded on the
+filesystem — the tree before, the tree after, and nothing else.
+
+| task | what it exercises | how it is graded |
+| --- | --- | --- |
+| `find-timeout` | read | the answer names the file and the value |
+| `write-note` | write | `notes/ports.md` exists, carries the port and the source file, and nothing else changed |
+| `edit-timeout` | edit in place | the JSON still parses, `timeoutMs` is 9000, **every other key is byte-identical**, nothing else changed |
+| `append-changelog` | addition at the end | the old changelog is an exact prefix of the new one, the added text carries the value |
+| `add-setting` | genuinely ambiguous | the JSON still parses, `maxBatch` is 250, every other key survives |
+
+The unchanged-keys clause is what makes an edit task an edit task. An agent
+that rewrites a file it half-remembers and an agent that changes one value in
+it produce the same `timeoutMs`, and differ only in the bytes they did not
+touch.
+
+`append-changelog` is in the set on purpose, and it is the task `append_file`
+is the right answer for. A question set with no task the extra tool is good at
+would make *the fifth makes it worse* true by construction. `add-setting` is
+the other side of the same coin: "add a setting" reads like an addition, and at
+the end of a JSON object an addition is a syntax error. Neither is a trap
+invented for this post — both are ordinary things to ask.
+
+**Ten runs per cell, three conditions, five tasks, one hundred and fifty
+runs.** The number was fixed in `tools/run-roster.ts` before the first call was
+made. Post 2's phrase is that one run per condition is a coin flipped once, and
+five tasks by two rosters is ten coins. The conditions are interleaved — every
+task under every roster runs once before any of them runs twice — so a provider
+drifting over an hour drifts across all three rather than into one. Nothing is
+retried; a run that throws is written down as a run that threw.
+
+### It goes red
+
+A grader that cannot fail is not a grader, and this one returned `pass` a
+hundred and fifty times, which is exactly the shape of one that cannot.
+
+So `tasks.test.ts` is mostly failures. Each task's checker is handed the end
+state a plausible bad run would leave behind and asserted to say no: a
+`config/settings.json` rewritten with only `timeoutMs` in it — the whole-file
+write that loses everything else — fails on the keys it dropped. The same file
+with `"maxBatch": 250` appended after the closing brace fails because it is no
+longer JSON. A changelog rewritten rather than added to fails because the old
+content is not a prefix. A note written to `ports.md` instead of
+`notes/ports.md` fails on the path. A correct edit that also rewrote `README.md`
+fails on the file it did not need to touch. And a run that did nothing at all
+fails every task in the set, which is the assertion that stops the whole thing
+from being a rubber stamp.
+
+## What broke
+
+### The guard's first defect was refusing a legitimate call
+
+The first version of `resolveInside` rejected the empty string. A pilot run of
+three showed what that costs: the model calls `list_files` with
+`{"directory": ""}`, meaning *here* — which is what `list_files` has meant
+since v2 — got a refusal, asked again, and the four-tool run reached the
+ten-step cap.
+
+That is not a guard being strict. It is a guard joining the measurement, on the
+side of the condition that lists most. It was fixed before the hundred and
+fifty runs, the three pilot runs were discarded and are not in the tally, and
+the discard is here rather than nowhere because it is the only run in this post
+that was thrown away. An empty path now means the root, which is what it meant
+before I touched it. You can see the call it was refusing in the second frame
+of the right-hand trace below.
+
+### Two things in this repository predicted this commit and both fired
+
+Post 4 ended a section with a line about its own eval:
+
+> A tool result whose shape the eval does not recognise raises rather than
+> returning nothing. … Post 6 changes the tool set; this is the line that will
+> notice.
+
+Post 5 said the same of the judge's renderer. The first v6 trace put in front
+of both of them:
+
+```
+eval observationsOf: UnreadableResult: frame 8: read_file returned a result shape this eval does not understand
+judge renderTrace:   UnrenderableFrame: frame 8: a tool result shape this renderer does not understand
+```
+
+That is what those lines were for. The alternative — returning an empty list —
+would have graded every v6 run as a run that observed nothing, with every claim
+in every answer `unsupported`, and the suite would have looked most rigorous
+at the exact moment it had stopped reading.
+
+Both now know two more shapes. A read contributes one observation per line,
+with real line numbers, because a run that read `config/settings.json` and a
+run that searched and got line 3 of it back have both seen line 3, and counting
+only one of them would report a difference between the tool sets that belonged
+to the grader. A write contributes nothing — and is recognised anyway, because
+the difference between *no observations because the tool returns none* and *no
+observations because the reader stopped reading* is the whole reason the error
+exists.
+
+### The substring grader inverted
+
+Post 4's complaint was that the recorder's substring check over the final
+sentence is over-generous: it gives full marks to a run that guessed. Every run
+here was graded both ways — the old sentence check, and the new check over the
+files — and they disagree four times in a hundred and fifty.
+
+All four disagreements run the other way.
+
+| run | sentence grade | the files |
+| --- | --- | --- |
+| `five-append` `edit-timeout` #1 | `failure` | timeout changed, nothing else touched |
+| `five-append` `edit-timeout` #9 | `failure` | timeout changed, nothing else touched |
+| `four` `append-changelog` #8 | `failure` | line added, changelog intact |
+| `five-search` `find-timeout` #5 | `partial` | both facts named correctly |
+
+The two `edit-timeout` runs hit the ten-step cap with no final sentence at all,
+so the sentence grader had nothing to read and called it a failure. Post 3
+described that firing and said the failure belongs to the harness rather than
+to the model. It could not show that. Here the file proves it: **the work was
+finished and the pen was taken away.**
+
+The `append-changelog` run said *Done — I added the line to the end of
+`docs/CHANGELOG.md`*, which is true, complete, and does not contain the number
+it was graded on. And the `find-timeout` run answered perfectly but had one
+tool call come back failed, which caps the recorder's grade at `partial` by a
+rule written at v2 for an agent whose only product was a sentence.
+
+So the sentence check is not generous or strict. It is measuring a different
+thing, and the moment the product is a file it is measuring the wrong one. That
+is post 4's finding with the polarity flipped, which I did not expect and which
+is the most useful thing here.
+
+### A whole-file rewrite passed seven times
+
+On `append-changelog`, the four-tool agent reached for `write_file` in 7 of its
+10 runs — rewriting the whole changelog rather than editing it — and produced a
+byte-exact prefix of the original every time. It passed. It passed because the
+file is ten lines long. That is a property of the workspace and not of the
+agent, and it is the single biggest reason not to read this post's pass rates
+as a claim about real repositories.
+
+## The demo
+
+The ambiguous task, the same run number, both conditions. These two were picked
+by a rule fixed before I looked at any of them — `add-setting`, run 1 — rather
+than for what they show.
+
+<TraceCompare
+  traces={[
+    { label: 'Four tools', trace: four },
+    { label: 'Five tools', trace: five },
+  ]}
+  caption="The same task with a fifth tool in hand. 'Add a setting' is an addition, append_file was available, and the five-tool run reached for edit_file anyway — as all ten of its runs on this task did."
+  client:idle
+/>
+<TraceTranscript trace={four} label="Four tools" />
+<TraceTranscript trace={five} label="Five tools, one of them append_file" />
+
+Both list, read and edit. Neither appends. The only difference is the last
+call: the five-tool run read the file back afterwards, and the four-tool run
+did not.
+
+Which post 4's grader has an opinion about. The four-tool run's closing
+sentence — *Updated `config/settings.json` — added "maxBatch": 250* — states a
+value that appears in nothing any tool returned to it. The read happened before
+the edit, so `250` was never in a result:
+
+```
+06-four-operations/trace-a-four.json
+  tools        list_files > read_file > edit_file
+  observations 15
+  answer       success (recorded: success)
+  unread       value
+  provenance   unevidenced (0 ground truth, 0 copies)
+
+06-four-operations/trace-b-five.json
+  tools        list_files > read_file > edit_file > read_file
+  observations 23
+  answer       success (recorded: success)
+  unread       (none)
+  provenance   grounded (1 ground truth, 0 copies)
+```
+
+One extra call turns an unread claim into a read one. Both files on disk are
+identical and both runs pass; the difference is entirely in what the trace can
+prove. That is one run against one run, which this series has spent two posts
+learning not to read as an effect — the tally below has the tool sequences for
+all thirty runs of this task and the extra read is not a property of the
+roster.
+
+Both runs also used `edit_file` with the *entire file* as the span to replace,
+which is `write_file` with a precondition attached. Two of the four primitives
+collapsed into one, in both conditions, on the task designed to make the choice
+hard.
+
+## The numbers
+
+All hundred and fifty runs are in <a href={runs}><code>runs.tsv</code></a>, one
+row per run, with the tool sequence, the step count, what stopped it, the
+verdict and why, the files it changed, the token counts and the final answer.
+Every figure below is recomputed from that file by `tally.test.ts`, so if the
+prose and the file drift apart, `npm test` says so.
+
+| | four | five-append | five-search |
+| --- | --- | --- | --- |
+| tasks completed | **50 of 50** | **50 of 50** | **50 of 50** |
+| runs that changed a file they should not have | 0 | 0 | 0 |
+| paths the sandbox refused | 0 | 0 | 0 |
+| runs that called no tool | 0 | 0 | 0 |
+| runs stopped by the cap | 0 | 2 | 0 |
+| steps per run | 5.1 | 5.3 | 4.7 |
+| context before the first action | 404.4 | 492.4 | 473.4 |
+| total input tokens | 175,549 | 211,980 | 172,490 |
+
+Every one of the hundred and fifty runs changed exactly the file its task named
+and nothing else. The read-only task changed nothing, thirty times out of
+thirty.
+
+**The fifth tool was not misused once.** `append_file` was called in 10 of the
+50 five-append runs, and all ten are `append-changelog` — the one task it is
+right for. On the other forty, including the ambiguous one built so that
+appending would corrupt the file, it was not called at all. That is the
+opposite of the degraded selection the thesis predicted, and it is also the
+answer to whether the fifth was plausible: a strawman would have been
+mis-selected.
+
+`search_files` was called in 24 of 50 — ten of the `edit-timeout` runs, nine
+`find-timeout`, three `write-note`, two `add-setting` — and that condition took
+the fewest steps and the fewest tokens of the three while passing everything.
+
+### The one cost that is real
+
+A tool definition is part of every request for the whole life of a run. Before
+either agent has done anything at all, the four-tool run is carrying a mean of
+**404.4 tokens** of context and the five-append run **492.4** — a standing
+charge of **88 tokens per request**, for a tool that was called on one task in
+five and changed no outcome anywhere.
+
+Post 2 measured the same meter for two sentences of description and said the
+hundred tokens a turn bought a sixfold better chance of the right tool, which
+is a trade it would take. This one bought nothing measurable. On
+`append-changelog`, the task `append_file` exists for, the five-append
+condition took **4.0 steps and 2,924 input tokens** against four tools' **3.9
+and 2,656** — the right tool for the job, correctly chosen ten times out of
+ten, and slightly more expensive than not having it.
+
+`five-search` paid a 69-token charge and came out ahead anyway: 172,490 input
+tokens against four tools' 175,549, and 235 steps against 253. A fifth tool
+that adds a capability can pay for its own description. A fifth that adds none
+cannot, and that is the whole of what these runs found against it.
+
+### What it cost
+
+560,019 input tokens and 57,082 output tokens across the hundred and fifty
+runs, both counted per run in the tally. At the list price I used — $0.25 per
+million input and $2 per million output — that is about **25 cents**, plus
+three pilot runs that are not in the file. The arithmetic is in `tally.ts`
+rather than only in this sentence, because the price is the one number here
+guaranteed to be wrong by the time you read it.
+
+Yours will differ. That is the premise:
+
+```sh
+npm run roster                          # the whole thing, 150 runs
+npm run roster -- --runs 1 --task add-setting
+npm run roster:tally                    # the committed file, recounted
+```
+
+## The thesis was wrong and the index has changed
+
+`series.ts` said *adding a fifth makes the agent worse*. Fifty runs with four
+tools and a hundred with five say otherwise, on every axis I wrote down before
+running them: same completion, same discipline about files, no misuse of the
+extra tool, and a step count that moved by two tenths in one direction and four
+tenths in the other.
+
+So the line on the front page now says what the runs say. Post 3 corrected its
+thesis because the diff contradicted it; this one is corrected because the
+tally does.
+
+I want to be exact about the size of the claim I am now *not* making, because
+there is an overclaim available in the other direction too.
+
+**This experiment has a ceiling and it hit it.** All three conditions scored
+100%, which means the tasks have no resolution left to measure with. Fifty runs
+with no failures put the 95% upper bound on a condition's failure rate at about
+**5.8%** — so what these runs can tell you is that a fifth tool did not cost
+more than roughly six points of completion on tasks this size. They cannot tell
+you it costs nothing, and they say nothing at all about a fifteen-tool agent, a
+larger codebase, or a task whose file does not fit in a read.
+
+The task set was fixed before the first run and not adjusted afterwards,
+including after the first forty came back at 100%. Making them harder once the
+ceiling was visible would have been choosing the difficulty that produced a
+result, and I would rather publish a ceiling.
+
+## What this does not fix
+
+**The sandbox was never tested in anger.** Zero refusals in a hundred and fifty
+runs. The model never tried to leave the directory it was given, so everything I
+can tell you about the guard comes from the test file rather than from the
+experiment — which is the same standing as post 1's leak gate before it had
+seen a real trace, and post 1's leak gate was broken. The difference is that
+this one has a test file whose entire job is attacking it, including through a
+junction at a file that does not exist yet.
+
+**The check is not atomic.** `resolveInside` resolves, and then the write
+happens. A concurrent process could replace a directory with a link in between.
+Nothing else writes in these sandboxes, and a real deployment would need
+something better than that sentence.
+
+**A hard link would defeat it.** `realpath` resolves symlinks and junctions; a
+hard link to a file outside the sandbox *is* the file, and writing through it
+changes the original. The agent has no tool that creates one, which is an
+argument about the roster rather than about the guard.
+
+**And the thing that has to be said about a write tool**: every safety property
+above is a property of this program, not of the model. The model asked for a
+path outside its sandbox zero times in a hundred and fifty runs, and that is a
+fact about a well-behaved run of a small task. Post 8 is the shell, where the
+number of things a badly-behaved run can reach stops being a list I can
+enumerate.
+
+## The commit
+
+The agent has four hands now, and it used them well enough that the interesting
+column in the tally is not the outcome. Again.
+
+That has happened at every commit since the third, and it keeps meaning
+something slightly different. At v3 it meant the loop worked. At v4 it meant
+the grade was worthless. Here it means the experiment I designed could not
+separate its conditions, and the honest response was to change the claim rather
+than the tasks.
+
+What did separate them is a number post 2 already knew how to measure and I had
+not expected to be the whole finding: eighty-eight tokens, in every request,
+for the whole life of every run, for a tool that was reached for correctly and
+made no difference. Nothing in these runs says a fifth tool makes an agent
+worse. What they say is that it is never free, and that the bill arrives before
+the first action.
+
+Which is the next commit's problem, because the bill compounds. The context is
+the constraint.

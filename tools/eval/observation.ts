@@ -41,6 +41,37 @@ const search = z.object({
   ),
 })
 
+/**
+ * v6's `read_file`. A read hands the model the whole file, so it contributes
+ * one `line` observation per line, with real line numbers — because that is
+ * what makes a read comparable with a search match. An agent that read
+ * `config/settings.json` and an agent that searched and got line 3 of it back
+ * have both seen line 3, and a grader that counted only one of them would be
+ * reporting a difference between the tool sets that is its own.
+ */
+const read = z.object({
+  ok: z.literal(true),
+  file: z.string(),
+  lines: z.number(),
+  content: z.string(),
+})
+
+/**
+ * v6's `write_file`, `edit_file` and `append_file`.
+ *
+ * A mutation puts nothing in front of the model except the fact that it
+ * happened, so it yields no observations — and it still has to be recognised.
+ * The difference between "no observations because the tool returns none" and
+ * "no observations because the reader stopped reading" is the whole reason
+ * `UnreadableResult` exists.
+ */
+const mutation = z.object({
+  ok: z.literal(true),
+  file: z.string(),
+  bytes: z.number(),
+  created: z.boolean(),
+})
+
 const refusal = z.object({ ok: z.literal(false) })
 
 /**
@@ -54,6 +85,10 @@ const refusal = z.object({ ok: z.literal(false) })
  * `unsupported`, and the suite would look like it was working hardest exactly
  * when it had stopped reading. So an unrecognised result is an error, not an
  * empty list.
+ *
+ * At v6 it fired. The first trace with a `read_file` result in it raised here
+ * rather than grading as a run that observed nothing, which is what post 4
+ * said this line was for.
  */
 export class UnreadableResult extends Error {
   override name = 'UnreadableResult'
@@ -116,6 +151,25 @@ export function observationsOf(trace: Trace): Observation[] {
       }
       return
     }
+
+    const asRead = read.safeParse(frame.result)
+    if (asRead.success) {
+      asRead.data.content.split(/\r\n|\r|\n/).forEach((text, line) => {
+        out.push({
+          frame: index,
+          tool,
+          kind: 'line',
+          file: asRead.data.file,
+          line: line + 1,
+          text,
+        })
+      })
+      return
+    }
+
+    // Recognised, and contributes nothing: a write tells the model that a file
+    // changed, not what any file says.
+    if (mutation.safeParse(frame.result).success) return
 
     throw new UnreadableResult(
       `frame ${index}: ${tool} returned a result shape this eval does not understand`,
