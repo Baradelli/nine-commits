@@ -1,8 +1,12 @@
+import { TRACE_FILE } from '../paths.ts'
+
 /** The subset of a post's frontmatter that a cover is built from. */
 export type CoverFrontmatter = {
   order: number
   title: string
   thesis: string
+  /** Which trace the cover quotes; `undefined` means the default, `trace.json`. */
+  coverTrace?: string
 }
 
 /**
@@ -31,6 +35,23 @@ export function parseCoverFrontmatter(data: Record<string, unknown>, postDir: st
     throw new Error(
       `${postDir}: invalid frontmatter — "thesis" must be a non-empty string, got ${JSON.stringify(thesis)}`,
     )
+  }
+
+  const coverTrace = data.coverTrace
+  if (coverTrace !== undefined) {
+    // Validated here rather than at the point of use so that a typo fails
+    // before any rendering starts, in the same voice as every other field,
+    // and so the name can never address a file outside the post directory.
+    if (
+      typeof coverTrace !== 'string' ||
+      !TRACE_FILE.test(coverTrace) ||
+      coverTrace.includes('..')
+    ) {
+      throw new Error(
+        `${postDir}: invalid frontmatter — "coverTrace" must name a trace file in this post directory, such as trace.json or trace-b.json, got ${JSON.stringify(coverTrace)}`,
+      )
+    }
+    return { order, title, thesis, coverTrace }
   }
 
   return { order, title, thesis }

@@ -18,6 +18,10 @@ const posts = defineCollection({
       commit: z.string(),
       cover: image(),
       coverAlt: z.string(),
+      // Which recorded trace the cover card quotes. Absent means `trace.json`;
+      // a post carrying several traces says which one, rather than letting the
+      // cover generator infer it from the order the file names sort in.
+      coverTrace: z.string().optional(),
       draft: z.boolean().default(false),
     }),
 })

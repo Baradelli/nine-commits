@@ -60,3 +60,37 @@ describe('parseCoverFrontmatter', () => {
     expect(() => parseCoverFrontmatter({ ...valid, thesis: '   ' }, 'posts/x')).toThrow(/"thesis"/)
   })
 })
+
+describe('parseCoverFrontmatter — coverTrace', () => {
+  it('returns the declared trace file name', () => {
+    expect(parseCoverFrontmatter({ ...valid, coverTrace: 'trace-b-denied.json' }, 'posts/x')).toEqual({
+      ...valid,
+      coverTrace: 'trace-b-denied.json',
+    })
+  })
+
+  it('leaves coverTrace undefined when the field is absent', () => {
+    expect(parseCoverFrontmatter(valid, 'posts/x').coverTrace).toBeUndefined()
+  })
+
+  it('throws naming the post directory when coverTrace is not a string', () => {
+    expect(() => parseCoverFrontmatter({ ...valid, coverTrace: 3 }, 'posts/broken')).toThrow(
+      /posts\/broken[\s\S]*"coverTrace"/,
+    )
+  })
+
+  it('throws when coverTrace is not a trace file name', () => {
+    expect(() => parseCoverFrontmatter({ ...valid, coverTrace: 'cover.png' }, 'posts/x')).toThrow(
+      /"coverTrace"/,
+    )
+    expect(() => parseCoverFrontmatter({ ...valid, coverTrace: 'notes.json' }, 'posts/x')).toThrow(
+      /"coverTrace"/,
+    )
+  })
+
+  it('throws when coverTrace tries to escape the post directory', () => {
+    expect(() =>
+      parseCoverFrontmatter({ ...valid, coverTrace: '../05-moving-target/trace.json' }, 'posts/x'),
+    ).toThrow(/"coverTrace"/)
+  })
+})
