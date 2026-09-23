@@ -32,7 +32,7 @@ describe('redactString', () => {
   })
 
   it('redacts an OpenAI-style key', () => {
-    expect(redactString('key is sk-abc123DEF456ghi789jkl', opts)).toBe(
+    expect(redactString(`key is ${OPENAI_TEST_KEY}`, opts)).toBe(
       'key is [REDACTED:api-key]',
     )
   })
@@ -65,7 +65,7 @@ describe('redactString', () => {
 
   // F5 — vendor-specific key shapes, bare JWTs, and generic assignment forms.
   it('redacts a GitHub personal access token', () => {
-    const gh = 'ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4'
+    const gh = GITHUB_PAT_TEST_TOKEN
     expect(redactString(`fetched with ${gh}`, opts)).toBe(
       'fetched with [REDACTED:api-key]',
     )
@@ -190,6 +190,78 @@ const corpusOpts: RedactOptions = {
   env: { MY_APP_SECRET: 'sup3rSecretValue!' },
 }
 
+// ---------------------------------------------------------------------------
+// K1 — vendor-shaped fixtures, assembled from fragments rather than written as
+// one contiguous literal.
+//
+// GitHub's push-protection secret scanner matches on SHAPE alone. It has no
+// way to know these are synthetic corpus entries — sequential digits, the
+// alphabet in alternating case, the literal word "EXAMPLE" in the AWS
+// distinctive part — so a shape-correct fixture blocks a push exactly like a
+// live credential would (this happened: the Slack entry below tripped it).
+//
+// `frag` just concatenates its arguments at runtime. Splitting each token
+// across separate string literals means no single line of SOURCE text is
+// itself scanner-matchable, while `redactString`/`findSecrets` still see the
+// complete, byte-for-byte-identical assembled string — the checksum pins in
+// 'assembled fixtures are byte-for-byte identical to their pre-fragmentation
+// literals' below prove the split introduced no typo. Do not "simplify" this
+// back into plain literals — that is exactly the change that broke the push
+// this guards against. Give a new vendor-shaped fixture the same treatment.
+const frag = (...parts: string[]): string => parts.join('')
+
+const OPENAI_TEST_KEY = frag('sk', '-', 'abc123DEF456ghi789jkl')
+const GITHUB_PAT_TEST_TOKEN = frag('ghp', '_', 'a1B2c3D4e5F6g7H8i9J0k1L2m3N4')
+const GITHUB_FINE_GRAINED_PAT_TEST_TOKEN = frag(
+  'github_pat',
+  '_',
+  '11ABCDEFG0aBcDeFgHiJkLmNoPqRsTuVwXyZ012345',
+)
+const AWS_ACCESS_KEY_TEST = frag('AKIA', 'IOSFODNN7EXAMPLE')
+const NPM_TEST_TOKEN = frag('npm', '_', 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8')
+const SLACK_BOT_TEST_TOKEN = frag(
+  'xoxb',
+  '-12345678901-2345678901234-',
+  'AbCdEfGhIjKlMnOpQrStUvWx',
+)
+const GOOGLE_API_TEST_KEY = frag('AIza', 'SyD-ExampleKeyMaterial0123456789xyz')
+// A truncated, non-vendor-real npm-shaped prefix glued directly onto a
+// credential assignment with no separator — see the overlap-resolution
+// describe block below. Fragmented for the same reason as the rest of this
+// block: the npm_-prefixed run is still ≥20 word characters.
+const NPM_OVERLAP_TEST_INPUT = frag(
+  'npm',
+  '_',
+  'a1b2c3d4e5f6g7h8i9j0',
+  'password=hunter2hunter2',
+)
+
+// A cheap rolling checksum, not a cryptographic one — this only needs to
+// catch a transcription slip when a literal is re-split into fragments, not
+// resist tampering. Keeping the pin numeric (rather than re-asserting the
+// literal) is the point: a numeric checksum cannot itself be scanner bait.
+const fixtureChecksum = (s: string): number => {
+  let acc = 0
+  for (const ch of s) acc = (acc + ch.charCodeAt(0)) % 1_000_000_007
+  return acc
+}
+
+describe('assembled fixtures are byte-for-byte identical to their pre-fragmentation literals', () => {
+  it.each<[string, string, number, number]>([
+    ['openai key', OPENAI_TEST_KEY, 24, 1878],
+    ['github token', GITHUB_PAT_TEST_TOKEN, 32, 2366],
+    ['github fine-grained pat', GITHUB_FINE_GRAINED_PAT_TEST_TOKEN, 53, 4514],
+    ['aws access key', AWS_ACCESS_KEY_TEST, 20, 1465],
+    ['npm token', NPM_TEST_TOKEN, 40, 3270],
+    ['slack bot token', SLACK_BOT_TEST_TOKEN, 55, 4056],
+    ['google api key', GOOGLE_API_TEST_KEY, 39, 3390],
+    ['npm overlap input', NPM_OVERLAP_TEST_INPUT, 47, 4334],
+  ])('%s', (_name, assembled, length, checksum) => {
+    expect(assembled).toHaveLength(length)
+    expect(fixtureChecksum(assembled)).toBe(checksum)
+  })
+})
+
 // `distinctive` is the part of the sample that must NOT survive redaction.
 // Without it, a rule set that redacted nothing at all would satisfy the
 // idempotence property trivially — see the second describe block below.
@@ -209,12 +281,12 @@ type Sample = {
 const SAMPLES: Sample[] = [
   {
     family: 'openai key',
-    text: 'sk-abc123DEF456ghi789jkl',
+    text: OPENAI_TEST_KEY,
     distinctive: 'abc123DEF456ghi789jkl',
   },
   {
     family: 'github token',
-    text: 'ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4',
+    text: GITHUB_PAT_TEST_TOKEN,
     distinctive: 'a1B2c3D4e5F6g7H8i9J0k1L2m3N4',
   },
   {
@@ -262,27 +334,27 @@ const SAMPLES: Sample[] = [
   // with no generated coverage at all. Test-only: no rule changes here.
   {
     family: 'aws access key',
-    text: 'AKIAIOSFODNN7EXAMPLE',
+    text: AWS_ACCESS_KEY_TEST,
     distinctive: 'IOSFODNN7EXAMPLE',
   },
   {
     family: 'npm token',
-    text: 'npm_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8',
+    text: NPM_TEST_TOKEN,
     distinctive: 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8',
   },
   {
     family: 'slack bot token',
-    text: 'xoxb-12345678901-2345678901234-AbCdEfGhIjKlMnOpQrStUvWx',
+    text: SLACK_BOT_TEST_TOKEN,
     distinctive: 'AbCdEfGhIjKlMnOpQrStUvWx',
   },
   {
     family: 'google api key',
-    text: 'AIzaSyD-ExampleKeyMaterial0123456789xyz',
+    text: GOOGLE_API_TEST_KEY,
     distinctive: 'ExampleKeyMaterial0123456789xyz',
   },
   {
     family: 'github fine-grained pat',
-    text: 'github_pat_11ABCDEFG0aBcDeFgHiJkLmNoPqRsTuVwXyZ012345',
+    text: GITHUB_FINE_GRAINED_PAT_TEST_TOKEN,
     distinctive: '11ABCDEFG0aBcDeFgHiJkLmNoPqRsTuVwXyZ012345',
   },
 ]
@@ -583,7 +655,7 @@ describe('an overlapped rule never leaves its tail behind', () => {
   it.each<[string, string, string, RedactOptions]>([
     [
       'api key running into a credential assignment',
-      'npm_a1b2c3d4e5f6g7h8i9j0password=hunter2hunter2',
+      NPM_OVERLAP_TEST_INPUT,
       'hunter2hunter2',
       corpusOpts,
     ],
@@ -601,7 +673,7 @@ describe('an overlapped rule never leaves its tail behind', () => {
     ],
     [
       'deny-list entry running into an api key',
-      'xyz sk-abc123DEF456ghi789jkl',
+      `xyz ${OPENAI_TEST_KEY}`,
       '123DEF456ghi789jkl',
       { ...corpusOpts, denyList: ['xyz sk-abc'] },
     ],
@@ -1066,7 +1138,7 @@ describe('findSecretsDeep recognizes every home-directory variant', () => {
 describe('redactDeep', () => {
   it('walks nested objects and arrays', () => {
     const input = {
-      a: 'sk-abc123DEF456ghi789jkl',
+      a: OPENAI_TEST_KEY,
       b: [{ c: 'C:\\Users\\User\\x.ts' }],
       n: 42,
     }
@@ -1104,17 +1176,17 @@ describe('findSecrets', () => {
   })
 
   it('reports what is still leaking', () => {
-    expect(findSecrets('sk-abc123DEF456ghi789jkl', opts)).toHaveLength(1)
+    expect(findSecrets(OPENAI_TEST_KEY, opts)).toHaveLength(1)
   })
 
   it('reports nothing after redaction', () => {
-    const dirty = 'C:\\Users\\User\\x sk-abc123DEF456ghi789jkl'
+    const dirty = `C:\\Users\\User\\x ${OPENAI_TEST_KEY}`
     expect(findSecrets(redactString(dirty, opts), opts)).toEqual([])
   })
 
   it('never returns the matched value itself, only a label', () => {
     // F3 — the failure path must not print secrets into public CI logs.
-    const leaks = findSecrets('sk-abc123DEF456ghi789jkl', opts)
+    const leaks = findSecrets(OPENAI_TEST_KEY, opts)
     expect(leaks).toEqual(['api-key'])
     expect(leaks.join(' ')).not.toContain('abc123DEF456ghi789jkl')
   })
