@@ -26,7 +26,7 @@ const RUNS_FILE = join(TRACE_DIR, 'runs.tsv')
  * started under the v2 columns has to be moved aside rather than appended to.
  */
 const RUNS_HEADER =
-  'when\tdescriptions\ttools_called\tsteps\tstopped_by\toutcome\ttrace_id\ttask\n'
+  'when\troster\tdescriptions\ttools_called\tsteps\tstopped_by\toutcome\ttrace_id\ttask\n'
 
 /**
  * Facts the final answer must contain for the run to count as having answered
@@ -64,13 +64,32 @@ async function main(): Promise<void> {
   const root = process.env.AGENT_ROOT
 
   if (task === '') {
-    console.error('usage: npm start --workspace @nine-commits/agent -- "<task>"')
+    console.error(
+      'usage: AGENT_ROOT=<scratch dir> npm start --workspace @nine-commits/agent -- "<task>"',
+    )
+    process.exit(1)
+  }
+
+  // v6's default roster can write, and a writable root must be scratch space
+  // outside this repository — so with no AGENT_ROOT there is nowhere legal for
+  // the agent to work and `buildTools` raises. Failing closed is right; failing
+  // closed with a stack trace, on the command the README prints, is not. Said
+  // here, before the model is called and before anything is paid for.
+  if (root === undefined) {
+    console.error(
+      'AGENT_ROOT is required at v6: an absolute path to a scratch directory ' +
+        'under the system temporary directory, which is the only place the write ' +
+        'tools are allowed to touch. It may not be inside this repository.\n' +
+        'For a read-only run of the v2-to-v5 tools, use AGENT_TOOLS=five-search ' +
+        'against a scratch copy, or run the experiment with `npm run roster`, ' +
+        'which makes and removes its own sandbox per run.',
+    )
     process.exit(1)
   }
 
   const expected = expectations()
 
-  const result = await runOnce(task, root === undefined ? {} : { root })
+  const result = await runOnce(task, { root })
   console.log(result.steps.at(-1)?.text ?? '')
 
   const raw = toRawTrace({
@@ -110,8 +129,10 @@ async function main(): Promise<void> {
   )
 
   console.error(
-    `\n[${result.style} descriptions — called ${called === '' ? 'no tool' : called} — ` +
-      `${result.steps.length} steps, stopped by ${result.stoppedBy} — ${outcome}]`,
+    `\n[${result.roster} roster, ${result.style} descriptions — ` +
+      `called ${called === '' ? 'no tool' : called} — ` +
+      `${result.steps.length} steps, stopped by ${result.stoppedBy} — ${outcome}` +
+      `${result.escapes.length > 0 ? ` — ${result.escapes.length} path(s) refused` : ''}]`,
   )
   console.error(`[recorded ${out}, logged ${RUNS_FILE}]`)
 }

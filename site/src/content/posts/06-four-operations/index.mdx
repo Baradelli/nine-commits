@@ -1,7 +1,7 @@
 ---
 order: 6
 title: Four Operations
-thesis: "List, read, write, edit. Four filesystem primitives finished every task, fifty of fifty. So did a fifth — it cost eighty-eight tokens in every request and changed nothing else."
+thesis: "List, read, write, edit. Four filesystem primitives finished all five tasks, fifty runs out of fifty. So did a fifth — it cost eighty-eight tokens in the first request and changed nothing else I could measure at fifty runs."
 pubDate: 2026-09-23
 commit: v6-four-operations
 cover: ./cover.png
@@ -60,47 +60,64 @@ export function resolveInside(root: string, candidate: unknown): string {
   if (!contains(root, target)) {
     throw new SandboxEscape(candidate, 'resolves outside the sandbox')
   }
-  const real = realpathSync(deepestExisting(target))
-  if (!contains(realpathSync(root), real)) {
+  const anchor = deepestPresent(target)          // lstat, so it does not follow
+  if (lstatSync(anchor).isSymbolicLink()) {
+    throw new SandboxEscape(candidate, 'passes through a link')
+  }
+  if (!contains(realpathSync(root), realpathSync(anchor))) {
     throw new SandboxEscape(candidate, 'follows a link out of the sandbox')
   }
   return target
 }
 ```
 
-`deepestExisting` is the part I would get wrong if I wrote it quickly.
-`realpathSync` throws on a path that does not exist, and a write tool is
-mostly asked for paths that do not exist yet, so the link check has to run
-against the nearest ancestor that is really there. Without it,
-`sandbox/link-to-elsewhere/brand-new.txt` passes every check and then creates a
-file somewhere else.
+`deepestPresent` is the part I did get wrong, and the section below about what
+broke is mostly about it. `realpathSync` throws on a path that does not exist,
+and a write tool is mostly asked for paths that do not exist yet, so the link
+check has to run against the nearest ancestor that is really there. Walk up
+with the wrong `fs` call and the whole check is skippable.
 
-It throws, and nothing that calls it can get a path out of it any other way.
+It throws, and every path any tool in this program opens comes out of it.
 `sandbox.test.ts` asserts the throw for `..`, for a path whose every segment is
 inside the sandbox until the last two normalise it out, for an absolute path,
 for a junction pointing at another directory — including for a file under that
-junction that does not exist yet — and, on Windows, for a UNC path, an
-extended-length path and the drive-relative `C:foo.txt`, which is the one form
-that looks absolute and is not.
+junction that does not exist yet, and including a junction whose target does
+not exist at all — and, on Windows, for a UNC path, an extended-length path and
+the drive-relative `C:foo.txt`, which is the one form that looks absolute and
+is not. Every branch of it fails closed: an `lstat` or `realpath` that raises
+becomes a refusal, because "could not check" is not "checked".
 
-### Where the agent is allowed to write, and it is not a setting
+### Where the agent is allowed to write
 
 A guard that confines writes to a root is only as good as the root. So the root
-is checked too, and the rule has no switch:
+is checked too, with two rules that are worth different amounts:
 
 ```ts
 export function assertWritableRoot(root: string): void {
   if (contains(realpathSync(REPO_ROOT), real)) throw new UnsafeRoot(...)
-  if (!contains(realpathSync(tmpdir()), real)) throw new UnsafeRoot(...)
+  if (!contains(SCRATCH_ROOT, real)) throw new UnsafeRoot(...)
 }
 ```
 
-The agent may write inside the operating system's temporary directory and
-nowhere else. Not "outside the repository", which would already protect the
-thing at risk and would also permit a typo pointing at a home directory. There
-is no environment variable that relaxes it, because the failure I am defending
-against is a mistake in a prompt, a task file or a shell loop, and every one of
-those can set an environment variable.
+**Never inside this checkout**, and that one has no switch: `REPO_ROOT` is
+computed from `import.meta.url`, this file's own location on disk, so no
+environment variable, prompt, task file or shell loop can move it. It is the
+rule that protects the thing actually at risk.
+
+**Only inside scratch space**, and that one is *not* unsettable, which an
+earlier draft of this paragraph claimed it was. `SCRATCH_ROOT` is
+`os.tmpdir()`, and `os.tmpdir()` is whatever `TMP`, `TEMP` or `TMPDIR` said.
+Start the process with `TMP` pointing at a home directory and the home
+directory is scratch space. Snapshotting it at module load, which is what
+`SCRATCH_ROOT` is, buys exactly one thing: a root cannot be scratch space when
+it is checked and somewhere else when it is written to. It does not buy the
+sentence I had written.
+
+The second rule exists because "outside the repository" would permit a typo
+pointing at a home directory — and an environment already pointing `TMP` there
+defeats it, which is precisely why the first rule is not expressed in terms of
+the second. With `TMP` set to this repository, both rules disagree and the
+repository check still wins; there is a test that runs that out of process.
 
 It is enforced where the tools are built, which means the strongest thing I can
 say about it is a unit test rather than a promise:
@@ -230,6 +247,44 @@ fails every task in the set, which is the assertion that stops the whole thing
 from being a rubber stamp.
 
 ## What broke
+
+### The guard had a hole, and it was in the clever part
+
+Review found it after everything above had been written, by attacking the
+guard rather than by reading it, which is the only way this one was ever going
+to turn up.
+
+The link check walked up the path with `existsSync` to find the nearest
+ancestor that was really there. **`existsSync` follows links.** So a link whose
+target does not exist reports `false` — and the walk climbed straight past the
+link, kept going to the sandbox root, and checked *that* against the sandbox
+root, which is trivially inside it. The link was never inspected at all.
+
+```
+resolveInside(root, 'dangling/escaped.txt')
+  →  <root>\dangling\escaped.txt     [approved]
+```
+
+That is not the TOCTOU I had already disclosed at the bottom of this page.
+TOCTOU is *checked, then swapped*. This is the guard never looking.
+
+Two things are true about it and both matter. The agent could not reach it:
+every sandbox is a fresh `mkdtemp` holding eight plain files, and no tool in
+any roster creates a link, so no run in the hundred and fifty could have used
+it and the zero in the refused-paths row stands. And the post above it claimed
+the general property anyway — *nothing that calls it can get a path out of it
+any other way* — which was false when I wrote it. People copy guards out of
+posts. That sentence was the defect, more than the two lines of code were.
+
+The fix is `lstatSync`, which does not follow, so a dangling link counts as
+present and the walk stops on it; and then any link at all is refused rather
+than resolved, because a link with no target cannot be resolved to ask where it
+goes, and one rule has no second case to get wrong. Nothing in this program has
+a legitimate reason to reach through a link.
+
+The test is beside the junction test that was already there, and I checked it
+the only way worth checking a regression test — by putting the old walk back
+and watching it go red, with the other sixteen still green.
 
 ### The guard's first defect was refusing a legitimate call
 
@@ -398,11 +453,16 @@ thirty.
 
 **The fifth tool was not misused once.** `append_file` was called in 10 of the
 50 five-append runs, and all ten are `append-changelog` — the one task it is
-right for. On the other forty, including the ambiguous one built so that
-appending would corrupt the file, it was not called at all. That is the
-opposite of the degraded selection the thesis predicted, and it is also the
-answer to whether the fifth was plausible: a strawman would have been
-mis-selected.
+right for. On the other forty it was not called at all.
+
+Read those two numbers as a pair rather than as one number and its absence,
+because 40 of 40 declines on its own would be consistent with a tool nobody
+could find a use for. The pair that matters is **10 of 10 on
+`append-changelog` against 0 of 10 on `add-setting`** — a task where the verb
+in the prompt is *add*, the tool is called append, and appending would have
+broken the file. Reached for where it belonged, declined where it was bait.
+That is discrimination, not abstention, and it is also the answer to whether
+the fifth was plausible: a strawman gets mis-selected.
 
 `search_files` was called in 24 of 50 — ten of the `edit-timeout` runs, nine
 `find-timeout`, three `write-note`, two `add-setting` — and that condition took
@@ -413,8 +473,17 @@ the fewest steps and the fewest tokens of the three while passing everything.
 A tool definition is part of every request for the whole life of a run. Before
 either agent has done anything at all, the four-tool run is carrying a mean of
 **404.4 tokens** of context and the five-append run **492.4** — a standing
-charge of **88 tokens per request**, for a tool that was called on one task in
-five and changed no outcome anywhere.
+charge of **88 tokens in the first request**, for a tool that was called on one
+task in five and changed no outcome anywhere.
+
+*In the first request*, and I mean it narrowly. That figure is `tokens[0]` from
+every run, which is the one measurement in this experiment that is clean: same
+system instruction, same task string, one more tool definition, nothing else in
+the context yet. It is not a per-request constant afterwards. In the two
+recorded runs below, the second request differs by **80** rather than 88, once
+each side is carrying a tool result as well. The charge is real and it is paid
+every time; its exact size after the first request is confounded with whatever
+the run has read.
 
 Post 2 measured the same meter for two sentences of description and said the
 hundred tokens a turn bought a sixfold better chance of the right tool, which
@@ -469,6 +538,18 @@ more than roughly six points of completion on tasks this size. They cannot tell
 you it costs nothing, and they say nothing at all about a fifteen-tool agent, a
 larger codebase, or a task whose file does not fit in a read.
 
+They also say nothing about the middle of the spectrum, and that is where I
+would look next. My two fifths sit at the ends: one that adds no capability,
+one that adds a whole one. Neither is the shape that would plausibly degrade
+selection — a fifth whose contract *partly* overlaps one of the four, with
+different semantics and a different failure mode. `patch_file(path,
+unified_diff)` sitting beside `edit_file(path, old, new)` is the example:
+both are the obvious tool for *change this line*, they are not
+interchangeable, and they fail in different ways. `append_file` was never
+going to be confused with `edit_file`, and a tool that cannot be confused is a
+weak test of confusion. That is a real limit on the correction at the top of
+this page, and it is the experiment I did not run.
+
 The task set was fixed before the first run and not adjusted afterwards,
 including after the first forty came back at 100%. Making them harder once the
 ceiling was visible would have been choosing the difficulty that produced a
@@ -480,9 +561,9 @@ result, and I would rather publish a ceiling.
 runs. The model never tried to leave the directory it was given, so everything I
 can tell you about the guard comes from the test file rather than from the
 experiment — which is the same standing as post 1's leak gate before it had
-seen a real trace, and post 1's leak gate was broken. The difference is that
-this one has a test file whose entire job is attacking it, including through a
-junction at a file that does not exist yet.
+seen a real trace, and post 1's leak gate was broken. This one had a hole too,
+and what found it was somebody attacking it on purpose rather than any of the
+hundred and fifty runs. A guard with no adversary is a guard with no evidence.
 
 **The check is not atomic.** `resolveInside` resolves, and then the write
 happens. A concurrent process could replace a directory with a link in between.

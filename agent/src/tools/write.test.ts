@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync, mkdirSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createFs, PROJECT_ROOT } from './fs.ts'
@@ -176,6 +184,19 @@ describe('every write tool is behind the guard', () => {
     expect(escapes).toHaveLength(2)
 
     rmSync(join(root, 'out'), { recursive: true, force: true })
+  })
+
+  it('refuses to write through a link whose target does not exist yet', () => {
+    // The dangling case. `existsSync` follows links, so the first version of
+    // the guard walked straight past this one and approved the path.
+    symlinkSync(join(outside, 'not-yet'), join(root, 'dangling'), 'junction')
+
+    expect((fs().writeFile('dangling/escaped.txt', 'x') as { ok: boolean }).ok).toBe(false)
+    expect((fs().appendFile('dangling/escaped.txt', 'x') as { ok: boolean }).ok).toBe(false)
+    expect(existsSync(join(outside, 'not-yet'))).toBe(false)
+    expect(escapes).toHaveLength(2)
+
+    rmSync(join(root, 'dangling'), { recursive: true, force: true })
   })
 
   it('still writes inside a directory whose name merely starts with the sandbox name', () => {

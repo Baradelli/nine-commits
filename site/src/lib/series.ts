@@ -68,10 +68,13 @@ export const PLANNED: readonly PlannedPost[] = [
     // survive a hundred runs with five — same completion, no misuse of the
     // extra tool, and on the one task the fifth existed for it was chosen ten
     // times out of ten. What the fifth did cost was its own definition, in
-    // every request. The index is a claim the commits have to earn, so the
-    // claim changed rather than the tasks. Post 6 shows the tally.
+    // the first request. The index is a claim the commits have to earn, so the
+    // claim changed rather than the tasks — and it carries the ceiling with it,
+    // because all three conditions scored 100% and a null result stated without
+    // its detection floor is a stronger claim than the runs support. Post 6
+    // shows the tally.
     thesis:
-      'List, read, write, edit. Four filesystem primitives finished every task, fifty of fifty. So did a fifth — it cost eighty-eight tokens in every request and changed nothing else.',
+      'List, read, write, edit. Four filesystem primitives finished all five tasks, fifty runs out of fifty. So did a fifth — it cost eighty-eight tokens in the first request and changed nothing else I could measure at fifty runs.',
   },
   {
     order: 7,
