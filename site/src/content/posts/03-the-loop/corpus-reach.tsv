@@ -1,41 +1,49 @@
 # Nine Commits, post 3 — what each run actually read.
 #
-# Derived from the 21 traces of rows 22-42 in runs.tsv, one row each, by
-# walking every search_files result in the trace. Those 21 raw traces are not
-# committed: each one embeds a listing of this whole repository and they come
-# to about a megabyte, and a trace inside a published post directory that the
-# leak gate is not scanning is worse than no trace. The one run that IS
-# committed in full is trace.json, and its row is the shape of these.
+# One row per run for rows 22-42 of runs.tsv, derived from their traces by
+# walking every search_files result. Generated, not typed:
+#
+#   npx tsx tools/corpus-reach.ts agent/traces 'tally-\d\d'
+#
+# tools/corpus-reach.ts is committed, so the derivation can be read and
+# re-run even though these 21 raw traces are not in the tree — they are about
+# a megabyte of repeated listings of this same repository. One of them IS
+# committed, in full and normalised like any other: trace2-corpus-hit.json is
+# tally-06, the row where post 2's answer sentence and the ground truth arrive
+# in the same tool result. It goes through the same leak gate as every other
+# trace here; `npm run validate` scans it.
 #
 # post_files_matched  every file under site/src/content/posts/ that appeared in
 #                     that run's search results — the published posts 1 and 2.
 # saw_post2_answer_line  the run's results included 02-hands/index.mdx line 102,
 #                     which states both graded facts in one sentence.
-# saw_cli_usage_line  the run's results included agent/src/cli.ts line 48, the
-#                     agent's own usage message, which also states both facts.
+# saw_cli_usage_line  the run's results included the usage example in
+#                     agent/src/cli.ts, which also states both facts.
 # saw_config_ts_line  the run's results included agent/src/config.ts line 1,
 #                     which is the ground truth.
-# answer_names_a_post  whether the run's final answer referred to a post, a
-#                     README, a .mdx file or DECISIONS.md rather than the source.
-run	search_calls	post_files_matched	saw_post2_answer_line	saw_cli_usage_line	saw_config_ts_line	answer_names_a_post
-tally-01	1	-	false	true	true	false
-tally-02	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
-tally-03	1	-	false	true	true	false
-tally-04	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
-tally-05	1	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/01-not-an-agent/linkedin.md site/src/content/posts/01-not-an-agent/trace.json site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/runs.tsv site/src/content/posts/02-hands/trace-a-precise.json site/src/content/posts/02-hands/trace-b-thin.json	true	true	true	false
-tally-06	1	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/01-not-an-agent/linkedin.md site/src/content/posts/01-not-an-agent/trace.json site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/runs.tsv site/src/content/posts/02-hands/trace-a-precise.json	true	true	true	false
-tally-07	1	-	false	true	true	false
-tally-08	1	-	false	true	true	false
-tally-09	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
-tally-10	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
-tally-11	1	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/01-not-an-agent/linkedin.md site/src/content/posts/01-not-an-agent/trace.json site/src/content/posts/02-hands/index.mdx	true	true	true	false
-tally-12	1	-	false	true	true	false
-tally-13	1	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/runs.tsv site/src/content/posts/02-hands/trace-a-precise.json site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
-tally-14	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
-tally-15	1	-	false	true	true	false
-tally-16	1	-	false	true	true	false
-tally-17	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
-tally-18	3	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
-tally-19	3	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
-tally-20	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
-tally-21	3	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false
+# answer_names_a_post  whether the final answer referred to a post, a README, a
+#                     .mdx file or DECISIONS.md rather than to the source. The
+#                     answer itself is the last column, so this is checkable
+#                     rather than a judgement you have to take on trust.
+run	search_calls	post_files_matched	saw_post2_answer_line	saw_cli_usage_line	saw_config_ts_line	answer_names_a_post	final_answer
+tally-01	1	-	false	true	true	false	The model name is set in agent/src/config.ts — it exports MODEL_NAME = 'gpt-5-mini'.
+tally-02	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false	The model name is set in agent/src/config.ts: export const MODEL_NAME = 'gpt-5-mini'
+tally-03	1	-	false	true	true	false	The file agent/src/config.ts sets it. It's set to: export const MODEL_NAME = 'gpt-5-mini'
+tally-04	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false	The model name is set in agent/src/config.ts — it exports: export const MODEL_NAME = 'gpt-5-mini'.
+tally-05	1	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/01-not-an-agent/linkedin.md site/src/content/posts/01-not-an-agent/trace.json site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/runs.tsv site/src/content/posts/02-hands/trace-a-precise.json site/src/content/posts/02-hands/trace-b-thin.json	true	true	true	false	The file is agent/src/config.ts and it sets MODEL_NAME = 'gpt-5-mini'.
+tally-06	1	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/01-not-an-agent/linkedin.md site/src/content/posts/01-not-an-agent/trace.json site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/runs.tsv site/src/content/posts/02-hands/trace-a-precise.json	true	true	true	false	The model name is set in agent/src/config.ts — it exports MODEL_NAME = 'gpt-5-mini'.
+tally-07	1	-	false	true	true	false	The model name is set in agent/src/config.ts: export const MODEL_NAME = 'gpt-5-mini'
+tally-08	1	-	false	true	true	false	The model name is set in agent/src/config.ts — it exports MODEL_NAME = 'gpt-5-mini'.
+tally-09	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false	The model name is set in agent/src/config.ts — it exports MODEL_NAME = 'gpt-5-mini'.
+tally-10	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false	The model name is set in agent/src/config.ts — it exports MODEL_NAME = 'gpt-5-mini'.
+tally-11	1	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/01-not-an-agent/linkedin.md site/src/content/posts/01-not-an-agent/trace.json site/src/content/posts/02-hands/index.mdx	true	true	true	false	The file agent/src/config.ts sets it. It exports MODEL_NAME = 'gpt-5-mini'.
+tally-12	1	-	false	true	true	false	The file agent/src/config.ts sets it. It exports MODEL_NAME = 'gpt-5-mini'.
+tally-13	1	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/runs.tsv site/src/content/posts/02-hands/trace-a-precise.json site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false	File: agent/src/config.ts Value: MODEL_NAME = 'gpt-5-mini'
+tally-14	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false	The model name is set in agent/src/config.ts — it's exported as MODEL_NAME = 'gpt-5-mini'.
+tally-15	1	-	false	true	true	false	File: agent/src/config.ts It sets MODEL_NAME to 'gpt-5-mini'.
+tally-16	1	-	false	true	true	false	The model name is set in agent/src/config.ts — it exports MODEL_NAME = 'gpt-5-mini'.
+tally-17	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false	The model name is set in agent/src/config.ts — it exports MODEL_NAME = 'gpt-5-mini'.
+tally-18	3	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false	The model name is set in agent/src/config.ts: export const MODEL_NAME = 'gpt-5-mini'
+tally-19	3	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false	The file agent/src/config.ts sets it: export const MODEL_NAME = 'gpt-5-mini'
+tally-20	2	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false	The model name is set in agent/src/config.ts — it exports: export const MODEL_NAME = 'gpt-5-mini'
+tally-21	3	site/src/content/posts/01-not-an-agent/index.mdx site/src/content/posts/02-hands/index.mdx site/src/content/posts/02-hands/trace-b-thin.json	false	false	true	false	The model name is set in agent/src/config.ts: export const MODEL_NAME = 'gpt-5-mini'

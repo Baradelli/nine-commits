@@ -50,11 +50,16 @@ export const MAX_STEPS = 10
 /**
  * Which condition ended the run, read back off the steps.
  *
- * A step whose finish reason is `tool-calls` is a step that wanted a next one.
- * If the last step says that and the run stopped anyway, the only thing that
- * can have stopped it is the cap. Kept out of `runOnce` so it can be checked
- * without a network call: "what stopped it" is the question the loop
- * introduces, and every recorded run has to answer it.
+ * A step whose finish reason is `tool-calls` is a step that wanted a next one,
+ * so a run whose last step says that was stopped by something other than the
+ * model. With these two tools that something is the cap, and only because the
+ * SDK's other exits cannot arise here: both tools have an `execute`, and
+ * neither asks for approval. Approval is post 9, and when it lands this
+ * function stops being a two-way answer.
+ *
+ * Kept out of `runOnce` so it can be checked without a network call: "what
+ * stopped it" is the question the loop introduces, and every recorded run has
+ * to answer it.
  */
 export function whatStopped(
   steps: readonly { finishReason: FinishReason }[],
