@@ -249,6 +249,22 @@ retract that. The corpus is the repository as it stands, this post is in it
 from today, and every post after this one joins it too. What has to change is
 the grading, not the filesystem.
 
+### The one place I came close
+
+`tools/corpus-reach.ts` is the file that counts the places where a single
+search match hands over the whole answer, and I wrote it deliberately not to be
+one of them: it identifies the CLI's usage line by shape rather than by
+spelling the pair out, and says so in a comment. No recorded run is affected —
+every trace behind this post was frozen before that file existed. But post 4's
+agent will search a corpus holding that pair on five lines rather than six, and
+it holds five because I had just finished learning that the number of copies is
+the thing I am measuring. That is one step removed from tuning the instrument,
+and it is the closest this series has come to doing it. My argument is that a
+tool written to count a defect should not commit the defect. The argument
+against is that the rule three paragraphs up does not come with an exception
+for the person applying it, and if you hold me to that, you are holding me to
+what I wrote.
+
 ### I had to run it twice to ask the second question
 
 The tally records which tools were called, how many steps it took, what stopped
