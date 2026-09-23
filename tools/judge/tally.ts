@@ -18,8 +18,15 @@ import type { Judged } from './score.ts'
  * smaller, cleaner-looking one.
  */
 export function readJudgements(path: string): Judged[] {
+  // Either line ending. `core.autocrlf` is true on the machine this repository
+  // is written on, so a fresh Windows checkout hands this file back with CRLF,
+  // and a bare `split('\n')` glues a carriage return to the last cell of every
+  // row — including the header, whose last column is then named `reason\r`.
+  // Every lookup here is by name, so that failed loudly rather than silently,
+  // which is the good version of this bug and the reason it is a comment
+  // rather than a story.
   const lines = readFileSync(path, 'utf8')
-    .split('\n')
+    .split(/\r?\n/)
     .filter((line) => line.trim() !== '' && !line.startsWith('#'))
 
   const header = lines.shift()?.split('\t')

@@ -12,6 +12,16 @@ export type Judged = {
   reason: string
   inputTokens: number
   outputTokens: number
+  /**
+   * The model's reply verbatim, before parsing.
+   *
+   * Optional because the tally committed with post 5 does not carry it. The
+   * column was added in fix round 1, and re-running ninety calls to backfill a
+   * column would have been a second roll of the dice on the result the post is
+   * about. Every rerun writes it, and a reader who wants to check the parse
+   * rather than the parsed result then can.
+   */
+  raw?: string
 }
 
 /**

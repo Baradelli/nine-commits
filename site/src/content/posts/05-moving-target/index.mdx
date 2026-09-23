@@ -176,6 +176,11 @@ cannot settle came back `grounded`, at a mean confidence of 0.93.** Not one
 refusal. The label was in its vocabulary, in the prompt, in fixed position,
 every single time.
 
+One of those four runs has an earlier grader's verdict sitting inside its own
+evidence. That is a confound on the number you have just read, so it is
+bounded below rather than only disclosed: it reaches one case of the ten, and
+taking that case out leaves 27 of 27.
+
 The word `undecidable` appears once in ninety calls. It is on `copies-only`, a
 case whose answer is `from-copy` and is not in doubt. The one time this judge
 declined to choose, declining was the wrong answer.
@@ -231,19 +236,40 @@ carry, and no check over the citation can see the difference. The thing that
 caught it was the six cases with a known answer, and the only reason those
 exist is that they were built before the judge was run.
 
-### Its confidence is pointed the wrong way
+### Its confidence prices the label, not the question
+
+I had a sharper sentence here and the data does not carry it, so here is the
+sentence and then the correction.
 
 Mean confidence across the thirty-six calls with no answer to be right about:
-**0.93**. Mean confidence across the control calls it got right: **0.90**. It
-is more certain about the runs whose provenance is not in the trace than about
-the runs whose provenance is.
+**0.9283**. Mean confidence across the control calls it got right: **0.8962**.
+Read straight, that says the judge is more certain where provenance is not in
+the trace than where it is. It is a good line and it is an artifact of which
+labels sit in which bucket: the control mean is pulled down by the two labels
+the open set never uses, `from-copy` at 0.8350 over eight calls and
+`unevidenced` at 0.8941 over twenty-seven.
 
-And the lowest-confidence row on the board is `copies-only` at 0.81 — the one
-case on the panel that is genuinely hard and that it got right eight times out
-of nine. The number tracks something. It does not track whether the answer is
-knowable.
+Compared like for like it collapses. Open `grounded`: **0.9283** over
+thirty-six calls. Control `grounded`: **0.9267** over eighteen. A gap of under
+two thousandths.
 
-Its single refusal is worth reading in full, because it is the only call in
+Which is the finding, and it is a worse one than the sentence I had to throw
+away. Those eighteen control calls are runs where the source line was the only
+thing in the result set that could have produced the answer, and the judge
+charged 0.9267 for saying so. The thirty-six are runs where it cannot be
+established at all, and it charged 0.9283. **The number is a function of which
+label the judge emits, not of whether that label is knowable.** It costs the
+same to say `grounded` about a run that proves it and a run that cannot. The
+judge is not less sure when the evidence is thinner; it is less sure when it is
+reaching for a label it reaches for less often.
+
+And the two labels it charges less for are exactly the two it rarely emits,
+which is why the single lowest confidence anywhere in the ninety calls, 0.65,
+is its one `undecidable`. That is a per-call figure and not a per-case mean —
+the lowest per-case mean is `copies-only` at 0.81 — and on a page about
+unearned precision the two are worth keeping apart.
+
+That single refusal is worth reading in full, because it is the only call in
 the set that hesitated:
 
 > The run only shows a search_files result listing many matches (including
@@ -281,10 +307,12 @@ trace — but the agent's tools read source files, not built HTML, and what is
 actually in the corpus is `04-does-it-work/trace-b-binary.json`. Line 351 of
 that file is the previous run's own final answer, regex and all.
 
-So the sentence "this paragraph ends that" credits the wrong neighbour. The
-paragraph and the JSON landed in the same commit, so post 4 had no way to see
-the two apart, and its conclusion is unaffected: the control was retired, on
-schedule, by publishing. What retired it was the recording of the experiment
+So "this paragraph ends that" is off by one file. *The post is in the corpus*
+is literally true — the post directory is what the agent walks — and inside
+that directory the thing carrying the extension list is the JSON rather than
+the prose. The paragraph and the JSON landed in the same commit, so post 4 had
+no way to see the two apart, and its conclusion is unaffected: the control was
+retired, on schedule, by publishing. What retired it was the recording of the experiment
 rather than the writing about it. Which is a slightly worse property than the
 one post 4 described, because a post can choose its words and a committed
 trace is the answer verbatim.
@@ -298,16 +326,30 @@ regenerated — both are that commit's record of that commit.
 
 ### A previous grader's verdict, inside the evidence
 
-The new run's first search returns thirteen matches, and one of them is line
-44 of post 4's `verdicts.tsv` — the row for the previous run of this same
-question, which contains the string `grounded`.
+The new run's searches return line 44 of post 4's `verdicts.tsv` — the row for
+the previous run of this same question, which carries the string `grounded`.
+It comes back twice, in the first search and again in the second.
 
 So the judge was handed, inside the trace it was grading, an earlier grader's
 verdict on an earlier run of the same question, with the answer word in it.
-None of the nine reasons on that case mentions it. I cannot tell you it did
-not matter, for exactly the reason post 3 gave about its own runs, and it is
-not removable: the rule is no exclusions, and it now applies one level up. The
-corpus contamination has reached the grader.
+That is a confound on this post's headline, so here is its size rather than
+only its existence.
+
+It reaches exactly one of the ten cases. `retired-control` is the only trace on
+the panel whose tool results contain that row — or any of the four verdict
+words at all. The other nine cases are clean, and the three constructed ones
+are subsets of a trace recorded two commits before `verdicts.tsv` existed. The
+leak is nine of the ninety calls, at two frames of one trace.
+
+Drop those nine and the open set is **27 of 27 `grounded` at a mean confidence
+of 0.9307** — marginally *higher* than the 0.9283 with them in, and
+`retired-control` is the least confident of the four open cases rather than the
+most. The contamination is real, and it is not what produced 36 of 36.
+
+None of the nine reasons on that case mentions the row. I cannot tell you it
+did not matter, for exactly the reason post 3 gave about its own runs, and it
+is not removable: the rule is no exclusions, and it now applies one level up.
+The corpus contamination has reached the grader.
 
 ### One thing I left broken on purpose
 
@@ -363,14 +405,19 @@ All ninety calls are in <a href={judgements}><code>judgements.tsv</code></a>,
 one row per call, with each judge's citation, confidence and one-sentence
 reason in the last columns, so every count above is something you can recount
 rather than something you have to take from me. `judgements.test.ts` recounts
-them too: every number this page prints about the judge is recomputed from
-that file, and if the prose and the file drift apart, `npm test` says so.
+them too, and it is worth being exact about what that covers, because the
+first version of this sentence promised more than the test delivered: every
+judge number on this page — both tables cell for cell, all ten mean
+confidences, the 53 of 54, the 36 of 36 and the 27 of 27, the single
+`undecidable` and its 0.65, the per-label means above, the citation checks and
+the token totals — is recomputed from that file. If the prose and the file
+drift apart, `npm test` says so.
 
 ### It goes red
 
 A grader that cannot fail is not a grader, and this project has shipped one
 of those before — post 1's leak gate, which had never seen a real trace and
-would have reported success over a leak. So here is this one failing, four
+would have reported success over a leak. So here is this one failing, five
 ways, none of which calls a model.
 
 `score.test.ts` builds two judges out of thin air and scores them. A judge
@@ -398,6 +445,15 @@ the judge would be shown a run that appears to have searched the project and
 found it empty, and every verdict would come back `unevidenced` from a harness
 that had stopped reading. Post 6 changes the tool set. That is the line that
 will notice.
+
+The fifth is the one I did not write deliberately, and it fired during this
+post's own review. The tally reader looks its columns up by name, and a
+checkout of this repository on Windows serves that file with CRLF line
+endings, which glued a carriage return to the last cell of every row. It threw
+`no "reason" column` and stopped. The alternative — trimming quietly, or
+skipping rows it could not read — would have turned ninety rows into a smaller
+and much tidier tally, with every number in this post still printing. Fixed,
+and `tally.test.ts` now reads the same rows out of both line endings.
 
 ### What it cost
 
@@ -445,8 +501,21 @@ add a sentence telling the judge to prefer `undecidable` when both a source
 and a copy came back — and then I would have a judge that reproduces post 4's
 deterministic rule, more expensively and less reliably, and I would have
 written the answer into the question. That is the move this series has refused
-in public twice and it is not available here either. What is available is
-saying what the instrument does: this one manufactures certainty on every case
+in public twice and it is not available here either.
+
+There is one thing about my own prompt I should name while I am here. *Where
+did the final answer come from?* is a locative question, and the field beside
+it is called `citation` and wants a file and a line. Both presuppose there is
+an origin to be named. `undecidable` is on the list, in third position, with
+nothing marking it unusable — but a question shaped like *which one* is not a
+neutral instrument for an answer of *neither can be established*, and with one
+prompt and ninety calls I cannot separate that from the model's own
+disposition. It is the first thing I would vary if this were an experiment
+about judges rather than a post about needing to grade one. It does not rescue
+this judge: the thirty-six verdicts still cannot be checked, and something has
+to notice that.
+
+What is available is saying what the instrument does: this one manufactures certainty on every case
 where certainty is unavailable, and the only reason I can tell you that is the
 six cases where it is not.
 

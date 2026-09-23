@@ -30,6 +30,11 @@ export const HEADER = [
   'input_tokens',
   'output_tokens',
   'reason',
+  // Added in fix round 1. The tally committed with post 5 predates it: every
+  // number in that post is derived from a parsed verdict, and re-running the
+  // panel to add a column carrying the unparsed reply would have been a second
+  // roll of the dice on the result the post reports.
+  'raw',
 ].join('\t')
 
 export function toRow(judgeCase: JudgeCase, judged: Judged): string {
@@ -50,6 +55,7 @@ export function toRow(judgeCase: JudgeCase, judged: Judged): string {
     String(judged.inputTokens),
     String(judged.outputTokens),
     judged.reason.replace(/\s+/g, ' ').trim(),
+    (judged.raw ?? '').replace(/\s+/g, ' ').trim() || '-',
   ].join('\t')
 }
 
@@ -116,6 +122,7 @@ async function main(): Promise<void> {
         reason: call.judgement.reason,
         inputTokens: call.inputTokens,
         outputTokens: call.outputTokens,
+        raw: call.raw,
       }
       console.error(
         `${judged.case} #${judged.repeat}: ${judged.verdict} (${judged.confidence})`,
