@@ -153,6 +153,42 @@ describe('deriveOutcome', () => {
     expect(deriveOutcome(failed, [FILE, VALUE])).toBe('partial')
   })
 
+  /*
+   * v9. The rule arrived because the first fork recorded came back with its
+   * denied branch graded `success`: the answer names the file it was stopped
+   * from creating, so the substring rule was satisfied by a description of
+   * work that did not happen, and the player printed "The run finished the
+   * task" underneath it. Pinned here because breaking the rule produced no red
+   * line at all when it was first written — a grader rule nothing tests is a
+   * grader rule that will quietly stop being true.
+   */
+  it('caps a right-looking answer at partial when an approval was denied', () => {
+    const denied: RunStep[] = [
+      step({
+        toolCalls: [CALL],
+        approvals: [
+          { tool: 'write_file', decision: 'deny', toolCallId: 'call_1', args: {} },
+        ],
+      }),
+      step({ text: `${FILE} sets it to ${VALUE}.` }),
+    ]
+    expect(deriveOutcome(denied, [FILE, VALUE])).toBe('partial')
+  })
+
+  it('leaves a run whose approvals were all allowed alone', () => {
+    const allowed: RunStep[] = [
+      step({
+        toolCalls: [CALL],
+        toolResults: [{ id: 'call_1', ok: true, result: { ok: true } }],
+        approvals: [
+          { tool: 'write_file', decision: 'allow', toolCallId: 'call_1', args: {} },
+        ],
+      }),
+      step({ text: `${FILE} sets it to ${VALUE}.` }),
+    ]
+    expect(deriveOutcome(allowed, [FILE, VALUE])).toBe('success')
+  })
+
   it('refuses to grade a run nobody said what to expect from', () => {
     expect(() => deriveOutcome(steps, [])).toThrow(/expected must not be empty/)
   })

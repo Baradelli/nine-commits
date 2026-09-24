@@ -1,8 +1,16 @@
 import { writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { createInterface } from 'node:readline/promises'
 import { runOnce } from './run.ts'
 import { toRawTrace } from './recorder.ts'
+import {
+  ALWAYS_ALLOW,
+  ALWAYS_DENY,
+  GATED,
+  type Approver,
+  type GateOptions,
+} from './approval.ts'
 import { UnsafeRoot } from './tools/sandbox.ts'
 
 const TRACE_DIR = 'traces'
@@ -56,6 +64,53 @@ function expectations(): string[] {
   return facts
 }
 
+/**
+ * The gate, as a person actually meets it.
+ *
+ * `AGENT_APPROVAL` is `off` (v1-to-v8 behaviour, the default), `ask`, `allow`
+ * or `deny`. `ask` is the only one with a human in it: the run stops on the
+ * terminal, prints the tool and the arguments the model wrote, and waits for a
+ * key. Anything that is not `y` is a no, because a gate whose default is yes
+ * is a gate that is answered by walking away from the keyboard.
+ *
+ * **What the experiment used was a policy, not this.** A hundred and fifty
+ * runs cannot each wait for a person, and neither can a recorded one: a trace
+ * is replayed by a reader long after the operator has gone. That is the honest
+ * shape of the thing and the post says so — the human in the loop, in every
+ * number this commit publishes, is a function. This prompt is what a person
+ * gets, and it is here because a post about approvals whose program could not
+ * actually ask anybody would be a post about a callback.
+ */
+function approverFor(mode: string): GateOptions | undefined {
+  if (mode === 'off') return undefined
+  if (mode === 'allow') return { gate: GATED, decide: ALWAYS_ALLOW }
+  if (mode === 'deny') return { gate: GATED, decide: ALWAYS_DENY }
+  if (mode !== 'ask') {
+    console.error(
+      `AGENT_APPROVAL must be one of off, ask, allow, deny — got "${mode}"`,
+    )
+    process.exit(1)
+  }
+
+  const ask: Approver = async (request) => {
+    const rl = createInterface({ input: process.stdin, output: process.stderr })
+    try {
+      const answer = await rl.question(
+        [
+          '',
+          `[approval] ${request.tool}`,
+          JSON.stringify(request.args, null, 2),
+          'run it? [y/N] ',
+        ].join('\n'),
+      )
+      return answer.trim().toLowerCase() === 'y' ? 'allow' : 'deny'
+    } finally {
+      rl.close()
+    }
+  }
+  return { gate: GATED, decide: ask }
+}
+
 async function main(): Promise<void> {
   const task = process.argv.slice(2).join(' ').trim()
   const traceId = process.env.TRACE_ID ?? 'run'
@@ -91,7 +146,12 @@ async function main(): Promise<void> {
 
   const expected = expectations()
 
-  const result = await runOnce(task, { root })
+  const approval = approverFor(process.env.AGENT_APPROVAL?.trim() || 'off')
+
+  const result = await runOnce(task, {
+    root,
+    ...(approval === undefined ? {} : { approval }),
+  })
   console.log(result.steps.at(-1)?.text ?? '')
 
   const raw = toRawTrace({
@@ -134,7 +194,8 @@ async function main(): Promise<void> {
     `\n[${result.roster} roster, ${result.style} descriptions — ` +
       `called ${called === '' ? 'no tool' : called} — ` +
       `${result.steps.length} steps, stopped by ${result.stoppedBy} — ${outcome}` +
-      `${result.escapes.length > 0 ? ` — ${result.escapes.length} path(s) refused` : ''}]`,
+      `${result.escapes.length > 0 ? ` — ${result.escapes.length} path(s) refused` : ''}` +
+      `${result.approvals.length > 0 ? ` — ${result.approvals.length} gate(s): ${result.approvals.map((a) => a.decision).join(' ')}` : ''}]`,
   )
   console.error(`[recorded ${out}, logged ${RUNS_FILE}]`)
 }

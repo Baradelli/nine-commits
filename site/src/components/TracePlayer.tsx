@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact'
 import { useEffect, useReducer, useState } from 'preact/hooks'
 import {
   initialState,
@@ -29,10 +30,56 @@ const ENDING: Record<Trace['outcome'], string> = {
 
 const n = (value: number): string => value.toLocaleString('en-GB')
 
-export default function TracePlayer({ trace }: { trace: Trace }) {
+/**
+ * v9. Four optional props, added for `TraceBranch` and used by nothing else.
+ *
+ * `site/src/lib/player-state.ts` is frozen and stays frozen: none of these
+ * touches it. The branching player is built out of the reducer that is already
+ * there — a branch is a different frames array with a different length, and
+ * the way you change a length in that state machine is to start a new one,
+ * which is what `key` on a component does. `start` is how the new one opens
+ * where the old one stopped, and it is a `seek` through the same `reduce`
+ * rather than a hand-made state object.
+ */
+export type PlayerProps = {
+  trace: Trace
+  /** Where to open. Applied through the frozen reducer's own `seek`. */
+  start?: number
+  /** Reported on mount and on every move, so a wrapper can follow along. */
+  onIndex?: (index: number) => void
+  /** Replaces the sentence about how the run ended. */
+  note?: string
+  /**
+   * What the meter is measured against, when that is not this timeline's own
+   * peak. A fork is two timelines of one run, and a meter that rescaled when
+   * the reader picked a branch would make the same context look like two
+   * different sizes.
+   */
+  peak?: number
+  /** Rendered between the transport and the transcript. */
+  after?: ComponentChildren
+}
+
+export default function TracePlayer({
+  trace,
+  start,
+  onIndex,
+  note,
+  peak: peakOverride,
+  after,
+}: PlayerProps) {
   // Generics are inferred from `reduce`; naming them explicitly breaks across
   // Preact hook typings.
-  const [state, dispatch] = useReducer(reduce, initialState(trace.frames.length))
+  const [state, dispatch] = useReducer(
+    reduce,
+    // Not a hand-built state: `initialState` then the reducer's own `seek`,
+    // so an out-of-range `start` is clamped by the same code every other move
+    // is clamped by.
+    reduce(initialState(trace.frames.length), {
+      type: 'seek',
+      index: start ?? 0,
+    }),
+  )
 
   // Server-rendered and pre-hydration markup must not claim to be
   // interactive: the controls render disabled until this flips, on mount,
@@ -50,13 +97,16 @@ export default function TracePlayer({ trace }: { trace: Trace }) {
     return () => clearTimeout(timer)
   }, [state.playing, state.index])
 
+  useEffect(() => onIndex?.(state.index), [state.index])
+
   const shown = visibleFrames(trace.frames, state)
   const atEnd = isAtEnd(state)
 
   // The margin measure is the size of the context the agent is carrying,
   // taken against the run's own peak. It is deliberately not monotonic: a
   // compaction frame makes it retreat, which is the whole point of post 7.
-  const peak = trace.tokens.length > 0 ? Math.max(...trace.tokens) : 0
+  const peak =
+    peakOverride ?? (trace.tokens.length > 0 ? Math.max(...trace.tokens) : 0)
   const carried = trace.tokens[state.index] ?? 0
   const fill = peak > 0 ? Math.round((carried / peak) * 100) : 0
 
@@ -76,7 +126,7 @@ export default function TracePlayer({ trace }: { trace: Trace }) {
         <header>
           <h2 class="trace__task">{trace.task}</h2>
           <p class="trace__note">
-            {`Recorded from ${trace.model} at commit ${trace.commit}. ${ENDING[trace.outcome]}`}
+            {`Recorded from ${trace.model} at commit ${trace.commit}. ${note ?? ENDING[trace.outcome]}`}
           </p>
         </header>
 
@@ -133,8 +183,16 @@ export default function TracePlayer({ trace }: { trace: Trace }) {
             type="button"
             class="control"
             data-action="reset"
-            onClick={() => dispatch({ type: 'reset' })}
-            disabled={!mounted || (state.index === 0 && !state.playing)}
+            // `reset` would send this player back to frame 0, which is the
+            // wrong place for a branch that opens at its fork. Pause then seek
+            // is the same two things `reset` does, spelled with the frozen
+            // reducer's own actions and aimed at `start`; with the default
+            // `start` of 0 it is exactly `reset`.
+            onClick={() => {
+              dispatch({ type: 'pause' })
+              dispatch({ type: 'seek', index: start ?? 0 })
+            }}
+            disabled={!mounted || (state.index === (start ?? 0) && !state.playing)}
           >
             Start over
           </button>
@@ -149,6 +207,8 @@ export default function TracePlayer({ trace }: { trace: Trace }) {
             </p>
           )}
         </div>
+
+        {after}
 
         <ol class="transcript full">
           {shown.map((frame, i) => (

@@ -56,7 +56,8 @@ function finalAnswer(steps: RunStep[]): string {
  *
  * All the facts present is a success, some of them is partial, none is a
  * failure. A tool call that failed caps the grade at partial: a run that got
- * there without its tool did not get there the way it claims to have.
+ * there without its tool did not get there the way it claims to have. v9 adds
+ * a denied approval to the same rule, for the reason written beside it below.
  */
 export function deriveOutcome(steps: RunStep[], expected: string[]): Outcome {
   if (expected.length === 0) {
@@ -77,7 +78,20 @@ export function deriveOutcome(steps: RunStep[], expected: string[]): Outcome {
   const toolFailed = steps.some((step) =>
     step.toolResults.some((result) => !result.ok),
   )
-  if (hits < expected.length || toolFailed) return 'partial'
+
+  // v9, and a defect found by recording a real branch rather than by reading
+  // code. The first published deny branch came back `success`: its final
+  // answer names `notes/ports.md`, the file it was stopped from creating, so
+  // the substring rule was satisfied by an answer describing work that did not
+  // happen — and the player prints that grade under the trace as *the run
+  // finished the task*. This is post 4's finding arriving one commit later
+  // with a human in it, and the rule that fixes it is the rule already above:
+  // a call that did not do its job caps the grade. A denied call did not do
+  // its job in the strongest possible sense — it never ran.
+  const denied = steps.some((step) =>
+    step.approvals?.some((approval) => approval.decision === 'deny'),
+  )
+  if (hits < expected.length || toolFailed || denied) return 'partial'
 
   return 'success'
 }
@@ -109,6 +123,15 @@ export function deriveOutcome(steps: RunStep[], expected: string[]): Outcome {
  * trace which had just thrown away half its context showed a flat line: the
  * drop was attributed to the frame before the rewrite and the rewrite itself
  * looked free.
+ *
+ * v9 adds the last frame the schema has carried unused since commit 1, and it
+ * is the only one that costs nothing. An approval goes between the call and
+ * the result, because that is where the decision is made: the model has asked
+ * and nothing has happened yet. Its token entry repeats the call's, and that
+ * is the truth rather than a convenience — answering a question adds nothing
+ * to the conversation. What the answer costs, when it is no, arrives on the
+ * tool result underneath it as the denial the model is told, and is counted
+ * there like any other result.
  *
  * So the two frames either side of a compaction are the program's own
  * estimate — `before` on the result, `after` on the compaction — and every
@@ -143,6 +166,27 @@ export function toRawTrace(input: RecorderInput): unknown {
         args: call.args,
       })
       tokens.push(step.totalTokens)
+
+      // v9. The gate sits between the call and the result, which is where it
+      // sits in the run: the model has asked and nothing has happened yet.
+      // Matched by call id rather than by position, because a step can carry
+      // several calls and only some of them through the gate.
+      const decided = step.approvals?.find(
+        (approval) => approval.toolCallId === call.id,
+      )
+      if (decided !== undefined) {
+        frames.push({
+          type: 'approval',
+          tool: decided.tool,
+          decision: decided.decision,
+        })
+        // Answering costs no context. Nothing is added to the conversation by
+        // the answer itself; the denial sentence that is added arrives as the
+        // call's tool result and is counted there. So the meter holds flat
+        // across a gate, and this is the one frame in the schema for which
+        // that is true by construction rather than by measurement.
+        tokens.push(step.totalTokens)
+      }
     }
 
     for (const result of step.toolResults) {

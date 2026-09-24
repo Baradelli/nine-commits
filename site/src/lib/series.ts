@@ -137,7 +137,27 @@ export const PLANNED: readonly PlannedPost[] = [
     order: 9,
     tag: 'v9-hitl',
     title: 'The Human in the Loop',
+    // The first thesis in four that the commit did not have to correct. The
+    // plan's line was "an approval prompt is a branch in the trace. Both
+    // branches were recorded; you pick which one runs", and it is true and is
+    // the first two sentences below: the `approval` frame the schema has
+    // carried unused since commit 1 is real, one run was suspended at its gate
+    // and continued twice from the same conversation, and the page lets a
+    // reader answer the question and watch what happened. What the line did
+    // not say is what the hundred and fifty runs found, and the index is where
+    // a commit's claim lives, so the line grew rather than changed.
+    //
+    // Every figure is recomputed from `09-hitl/runs.tsv` by
+    // `tools/hitl/tally.test.ts`. "The same bytes" is not a measurement at all
+    // but a test: the SDK strips approval requests and responses on their way
+    // to the provider, and `tools/hitl/fork.test.ts` asserts that a gated run
+    // and an ungated one send byte-identical prompts. The standing context is
+    // the same integer — 21,620 tokens over fifty runs — in all three
+    // conditions. The gate asked 116 questions across the 150 runs (40 under
+    // `allow`, 76 under `deny`), every one of them about a call that was
+    // right: all fifty `allow` runs finished their task and no condition
+    // changed a file it was not asked to.
     thesis:
-      'An approval prompt is a branch in the trace. Both branches were recorded; you pick which one runs.',
+      'An approval prompt is a branch in the trace: one run, suspended at the gate, continued twice — both branches on this page were recorded and you answer the question. Saying yes costs nothing, to the token. Saying no does not stop the change: the agent asked again in thirty of forty denied runs and handed me the shell command in twenty-seven. In a hundred and fifty runs the gate asked a hundred and sixteen questions and not one was about a call I would have refused.',
   },
 ]

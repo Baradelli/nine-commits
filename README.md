@@ -119,6 +119,27 @@ asked. Half its panel has a known answer built by construction: a summary
 assembled from quotations, and the same summary with one number changed. This
 is post 5's method pointed at post 7's problem.
 
+## Approvals, and a run you can answer twice
+
+```
+AGENT_APPROVAL=ask npm start --workspace @nine-commits/agent -- "<task>"
+npm run hitl           # the 150-run experiment: no gate, gate saying yes, gate saying no
+npm run hitl:tally     # the committed tally, recounted
+npm run fork           # record one run suspended at its gate and continued both ways
+```
+
+`AGENT_APPROVAL` is `off` (the default, and what commits 1 to 8 did), `ask`,
+`allow` or `deny`. `ask` is the only one with a person in it: the run stops on
+the terminal, prints the tool and the arguments the model wrote, and waits.
+Anything that is not `y` is a no.
+
+`npm run fork` is how post 9's two published traces were made. The run is
+started with nobody available to answer, so the loop returns a conversation
+with an unanswered approval in it; that conversation is then handed back twice,
+once with a yes and once with a no. Both continuations are real calls, and
+every frame before the gate is one recording — `tools/hitl/fork.test.ts`
+asserts that against the same code, offline, with a mock model.
+
 ## Attribution
 
 Built while following **"Build an AI Agent from Scratch"** by

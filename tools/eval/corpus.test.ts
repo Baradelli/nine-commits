@@ -14,18 +14,89 @@ describe('the traces committed in this repository', () => {
   )
 
   /**
-   * The prose axis is the recorder's own rule, recomputed from the committed
-   * file rather than from the live run. If the two ever disagree, either the
-   * trace was edited after it was graded or this reimplementation is wrong,
-   * and both are worth a red line.
+   * The prose axis is the recorder's rule recomputed from the committed file
+   * rather than from the live run.
+   *
+   * This said, for eight posts, that the two must always agree — *"if they
+   * disagree, either the trace was edited after it was graded or this
+   * reimplementation is wrong"*. That was a false dichotomy and it held only
+   * because nothing had ever been recorded that could break it. Post 9 broke
+   * it twice, for two different and legitimate reasons, so the rule is now
+   * agreement **except where a disagreement is written down with its cause**.
+   * A new disagreement still goes red, which is the only thing this test was
+   * ever for.
    */
-  it('agrees with the outcome the recorder wrote, on every graded run', () => {
+  const DISAGREEMENTS: Record<string, { eval: string; recorder: string; why: string }> = {
+    '09-hitl/trace-a-allow.json': {
+      eval: 'partial',
+      recorder: 'success',
+      why:
+        'the two graders were told to look for different things. The recorder ' +
+        'was handed the task’s own expectation, which is the file path; this ' +
+        'question also asks for the port number, and the allowed run names the ' +
+        'file it created without repeating the number it put in it.',
+    },
+    '09-hitl/trace-b-deny.json': {
+      eval: 'success',
+      recorder: 'partial',
+      why:
+        'the recorder gained a rule this reimplementation does not have: v9 ' +
+        'caps a run at partial when an approval was denied, because a call ' +
+        'that never ran did not do its job. The prose axis cannot see an ' +
+        'approval frame at all, and the denied run prints the whole file into ' +
+        'its answer, so on sentences alone it scores higher than the run that ' +
+        'actually wrote it.',
+    },
+  }
+
+  it('agrees with the outcome the recorder wrote, except where it is written down', () => {
     for (const result of runSuite(POSTS_DIR)) {
       if (result.grade.answer === 'ungraded') continue
+      const known = DISAGREEMENTS[result.grade.run]
+      if (known !== undefined) {
+        expect(`${result.grade.run}: ${result.grade.answer}`).toBe(
+          `${result.grade.run}: ${known.eval}`,
+        )
+        expect(`${result.grade.run}: ${result.grade.recordedOutcome}`).toBe(
+          `${result.grade.run}: ${known.recorder}`,
+        )
+        continue
+      }
       expect(`${result.grade.run}: ${result.grade.answer}`).toBe(
         `${result.grade.run}: ${result.grade.recordedOutcome}`,
       )
     }
+  })
+
+  it('has a reason written down for every disagreement, and no stale ones', () => {
+    const disagreeing = runSuite(POSTS_DIR)
+      .filter(
+        (result) =>
+          result.grade.answer !== 'ungraded' &&
+          result.grade.answer !== result.grade.recordedOutcome,
+      )
+      .map((result) => result.grade.run)
+      .sort()
+
+    expect(disagreeing).toEqual(Object.keys(DISAGREEMENTS).sort())
+    for (const entry of Object.values(DISAGREEMENTS)) {
+      expect(entry.why.length).toBeGreaterThan(40)
+    }
+  })
+
+  it('ranks the two branches of post 9 in opposite orders', () => {
+    // The finding the post turns on, asserted rather than described: the run
+    // that made the change scores lower on sentences than the run that was
+    // stopped from making it.
+    const grades = Object.fromEntries(
+      runSuite(POSTS_DIR)
+        .filter((result) => result.case.post === '09-hitl')
+        .map((result) => [result.case.file, result.grade]),
+    )
+    expect(grades['trace-a-allow.json']?.answer).toBe('partial')
+    expect(grades['trace-b-deny.json']?.answer).toBe('success')
+    expect(grades['trace-a-allow.json']?.recordedOutcome).toBe('success')
+    expect(grades['trace-b-deny.json']?.recordedOutcome).toBe('partial')
   })
 
   /**

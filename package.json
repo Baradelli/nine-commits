@@ -29,7 +29,10 @@
     "summary-judge:tally": "tsx tools/judge/summary-tally.ts",
     "attacks": "tsx tools/run-attacks.ts",
     "shell": "tsx --env-file=agent/.env tools/run-shell.ts",
-    "shell:tally": "tsx tools/shell/report.ts"
+    "shell:tally": "tsx tools/shell/report.ts",
+    "hitl": "tsx --env-file=agent/.env tools/run-hitl.ts",
+    "hitl:tally": "tsx tools/hitl/report.ts",
+    "fork": "tsx --env-file=agent/.env tools/run-fork.ts"
   },
   "devDependencies": {
     "@ai-sdk/openai": "^4.0.69",

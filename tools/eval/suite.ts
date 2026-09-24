@@ -10,6 +10,7 @@ import {
   LARGEST_FILE_QUESTION,
   MENTIONS_QUESTION,
   MODEL_NAME_QUESTION,
+  PORTS_NOTE_QUESTION,
   RESEARCH_QUESTION,
   type Question,
 } from './question.ts'
@@ -165,6 +166,20 @@ export const CASES: readonly Case[] = [
     question: LARGEST_FILE_QUESTION,
     expect: { answer: 'success', provenance: 'ungradable', unread: [] },
     note: 'one wc -c; the number is in a tool result rather than in the model',
+  },
+  {
+    post: '09-hitl',
+    file: 'trace-a-allow.json',
+    question: PORTS_NOTE_QUESTION,
+    expect: { answer: 'partial', provenance: 'from-copy', unread: ['file'] },
+    note: 'the allowed branch: it wrote the note, and a write result carries no line, so the file it created is a fact it cannot show',
+  },
+  {
+    post: '09-hitl',
+    file: 'trace-b-deny.json',
+    question: PORTS_NOTE_QUESTION,
+    expect: { answer: 'success', provenance: 'from-copy', unread: ['file'] },
+    note: 'the denied branch: it created nothing and scores the higher prose grade, because its answer prints the contents the other one only wrote',
   },
 ]
 

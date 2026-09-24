@@ -770,6 +770,68 @@ pre {
   text-wrap: pretty;
 }
 
+/*
+ * v9. The question the run stopped on, and the two answers.
+ *
+ * It sits between the transport and the transcript because that is where it
+ * sits in the run: the frames above it happened, the frames below it depend on
+ * what you answer. Set as a marginal question with the answers under it, in
+ * the same button vocabulary as the compare switch — solid edge for the answer
+ * you gave, dashed for the one you did not — so the block reads with no colour
+ * vision at all.
+ *
+ * The rule above it is the same hairline the transport carries, continued: the
+ * fork is part of the chrome, not part of the trace.
+ */
+.fork {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding-block: var(--space-s);
+  border-block-end: 1px solid var(--rule-faint);
+}
+
+.fork__question {
+  font-size: var(--text-s);
+  color: var(--ink-2);
+  max-width: 52ch;
+  text-wrap: pretty;
+}
+
+.fork__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-xs);
+}
+
+.fork__choices .control {
+  border-style: dashed;
+  color: var(--ink-2);
+}
+
+.fork__choices .control[aria-pressed='true'] {
+  border-style: solid;
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.fork__choices .control:disabled {
+  border-style: dashed;
+  border-color: var(--rule-faint);
+  color: var(--ink-3);
+}
+
+/*
+ * A branch block is a compare block with one player in it, so it inherits the
+ * compare layout and only has to say that its own player must not break out of
+ * the measure a second time.
+ */
+.prose .branch .player {
+  margin-inline: 0;
+  margin-block: var(--space-m) 0;
+  width: 100%;
+}
+
 /* The budget measure is a different instrument from the reading measure:
    heavier, and on a track you can actually see. */
 .player > .rail {

@@ -73,9 +73,19 @@ const dateFormat = new Intl.DateTimeFormat('en-GB', {
       <p class="marginal" aria-hidden="true">{written} of {SERIES_LENGTH}</p>
       <p class="standfirst">
         {
+          /*
+           * Three states, not two. Until commit 9 this page said "the rest
+           * are listed with the claim each commit still has to earn", which
+           * stops being true the moment there is no rest — and the sentence
+           * that replaces it is the one the series is actually for: four of
+           * the nine claims below are not the claims that were written before
+           * the commits, because the commits disagreed with them.
+           */
           written === 0
             ? 'Nothing is published yet. The agent exists and the first run is being recorded. Until then, here is the whole series and the claim each commit has to earn.'
-            : `${spelled[written]} of the nine ${written === 1 ? 'is' : 'are'} published. The rest are listed with the claim each commit still has to earn.`
+            : written === SERIES_LENGTH
+              ? 'All nine are published. Four of the theses below are not the ones I wrote before building them — posts 3, 6, 7 and 8 each corrected their own claim on the evidence the commit produced, and say so.'
+              : `${spelled[written]} of the nine ${written === 1 ? 'is' : 'are'} published. The rest are listed with the claim each commit still has to earn.`
         }
       </p>
 
