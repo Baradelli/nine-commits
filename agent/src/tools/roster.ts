@@ -26,7 +26,7 @@ import type { ToolName } from './descriptions.ts'
  * appended, so the only difference a model can see between two conditions is
  * that there is one more definition after the ones it already had.
  */
-export type Roster = 'four' | 'five-append' | 'five-search' | 'web'
+export type Roster = 'four' | 'five-append' | 'five-search' | 'web' | 'four-shell'
 
 const FOUR: readonly ToolName[] = [
   'list_files',
@@ -49,6 +49,23 @@ export const ROSTERS: Record<Roster, readonly ToolName[]> = {
    * larger than everything else in the run put together.
    */
   web: [...FOUR, 'web_search', 'fetch_page'],
+  /**
+   * v8. The four, plus a shell.
+   *
+   * Deliberately additive rather than a replacement, and deliberately the same
+   * shape as post 6's `five-append`: four tools the agent already had, one more
+   * definition appended at the end, everything else identical. Post 6 asked
+   * whether a redundant fifth degrades selection among the four and found it
+   * did not. This asks the same question of a fifth that is not redundant and
+   * not a primitive — one whose surface is every binary on the machine, minus
+   * whatever a guard can be made to remove.
+   *
+   * There is no `shell-only` roster. `run_command` cannot change a byte inside
+   * a file (`ALLOWED` in `shell.ts` says why), so an agent holding only the
+   * shell could not finish four of the seven tasks — and a condition that loses
+   * by construction measures the condition's construction.
+   */
+  'four-shell': [...FOUR, 'run_command'],
 }
 
 export const DEFAULT_ROSTER: Roster = 'four'

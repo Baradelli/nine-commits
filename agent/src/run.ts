@@ -6,6 +6,7 @@ import { resolveStyle, type DescriptionStyle } from './tools/descriptions.ts'
 import { resolveRoster, ROSTERS, type Roster } from './tools/roster.ts'
 import { PROJECT_ROOT } from './tools/fs.ts'
 import type { SandboxEscape } from './tools/sandbox.ts'
+import type { ShellRefusal } from './tools/shell.ts'
 import type { WebOptions } from './tools/web.ts'
 import {
   budgetOf,
@@ -82,6 +83,18 @@ export type RunResult = {
    * cannot show that is a tally reporting a safety property it never measured.
    */
   escapes: string[]
+  /**
+   * v8. Every command line the shell guard refused, and which rule refused it.
+   *
+   * Post 6's escape counter read zero across a hundred and fifty runs, which
+   * meant everything that post could say about its guard came from a test file.
+   * This is the same counter for a much larger surface, and it is on the result
+   * for the same reason: a condition that produces refusals is a condition
+   * where the model reached for something the program would not do, and a tally
+   * that cannot show that is a tally reporting a safety property it never
+   * measured.
+   */
+  refusals: { command: string; rule: string }[]
   /** v7. How many times the history was rewritten during this run. */
   compactions: number
   /**
@@ -249,6 +262,7 @@ export async function runOnce(
   const budget = budgetOf(contextLimit)
 
   const escapes: SandboxEscape[] = []
+  const refusals: ShellRefusal[] = []
   const fetched: string[] = []
   const steps: RunStep[] = []
   const finishReasons: FinishReason[] = []
@@ -292,6 +306,10 @@ export async function runOnce(
       // path is the one event in this run that is about the program's
       // safety rather than about the model's answer.
       console.error(`[sandbox] ${error.message}`)
+    },
+    onRefusal: (error) => {
+      refusals.push(error)
+      console.error(`[shell] ${error.rule}: ${error.message}`)
     },
   })
 
@@ -369,6 +387,7 @@ export async function runOnce(
         ? whatStopped(finishReasons.map((finishReason) => ({ finishReason })))
         : 'context-overflow',
     escapes: escapes.map((error) => error.attempted),
+    refusals: refusals.map((error) => ({ command: error.attempted, rule: error.rule })),
     compactions,
     summariserInputTokens,
     summariserOutputTokens,

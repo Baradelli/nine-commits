@@ -103,8 +103,28 @@ export const PLANNED: readonly PlannedPost[] = [
     order: 8,
     tag: 'v8-shell',
     title: "Shell Access, and Why That's Terrifying",
+    // The plan's thesis was "giving the agent a shell gives it everything you
+    // can do, including the parts you would not do". The first half is true and
+    // is demonstrated rather than asserted: an unguarded `execSync` in a
+    // container with no mounts and no network deleted the container's own
+    // filesystem and went on printing from a machine whose `ls` no longer
+    // existed. The second half did not survive being built. "The parts you
+    // would not do" is a claim about a shell, and the shell I could actually
+    // defend is not one: the allow-list that survived ninety-seven attacks
+    // holds no interpreter, no redirection and no metacharacter, so it cannot
+    // change a byte inside a file — every idiom that writes content is either a
+    // shell feature or an interpreter. What the model did with it is the
+    // finding. It wrote shell, not commands: forty-seven of seventy-nine
+    // command lines refused, `find -exec` six times, `||` or `&&` fifteen
+    // times, and not once a program outside the list — the part of the guard
+    // everybody writes first never fired at all. The result is post 6's
+    // original thesis coming true one tool later, except on `largest-file`,
+    // where the four have no primitive for a byte count, count the characters
+    // in their heads for six thousand output tokens a run, and come out one
+    // byte high. The index is a claim the commits have to earn, so the claim
+    // changed. Post 8 shows the tally, the attack table and the container.
     thesis:
-      'Giving the agent a shell gives it everything you can do, including the parts you would not do.',
+      "A shell is everything you can do: in a container, one call deleted the machine it was running on. The one I would let near this machine cannot change a byte inside a file, refused forty-seven of the seventy-nine commands the model wrote, and finished sixty of seventy tasks against the four filesystem primitives' sixty-five. It won exactly one task of seven — the one the four have no way to do at all.",
   },
   {
     order: 9,

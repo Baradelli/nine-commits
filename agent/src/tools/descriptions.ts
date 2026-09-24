@@ -22,17 +22,25 @@
  * pull three of them. Whether saying so changes anything is not measured here
  * — post 2's experiment is about that, and this commit does not re-run it.
  *
- * Both of those two v7 strings are also **wider than the tools underneath
- * them**, and they are left that way on purpose. `web_search` says "the public
- * web" and searches one encyclopaedia (`PROVIDER_HOST` in `web.ts`).
- * `fetch_page` says it "only accepts URLs that web_search returned" and in fact
- * accepts any `https://en.wikipedia.org/wiki/<article>` URL, whether a search
- * returned it or not. The post is accurate about both where it describes the
- * tools; these strings are not. They are frozen because the model read these
- * exact bytes in all one hundred runs, and they are part of the 708-token
- * baseline that post 7's "2.12% of the window" is measured against — so
- * correcting them would be tuning the instrument after seeing the result. They
- * get fixed in the commit that changes the roster anyway.
+ * **v8 pays a debt v7 wrote down.** Both of v7's strings were wider than the
+ * tools underneath them — `web_search` said "the public web" and searched one
+ * encyclopaedia, `fetch_page` said it "only accepts URLs that web_search
+ * returned" and in fact accepted any `https://en.wikipedia.org/wiki/<article>`
+ * URL. v7 froze them deliberately: the model had read those exact bytes in all
+ * one hundred runs and they sit inside the 708-token baseline that post 7's
+ * "2.12% of the window" is measured against, so correcting them mid-experiment
+ * would have been tuning the instrument after seeing the result. v7 said the
+ * fix belonged to the commit that changed the roster anyway. This is it. Post
+ * 7's published figures are unaffected: they are recomputed by
+ * `tools/context/tally.test.ts` from the committed traces, which record what
+ * those runs were handed rather than what this file says today.
+ *
+ * v8's own string has the same hazard and is written to avoid it. `run_command`
+ * names the commands it will run and says, in the sentence a model is most
+ * likely to act on, that it is not a shell: no pipes, no redirection, no `&&`,
+ * no globbing, nothing outside the directory, and no way to change what is
+ * inside a file. A description that promised a shell would be measuring how
+ * often the model discovers the guard rather than what the guard is worth.
  */
 
 export type DescriptionStyle = 'precise' | 'thin'
@@ -46,6 +54,7 @@ export type ToolName =
   | 'append_file'
   | 'web_search'
   | 'fetch_page'
+  | 'run_command'
 
 export type ToolDescriptions = Record<ToolName, string>
 
@@ -83,7 +92,7 @@ export const DESCRIPTIONS: Record<DescriptionStyle, ToolDescriptions> = {
       'Use it when the change is purely an addition at the end. ' +
       'It cannot change anything already in the file, and it cannot insert anywhere but the end.',
     web_search:
-      'Search the public web for a query and get back a handful of matching pages. ' +
+      'Search the English Wikipedia for a query and get back a handful of matching articles. ' +
       'Returns a title, a URL and a one-line snippet for each result, and nothing else. ' +
       'Use it to find the page that answers a question you cannot answer from this project. ' +
       'It cannot tell you what a page says: the snippet is an extract chosen by the search engine, not the article.',
@@ -91,7 +100,12 @@ export const DESCRIPTIONS: Record<DescriptionStyle, ToolDescriptions> = {
       'Read the full text of one page found by web_search, given the URL from its result. ' +
       'Returns the whole article as plain text, which is long — often several thousand words — and all of it stays in your context for the rest of the run. ' +
       'Use it when the snippet is not enough, and read one page at a time rather than everything that looked relevant. ' +
-      'It only accepts URLs that web_search returned, and it cannot search.',
+      'It only fetches https://en.wikipedia.org/wiki/<article> URLs, and it cannot search.',
+    run_command:
+      'Run one command in this project directory and get back what it printed. ' +
+      'Only these commands are available, and only with ordinary flags: cp, diff, echo, find, grep, head, ls, mkdir, mv, sort, tail, touch, uniq, wc — plus cat, which prints a whole file. ' +
+      'Use it when a shell does the job in one call that the other tools would take several to do: counting, searching across files, or looking at what is there. ' +
+      'It runs one command, not a shell: no pipes, no redirection, no && or ;, no wildcards, no variables, and nothing outside this directory. It cannot change what is inside a file.',
   },
   thin: {
     list_files: 'Lists files.',
@@ -102,6 +116,7 @@ export const DESCRIPTIONS: Record<DescriptionStyle, ToolDescriptions> = {
     append_file: 'Appends to a file.',
     web_search: 'Searches the web.',
     fetch_page: 'Fetches a page.',
+    run_command: 'Runs a command.',
   },
 }
 

@@ -1,6 +1,7 @@
 import { tool, type Tool } from 'ai'
 import { z } from 'zod'
 import { createFs, PROJECT_ROOT, type Fs } from './fs.ts'
+import { createShell, type Shell, type ShellRefusal } from './shell.ts'
 import type { SandboxEscape } from './sandbox.ts'
 import {
   DESCRIPTIONS,
@@ -32,6 +33,7 @@ const editInput = z.object({
 })
 const queryInput = z.object({ query: z.string() })
 const urlInput = z.object({ url: z.string() })
+const commandInput = z.object({ command: z.string() })
 
 export type BuildOptions = {
   root?: string
@@ -39,6 +41,16 @@ export type BuildOptions = {
   style?: DescriptionStyle
   /** Called whenever the guard refused a path, so a block is never silent. */
   onEscape?: (error: SandboxEscape) => void
+  /**
+   * v8. Called whenever the shell guard refused a command line.
+   *
+   * Separate from `onEscape` rather than folded into it, because the two
+   * guards answer different questions and a tally with one column could not
+   * tell them apart. `onEscape` counts paths a filesystem tool would have
+   * opened outside the sandbox; this counts command lines the shell would not
+   * run at all, most of which never got as far as having a path in them.
+   */
+  onRefusal?: (error: ShellRefusal) => void
   /**
    * How the two v7 tools treat the on-disk cache, and who is told about a
    * request that actually left the machine.
@@ -57,6 +69,7 @@ function define(
   fs: Fs,
   style: DescriptionStyle,
   web: WebOptions,
+  shell: Shell | undefined,
 ): Tool {
   const description = DESCRIPTIONS[style][name]
 
@@ -110,7 +123,29 @@ function define(
         inputSchema: urlInput,
         execute: ({ url }) => fetchPage(url, web),
       })
+    case 'run_command':
+      return tool({
+        description,
+        inputSchema: commandInput,
+        execute: ({ command }) => {
+          if (shell === undefined) {
+            // Unreachable through `buildTools`, which builds the shell before
+            // it builds this tool. It is a throw rather than a refusal for the
+            // same reason `requireWritable` is one in `fs.ts`: a roster that
+            // hands the model a tool with nothing behind it is a programming
+            // mistake, and a refusal the model can read would hide it inside
+            // the experiment.
+            throw new Error('buildTools: run_command was built without a shell')
+          }
+          return shell.runCommand(command)
+        },
+      })
   }
+}
+
+/** Whether a roster contains the shell. */
+export function rosterShells(roster: Roster): boolean {
+  return ROSTERS[roster].includes('run_command')
 }
 
 /** Whether a roster contains a tool that can change a file. */
@@ -140,7 +175,17 @@ export function buildTools(options: BuildOptions = {}): Record<string, Tool> {
     onEscape: options.onEscape,
   })
 
+  // Built before any tool, so a roster with a shell in it refuses an unsafe
+  // root at the same moment a roster with a write in it does. `createShell`
+  // runs `assertWritableRoot` even though nothing it can run writes: the four
+  // filesystem tools skip dotfiles and `cat` does not, so a shell rooted at
+  // this checkout is a tool that can read `agent/.env`.
+  const shell = rosterShells(roster) ? createShell(root, { onRefusal: options.onRefusal }) : undefined
+
   return Object.fromEntries(
-    ROSTERS[roster].map((name) => [name, define(name, fs, style, options.web ?? {})]),
+    ROSTERS[roster].map((name) => [
+      name,
+      define(name, fs, style, options.web ?? {}, shell),
+    ]),
   )
 }

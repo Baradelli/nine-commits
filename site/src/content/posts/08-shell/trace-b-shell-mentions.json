@@ -1,0 +1,241 @@
+{
+  "id": "four-shell-find-mentions-1",
+  "commit": "v8-shell",
+  "model": "gpt-5-mini",
+  "task": "Which files in this project contain the lowercase word \"parcel\", and how many lines contain it in total? List the files and give the total.",
+  "outcome": "failure",
+  "tokens": [
+    594,
+    1004,
+    1041,
+    1266,
+    1326,
+    1403,
+    1481,
+    1501,
+    1577,
+    1599,
+    1672,
+    1693,
+    1747,
+    1766,
+    1849,
+    1870,
+    1933,
+    1954,
+    2025,
+    2045,
+    2045
+  ],
+  "frames": [
+    {
+      "type": "user",
+      "content": "Which files in this project contain the lowercase word \"parcel\", and how many lines contain it in total? List the files and give the total."
+    },
+    {
+      "type": "tool_call",
+      "id": "call_9wP9qyOIUzHNStVlhbNxWEfQ",
+      "name": "run_command",
+      "args": {
+        "command": "grep -RInw 'parcel' ."
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_9wP9qyOIUzHNStVlhbNxWEfQ",
+      "ok": false,
+      "result": {
+        "ok": false,
+        "error": "refused \"grep -RInw 'parcel' .\": grep may not be given -R here"
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_CobdMCvOAtvfUdD3jYfGMQVE",
+      "name": "list_files",
+      "args": {
+        "directory": "."
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_CobdMCvOAtvfUdD3jYfGMQVE",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "directory": ".",
+        "files": [
+          "README.md",
+          "config/settings.json",
+          "docs/CHANGELOG.md",
+          "notes/todo.md",
+          "package.json",
+          "src/dispatch.ts",
+          "src/queue.ts",
+          "src/server.ts"
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_7Ulb3yo4EP800jhP0Hm5dTEK",
+      "name": "read_file",
+      "args": {
+        "path": "README.md"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_7Ulb3yo4EP800jhP0Hm5dTEK",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "file": "README.md",
+        "lines": 10,
+        "truncated": false,
+        "content": "# parcel-relay\n\nA small service that accepts parcels from carriers and forwards them to the\ndispatch queue. Configuration lives under `config/`.\n\n## Running it\n\n    npm install\n    npm start\n"
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_xMIuOuqHAnJiNzIlH4kFYwKT",
+      "name": "read_file",
+      "args": {
+        "path": "config/settings.json"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_xMIuOuqHAnJiNzIlH4kFYwKT",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "file": "config/settings.json",
+        "lines": 7,
+        "truncated": false,
+        "content": "{\n  \"region\": \"eu-west-2\",\n  \"timeoutMs\": 4500,\n  \"retries\": 3,\n  \"queueName\": \"parcel-inbound\"\n}\n"
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_PxFwXOm3IHVydFoQZU2RzDQ4",
+      "name": "read_file",
+      "args": {
+        "path": "docs/CHANGELOG.md"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_PxFwXOm3IHVydFoQZU2RzDQ4",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "file": "docs/CHANGELOG.md",
+        "lines": 10,
+        "truncated": false,
+        "content": "# Changelog\n\n## 0.4.1\n\n- Renamed the inbound queue.\n\n## 0.4.0\n\n- First release of the relay.\n"
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_sQ1Ls1WgPYWrRxDLNowUpHuW",
+      "name": "read_file",
+      "args": {
+        "path": "notes/todo.md"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_sQ1Ls1WgPYWrRxDLNowUpHuW",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "file": "notes/todo.md",
+        "lines": 5,
+        "truncated": false,
+        "content": "# Todo\n\n- [ ] decide on a retry policy\n- [ ] write the operator runbook\n"
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_imYVsNyQxzEYwAMh665IvI7l",
+      "name": "read_file",
+      "args": {
+        "path": "package.json"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_imYVsNyQxzEYwAMh665IvI7l",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "file": "package.json",
+        "lines": 9,
+        "truncated": false,
+        "content": "{\n  \"name\": \"parcel-relay\",\n  \"version\": \"0.4.1\",\n  \"private\": true,\n  \"scripts\": {\n    \"start\": \"node src/server.js\"\n  }\n}\n"
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_ULV4uh3BTP0ZsCYGosMC9l6k",
+      "name": "read_file",
+      "args": {
+        "path": "src/dispatch.ts"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_ULV4uh3BTP0ZsCYGosMC9l6k",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "file": "src/dispatch.ts",
+        "lines": 6,
+        "truncated": false,
+        "content": "import { enqueue } from './queue.ts'\n\nexport function dispatch(): void {\n  enqueue({ kind: 'parcel' })\n}\n"
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_lJ1TaCxslu76djeAQWnyIY3x",
+      "name": "read_file",
+      "args": {
+        "path": "src/queue.ts"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_lJ1TaCxslu76djeAQWnyIY3x",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "file": "src/queue.ts",
+        "lines": 8,
+        "truncated": false,
+        "content": "export type Job = { kind: string }\n\nconst pending: Job[] = []\n\nexport function enqueue(job: Job): void {\n  pending.push(job)\n}\n"
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_WFqMQ9m5wWJhSvdIZkcKmZkK",
+      "name": "read_file",
+      "args": {
+        "path": "src/server.ts"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_WFqMQ9m5wWJhSvdIZkcKmZkK",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "file": "src/server.ts",
+        "lines": 9,
+        "truncated": false,
+        "content": "import { dispatch } from './dispatch.ts'\n\nconst PORT = 8137\n\nexport function start(): void {\n  console.log(`parcel-relay listening on ${PORT}`)\n  dispatch()\n}\n"
+      }
+    }
+  ]
+}

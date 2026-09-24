@@ -159,3 +159,57 @@ export const RESEARCH_QUESTION: Question = {
   truthFile: 'https://en.wikipedia.org/wiki/UTF-8',
   tell: '1,112,064',
 }
+
+/**
+ * The first of the two questions post 8's published runs were given.
+ *
+ * A search across every file, on a roster with no search tool — so the four
+ * have to read the whole project and the shell should be one `grep`. The corpus
+ * is post 6's invented project again, which is why `truthFile` is a path rather
+ * than a URL.
+ *
+ * `tell` is `parcel-relay listening`, which is on one line of `src/server.ts`
+ * and nowhere else. `parcel-relay` on its own would have been the heading of
+ * `README.md` as well — three sightings and no ground truth — and the longer
+ * string is exactly one line. That choice is the difference between a
+ * decidable provenance verdict and `undecidable`, and it is the kind of choice
+ * post 3 spent a whole section on.
+ */
+export const MENTIONS_QUESTION: Question = {
+  id: 'find-mentions',
+  prompt:
+    'Which files in this project contain the lowercase word "parcel", and how many lines contain it in total? List the files and give the total.',
+  facts: [
+    { id: 'settings', text: 'config/settings.json' },
+    { id: 'server', text: 'src/server.ts' },
+  ],
+  truthFile: 'src/server.ts',
+  tell: 'parcel-relay listening',
+}
+
+/**
+ * The second, and the first question in this series with **no ground truth in
+ * the corpus at all**.
+ *
+ * The answer is a byte count. No line in any file says that a file is 191 bytes
+ * long; the number is a property of the files rather than a statement in one of
+ * them. So `truthFile` and `tell` are absent and provenance comes back
+ * `ungradable` — which is the honest verdict and is also the finding. Post 4
+ * built its provenance check on *the one line that answers the question*, and a
+ * question whose answer is computed rather than written down is a shape that
+ * instrument cannot see at all.
+ *
+ * It is in the set because it is the one task in post 8 the four filesystem
+ * primitives have no way to do. `read_file` returns text and never a size, so
+ * the four-tool agent counts the characters in its head; the published run does
+ * that across eight files, spends six thousand output tokens on it, and comes
+ * out one byte high.
+ */
+export const LARGEST_FILE_QUESTION: Question = {
+  id: 'largest-file',
+  prompt: 'Which file in this project is the largest, and exactly how many bytes is it?',
+  facts: [
+    { id: 'file', text: 'README.md' },
+    { id: 'bytes', text: '191' },
+  ],
+}

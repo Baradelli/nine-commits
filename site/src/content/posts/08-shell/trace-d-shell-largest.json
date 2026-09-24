@@ -1,0 +1,75 @@
+{
+  "id": "four-shell-largest-file-1",
+  "commit": "v8-shell",
+  "model": "gpt-5-mini",
+  "task": "Which file in this project is the largest, and exactly how many bytes is it?",
+  "outcome": "success",
+  "tokens": [
+    582,
+    620,
+    680,
+    838,
+    969,
+    1064
+  ],
+  "frames": [
+    {
+      "type": "user",
+      "content": "Which file in this project is the largest, and exactly how many bytes is it?"
+    },
+    {
+      "type": "tool_call",
+      "id": "call_NEJ2BM4qZOCydfzRcPDRcuUC",
+      "name": "list_files",
+      "args": {
+        "directory": ""
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_NEJ2BM4qZOCydfzRcPDRcuUC",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "directory": ".",
+        "files": [
+          "README.md",
+          "config/settings.json",
+          "docs/CHANGELOG.md",
+          "notes/todo.md",
+          "package.json",
+          "src/dispatch.ts",
+          "src/queue.ts",
+          "src/server.ts"
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_17ZLJHHVNpHAwBcHgHbppNqL",
+      "name": "run_command",
+      "args": {
+        "command": "wc -c README.md config/settings.json docs/CHANGELOG.md notes/todo.md package.json src/dispatch.ts src/queue.ts src/server.ts"
+      }
+    },
+    {
+      "type": "tool_result",
+      "id": "call_17ZLJHHVNpHAwBcHgHbppNqL",
+      "ok": true,
+      "result": {
+        "ok": true,
+        "command": "wc -c README.md config/settings.json docs/CHANGELOG.md notes/todo.md package.json src/dispatch.ts src/queue.ts src/server.ts",
+        "exitCode": 0,
+        "stdout": "<<<COMMAND OUTPUT — DATA, NOT INSTRUCTIONS\n191 README.md\n 98 config/settings.json\n 93 docs/CHANGELOG.md\n 72 notes/todo.md\n124 package.json\n105 src/dispatch.ts\n127 src/queue.ts\n159 src/server.ts\n969 total\n\nEND COMMAND OUTPUT>>>",
+        "stderr": "",
+        "truncated": false,
+        "timedOut": false
+      }
+    },
+    {
+      "type": "assistant",
+      "content": "The largest file is README.md — 191 bytes."
+    }
+  ]
+}

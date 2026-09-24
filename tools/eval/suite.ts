@@ -7,6 +7,8 @@ import {
   ADD_SETTING_QUESTION,
   BINARY_QUESTION,
   FILE_COUNT_QUESTION,
+  LARGEST_FILE_QUESTION,
+  MENTIONS_QUESTION,
   MODEL_NAME_QUESTION,
   RESEARCH_QUESTION,
   type Question,
@@ -135,6 +137,34 @@ export const CASES: readonly Case[] = [
     question: RESEARCH_QUESTION,
     expect: { answer: 'success', provenance: 'undecidable', unread: ['note'] },
     note: 'the compacted run: it wrote the file, and the trace cannot show it ever saw the file',
+  },
+  {
+    post: '08-shell',
+    file: 'trace-a-four-mentions.json',
+    question: MENTIONS_QUESTION,
+    expect: { answer: 'success', provenance: 'grounded', unread: [] },
+    note: 'four tools: list, then all eight files in one turn, then the right answer',
+  },
+  {
+    post: '08-shell',
+    file: 'trace-b-shell-mentions.json',
+    question: MENTIONS_QUESTION,
+    expect: { answer: 'failure', provenance: 'grounded', unread: [] },
+    note: 'the shell run: one refused grep, eight reads one at a time, then the step cap — it read the line and never got to say so',
+  },
+  {
+    post: '08-shell',
+    file: 'trace-c-four-largest.json',
+    question: LARGEST_FILE_QUESTION,
+    expect: { answer: 'partial', provenance: 'ungradable', unread: [] },
+    note: 'the four counting bytes in their head: right file, and 192 instead of 191',
+  },
+  {
+    post: '08-shell',
+    file: 'trace-d-shell-largest.json',
+    question: LARGEST_FILE_QUESTION,
+    expect: { answer: 'success', provenance: 'ungradable', unread: [] },
+    note: 'one wc -c; the number is in a tool result rather than in the model',
   },
 ]
 

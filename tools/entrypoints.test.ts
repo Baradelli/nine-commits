@@ -42,7 +42,16 @@ function sources(): string[] {
       if (entry.isDirectory()) {
         if (entry.name === 'node_modules' || entry.name === 'dist') continue
         walk(path)
-      } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) {
+      } else if (
+        // v8 adds `.mjs`. `tools/shell/unguarded.mjs` is a command — it is
+        // `run_command` with every rule deleted, for the container
+        // demonstration — and a test that only looked at `.ts` would have left
+        // the most dangerous file in this repository as the one file it did not
+        // check. Which extension a command happens to be written in is not a
+        // property this test should have an opinion about.
+        (entry.name.endsWith('.ts') || entry.name.endsWith('.mjs')) &&
+        !entry.name.endsWith('.test.ts')
+      ) {
         found.push(path)
       }
     }
@@ -63,6 +72,8 @@ describe('every command guards its own entry point', () => {
     expect(names).toContain('tools/run-context.ts')
     expect(names).toContain('tools/run-judge.ts')
     expect(names).toContain('agent/src/cli.ts')
+    expect(names).toContain('tools/run-shell.ts')
+    expect(names).toContain('tools/shell/unguarded.mjs')
     expect(names.length).toBeGreaterThanOrEqual(11)
   })
 

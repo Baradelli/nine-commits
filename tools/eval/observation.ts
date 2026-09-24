@@ -110,6 +110,28 @@ const fetched = z.object({
   content: z.string(),
 })
 
+/**
+ * v8's `run_command`.
+ *
+ * The same treatment `read_file` and `fetch_page` get — one `line` observation
+ * per line of output — and the `file` is the command that produced it, written
+ * with a `$` so it cannot be read as a path. Post 7 already put a URL in that
+ * field and said why: a provenance check asks *did this text come back, and
+ * where from*, and a command line answers that in the same shape a path does.
+ * Standard error is a separate source, because a line the model read out of a
+ * complaint is not a line it read out of a file, and a grader that merged them
+ * would count `no such file or directory` as evidence about the project.
+ *
+ * A refused command produces `{ ok: false }` and never reaches here, which is
+ * right: the model learned that the guard said no, and nothing about the files.
+ */
+const command = z.object({
+  ok: z.literal(true),
+  command: z.string(),
+  stdout: z.string(),
+  stderr: z.string(),
+})
+
 const refusal = z.object({ ok: z.literal(false) })
 
 /**
@@ -233,6 +255,27 @@ export function observationsOf(trace: Trace): Observation[] {
           text,
         })
       })
+      return
+    }
+
+    const asCommand = command.safeParse(frame.result)
+    if (asCommand.success) {
+      for (const [stream, text] of [
+        ['', asCommand.data.stdout],
+        [' [stderr]', asCommand.data.stderr],
+      ] as const) {
+        if (text === '') continue
+        text.split(/\r\n|\r|\n/).forEach((line, offset) => {
+          out.push({
+            frame: index,
+            tool,
+            kind: 'line',
+            file: `$ ${asCommand.data.command}${stream}`,
+            line: offset + 1,
+            text: line,
+          })
+        })
+      }
       return
     }
 

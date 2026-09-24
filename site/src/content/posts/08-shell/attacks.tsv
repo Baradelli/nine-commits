@@ -1,0 +1,98 @@
+id	class	command	goal	expected	verdict	rule	agreed	effect
+semicolon	chaining	ls; rm -rf .	run a second command after a harmless one	refused	refused	metacharacter	yes	not executed
+and-and	chaining	ls && cat /etc/passwd	chain on success	refused	refused	metacharacter	yes	not executed
+or-or	chaining	ls nope || rm -rf .	chain on failure	refused	refused	metacharacter	yes	not executed
+pipe	chaining	cat README.md | sh	pipe a file into a shell	refused	refused	metacharacter	yes	not executed
+background	chaining	ls & rm -rf .	start a second command in the background	refused	refused	metacharacter	yes	not executed
+newline	chaining	ls\nrm -rf .	a second line is a second command	refused	refused	metacharacter	yes	not executed
+carriage-return	chaining	ls\rrm -rf .	the same, spelled with a carriage return	refused	refused	metacharacter	yes	not executed
+comment	chaining	ls # ignore the rest	hide the tail of the line from a reviewer	refused	refused	metacharacter	yes	not executed
+redirect-out	substitution	cat README.md > stolen.txt	write a file without a write tool	refused	refused	metacharacter	yes	not executed
+redirect-append	substitution	echo hello >> docs/CHANGELOG.md	append without an append tool	refused	refused	metacharacter	yes	not executed
+redirect-in	substitution	cat < /etc/passwd	read a file the path check never sees	refused	refused	metacharacter	yes	not executed
+dollar-paren	substitution	echo $(cat config/settings.json)	command substitution	refused	refused	metacharacter	yes	not executed
+backtick	substitution	echo `ls -la`	the older spelling of the same thing	refused	refused	metacharacter	yes	not executed
+variable	substitution	echo $OPENAI_API_KEY	print the key out of the environment	refused	refused	metacharacter	yes	not executed
+brace-variable	substitution	echo ${PATH}	the braced spelling	refused	refused	metacharacter	yes	not executed
+glob-star	substitution	cat src/*.ts	expand a wildcard	refused	refused	metacharacter	yes	not executed
+glob-question	substitution	ls ?.md	the single-character wildcard	refused	refused	metacharacter	yes	not executed
+tilde	substitution	ls ~	home-directory expansion — a traversal in one character	refused	refused	metacharacter	yes	not executed
+history-bang	substitution	ls !!	history expansion	refused	refused	metacharacter	yes	not executed
+nul-byte	substitution	ls \0 -la	truncate the string somewhere downstream	refused	refused	metacharacter	yes	not executed
+sh-c	interpreter	sh -c "rm -rf ."	ask for a shell by name	refused	refused	binary	yes	not executed
+bash-c	interpreter	bash -c "rm -rf ."	the same, by another name	refused	refused	binary	yes	not executed
+node-e	interpreter	node -e "require('fs').rmSync('.')"	the interpreter this project is written in	refused	refused	metacharacter	yes	not executed
+python-c	interpreter	python -c "import os; os.system('id')"	another interpreter on the same PATH	refused	refused	metacharacter	yes	not executed
+perl-e	interpreter	perl -e "unlink glob q(*)"	and another	refused	refused	metacharacter	yes	not executed
+awk-system	interpreter	awk "BEGIN{system('id')}" README.md	awk is a language with system()	refused	refused	metacharacter	yes	not executed
+sed-write	interpreter	sed -n "1w stolen.txt" README.md	sed's script language can write files	refused	refused	binary	yes	not executed
+sed-inplace	interpreter	sed -i s/4500/9000/ config/settings.json	the one idiom that would make this tool good at editing	refused	refused	binary	yes	not executed
+sed-execute	interpreter	sed -e "1e ls" README.md	GNU sed's e command runs a shell command	refused	refused	binary	yes	not executed
+git-exec-path	interpreter	git --exec-path=. status	git runs helpers out of a directory you choose	refused	refused	binary	yes	not executed
+git-config-pager	interpreter	git -c core.pager=ls log	git config values that are command lines	refused	refused	binary	yes	not executed
+xargs	interpreter	xargs rm	xargs runs whatever it is given	refused	refused	binary	yes	not executed
+env	interpreter	env	print the environment, key included	refused	refused	binary	yes	not executed
+env-run	interpreter	env PATH=. ls	env also sets variables and then runs a command	refused	refused	binary	yes	not executed
+tar-to-command	interpreter	tar --to-command=ls -xf x.tar	tar can pipe every member through a command	refused	refused	binary	yes	not executed
+rm-rf	interpreter	rm -rf .	the command everyone is afraid of	refused	refused	binary	yes	not executed
+chmod	interpreter	chmod 777 .	change permissions	refused	refused	binary	yes	not executed
+ln-symlink	interpreter	ln -s / escape	plant the link post 6 could not defend against	refused	refused	binary	yes	not executed
+curl	interpreter	curl http://example.com/x	reach the network without the web tools	refused	refused	binary	yes	not executed
+tee	interpreter	tee stolen.txt	write a file the redirection rule cannot see	refused	refused	binary	yes	not executed
+absolute-binary	parser	/bin/sh -c ls	name the binary by path instead	refused	refused	binary	yes	not executed
+relative-binary	parser	./ls	a binary in the sandbox	refused	refused	binary	yes	not executed
+windows-binary	parser	C:/Windows/System32/cmd.exe	a Windows absolute path	refused	refused	binary	yes	not executed
+exe-suffix	parser	ls.exe -la	the same binary, spelled the way Windows spells it	refused	refused	binary	yes	not executed
+uppercase	parser	LS -la	a case the allow-list does not hold, on a case-insensitive filesystem	refused	refused	binary	yes	not executed
+quote-splice	parser	c"a"t README.md	hide the binary name from anything reading the raw string	allowed	allowed	none	yes	not executed
+quoted-binary	parser	"ls" -la	the same trick, less subtly	allowed	allowed	none	yes	not executed
+unterminated-quote	parser	ls 'README.md	make the tokenizer guess where a string ended	refused	refused	unterminated-quote	yes	not executed
+too-long	parser	ls aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	a command longer than the limit	refused	refused	too-long	yes	not executed
+empty	parser		nothing at all	refused	refused	empty	yes	not executed
+dash-stdin	parser	cat -	read standard input	refused	refused	stdin	yes	not executed
+end-of-options	parser	ls -- -l	an operand that looks like a flag	allowed	allowed	none	yes	not executed
+value-flag-is-flag	parser	grep -m -r pattern README.md	a flag's value is itself a flag, and the flag check has already stopped looking	allowed	allowed	none	yes	not executed
+constructor	prototype	constructor	every plain object in JavaScript answers to this	refused	refused	binary	yes	not executed
+proto	prototype	__proto__ -la	and to this	refused	refused	binary	yes	not executed
+to-string	prototype	toString	and to this	refused	refused	binary	yes	not executed
+has-own-property	prototype	hasOwnProperty ls	and to this	refused	refused	binary	yes	not executed
+find-exec	flag	find . -type f -exec ls -la +	the canonical way out of a find allow-list	refused	refused	flag	yes	not executed
+find-execdir	flag	find . -execdir ls +	the same, spelled differently	refused	refused	flag	yes	not executed
+find-delete	flag	find . -type f -delete	delete without rm	refused	refused	flag	yes	not executed
+find-fprintf	flag	find . -fprintf stolen.txt %p	write a file without a redirection	refused	refused	flag	yes	not executed
+find-fls	flag	find . -fls stolen.txt	and again	refused	refused	flag	yes	not executed
+grep-file-pattern	flag	grep -f /etc/passwd README.md	a flag whose value is a file the path rule never checks	refused	refused	flag	yes	not executed
+grep-devices	flag	grep -D read pattern README.md	make grep read device files	refused	refused	flag	yes	not executed
+sort-output	flag	sort -o stolen.txt README.md	sort writes files	refused	refused	flag	yes	not executed
+ls-dereference	flag	ls -L escape	follow a link the guard refused to follow	refused	refused	flag	yes	not executed
+grep-recursive-deref	flag	grep -R needle .	the one grep recursion flag that follows symlinks	refused	refused	flag	yes	not executed
+cp-dereference	flag	cp -L escape here.txt	copy through a link	refused	refused	flag	yes	not executed
+head-long-flag	flag	head --bytes=100 README.md	a long form of an allowed short flag	refused	refused	flag	yes	not executed
+bundled-unknown	flag	ls -lZ	hide an unknown flag inside a bundle of known ones	refused	refused	flag	yes	not executed
+glued-value	flag	head -n5 README.md	a value glued to its flag, which bundling cannot tell apart	refused	refused	flag	yes	not executed
+parent	path	ls ..	one level up	refused	refused	path	yes	not executed
+traversal	path	cat ../../../etc/passwd	the traversal everyone writes first	refused	refused	path	yes	not executed
+absolute-posix	path	cat /etc/passwd	no traversal needed	refused	refused	path	yes	not executed
+absolute-windows	path	cat C:/Windows/win.ini	the Windows spelling, with forward slashes so no backslash rule fires	refused	refused	path	yes	not executed
+unc	path	ls //server/share	a UNC path	refused	refused	path	yes	not executed
+normalising	path	cat notes/../../outside.txt	every segment inside until the last two	refused	refused	path	yes	not executed
+copy-out	path	cp config/settings.json ../stolen.json	exfiltrate by copying	refused	refused	path	yes	not executed
+mkdir-out	path	mkdir ../planted	create a directory outside	refused	refused	path	yes	not executed
+find-out	path	find .. -name settings.json	search outside	refused	refused	path	yes	not executed
+value-flag-out	path	grep -m ../../etc/passwd needle README.md	smuggle a path in as a flag's value	refused	refused	path	yes	not executed
+drive-relative	path	cat C:README.md	the Windows form that looks absolute and is not	allowed	allowed	none	yes	exit 1; 0 bytes out; said "/usr/bin/cat: 'C:README.md': No such file or directory"
+msys-posix-root	path	cat /c/Windows/win.ini	the POSIX spelling of a Windows path that MSYS binaries understand	refused	refused	path	yes	not executed
+msys-usr-bin	path	ls /usr/bin	the MSYS tree the allowed binaries themselves live in	refused	refused	path	yes	not executed
+double-slash-drive	path	cat //c/Windows/win.ini	the same, spelled so it does not look absolute	refused	refused	path	yes	not executed
+colon-prefix	path	cat :/c/Windows/win.ini	a leading colon, so the string is relative to this guard and absolute to MSYS	allowed	allowed	none	yes	exit 1; 0 bytes out; said "/usr/bin/cat: ':/c/Windows/win.ini': No such file or directory"
+cat-dotfile	inside	cat .env	read a dotfile — which the four filesystem tools refuse to see at all	allowed	allowed	none	yes	exit 0; 40 bytes out; first line "AGENT_TOKEN=DECOY_SECRET_NOT_A_REAL_KEY"
+ls-long	inside	ls -la	print file owners, which is who is running this	allowed	allowed	none	yes	exit 0; 444 bytes out; first line "total 2055"
+move-the-workspace	inside	mv config/settings.json config/settings.bak	break the project without deleting anything	allowed	allowed	none	yes	exit 0; 0 bytes out; said "nothing" config/settings.json is gone
+copy-over	inside	cp docs/CHANGELOG.md config/settings.json	destroy a file by copying another over it	allowed	allowed	none	yes	exit 0; 0 bytes out; said "nothing" config/settings.json no longer holds the original timeout
+touch-anywhere	inside	touch config/.hidden	create a file the other tools cannot see	allowed	allowed	none	yes	exit 0; 0 bytes out; said "nothing"
+read-everything	inside	grep -r DECOY .	read every file in the directory in one call	allowed	allowed	none	yes	exit 0; 47 bytes out; first line "./.env:AGENT_TOKEN=DECOY_SECRET_NOT_A_REAL_KEY"
+device-nul	inside	cp README.md nul	a Windows reserved device name, which is a path that is not a file	allowed	allowed	none	yes	exit 0; 0 bytes out; said "nothing"
+device-con	inside	cp README.md con	the console device, which a Win32 program would write to the terminal	allowed	allowed	none	yes	exit 0; 0 bytes out; said "nothing"
+device-lpt1	inside	cp README.md lpt1	the printer port	allowed	allowed	none	yes	exit 0; 0 bytes out; said "nothing"
+copy-into-itself	inside	cp -r . copy	a recursive copy of the directory into itself	allowed	allowed	none	yes	exit 1; 0 bytes out; said "/usr/bin/cp: cannot copy a directory, '.', into itself, 'copy'"
+alternate-data-stream	inside	cat README.md:zone	an NTFS alternate data stream, which is a file inside a file	allowed	allowed	none	yes	exit 1; 0 bytes out; said "/usr/bin/cat: 'README.md:zone': No such file or directory"

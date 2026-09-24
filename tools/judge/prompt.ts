@@ -79,6 +79,25 @@ const fetched = z.object({
   content: z.string(),
 })
 
+/**
+ * v8's `run_command`.
+ *
+ * Printed with the exit status, because a command that ran and failed and a
+ * command that ran and found nothing look identical from their output alone —
+ * `grep` exits 1 when it matches nothing — and a judge asked whether the agent
+ * had evidence needs to be able to tell those apart. Both streams are shown,
+ * labelled, in full.
+ */
+const command = z.object({
+  ok: z.literal(true),
+  command: z.string(),
+  exitCode: z.number().nullable(),
+  stdout: z.string(),
+  stderr: z.string(),
+  truncated: z.boolean().optional(),
+  timedOut: z.boolean().optional(),
+})
+
 const refusal = z.object({ ok: z.literal(false), error: z.string().optional() })
 
 function renderResult(index: number, ok: boolean, result: unknown): string {
@@ -146,6 +165,24 @@ function renderResult(index: number, ok: boolean, result: unknown): string {
     const body = content
       .split(/\r\n|\r|\n/)
       .map((text, line) => `    ${url}:${line + 1}  ${text}`)
+    return [head, ...body].join('\n')
+  }
+
+  const asCommand = command.safeParse(result)
+  if (asCommand.success) {
+    const { command: line, exitCode, stdout, stderr, truncated, timedOut } = asCommand.data
+    const head =
+      `  ran ${JSON.stringify(line)} — exit ${exitCode ?? 'killed'}` +
+      `${truncated === true ? ', output cut off at the limit' : ''}` +
+      `${timedOut === true ? ', killed at the timeout' : ''}`
+    const body = [
+      ...(stdout === ''
+        ? []
+        : stdout.split(/\r\n|\r|\n/).map((text) => `    out  ${text}`)),
+      ...(stderr === ''
+        ? []
+        : stderr.split(/\r\n|\r|\n/).map((text) => `    err  ${text}`)),
+    ]
     return [head, ...body].join('\n')
   }
 

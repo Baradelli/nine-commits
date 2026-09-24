@@ -26,7 +26,10 @@
     "warm": "tsx tools/warm-cache.ts",
     "window": "tsx --env-file=agent/.env tools/window-probe.ts",
     "summary-judge": "tsx --env-file=agent/.env tools/run-summary-judge.ts",
-    "summary-judge:tally": "tsx tools/judge/summary-tally.ts"
+    "summary-judge:tally": "tsx tools/judge/summary-tally.ts",
+    "attacks": "tsx tools/run-attacks.ts",
+    "shell": "tsx --env-file=agent/.env tools/run-shell.ts",
+    "shell:tally": "tsx tools/shell/report.ts"
   },
   "devDependencies": {
     "@ai-sdk/openai": "^4.0.69",
