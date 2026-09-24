@@ -93,6 +93,31 @@ describe('the composition check', () => {
     expect(cut(sequential(off)).passes).toBe(0)
     expect(cut(batched(off)).passes).toBe(0)
   })
+
+  /*
+   * The condition the thesis carries, recomputed rather than asserted in prose.
+   *
+   * `stopped_by` against `max_parallel`: every compacted run that overflowed
+   * had asked for three tool calls in one turn, and no compacted run that
+   * never asked for more than one overflowed at all. That is what "against
+   * accumulation, not against one oversized turn" means, and it is the whole
+   * qualifier on the index line.
+   */
+  it('puts every compacted overflow in a turn that asked for three calls', () => {
+    const overflowed = on.filter((row) => row.stopped_by === 'context-overflow')
+    expect(overflowed).toHaveLength(17)
+    expect(new Set(overflowed.map((row) => Number(row.max_parallel)))).toEqual(
+      new Set([3]),
+    )
+  })
+
+  it('finds no overflow at all among the runs that read one page per turn', () => {
+    const oneAtATime = sequential(on)
+    expect(oneAtATime).toHaveLength(18)
+    expect(
+      oneAtATime.filter((row) => row.stopped_by === 'context-overflow'),
+    ).toHaveLength(0)
+  })
 })
 
 describe('what compaction cost', () => {
@@ -289,6 +314,31 @@ describe('the numbers in the post', () => {
       (onCut.summaryInputTokens / 1_000_000) * 0.25 * 100 +
       (onCut.summaryOutputTokens / 1_000_000) * 2 * 100
     expect(Math.round(summariser)).toBe(96)
+  })
+})
+
+describe('the summary of a summary', () => {
+  /*
+   * The post says five of the six compaction summaries in the published run
+   * open by quoting the summariser's own instruction back at itself, because
+   * by then that instruction is inside the message being summarised. The
+   * exception is the first, which had no earlier summary to swallow.
+   */
+  const trace = parseTrace(
+    JSON.parse(readFileSync(join(POST, 'trace-b-on.json'), 'utf8')),
+  )
+  const summaries = trace.frames
+    .filter((frame) => frame.type === 'compaction')
+    .map((frame) => frame.summary)
+
+  it('has six compactions, five of which quote the summariser back at itself', () => {
+    expect(summaries).toHaveLength(6)
+    const quoting = summaries.filter((summary) =>
+      summary.startsWith('Request: "Summarise this part of an agent transcript."'),
+    )
+    expect(quoting).toHaveLength(5)
+    // And the one that does not is the first.
+    expect(summaries[0]?.startsWith('Request:')).toBe(false)
   })
 })
 

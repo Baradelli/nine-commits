@@ -119,6 +119,48 @@ test('a compaction frame says what it replaced and what it kept', async ({ page 
   await expect(compaction.locator('.frame__speech').first()).not.toBeEmpty()
 })
 
+/*
+ * The fix the post said no test would have caught.
+ *
+ * It is true that none of the tests that existed would have caught it, and it
+ * is true that what found it was opening the page on a phone. It is not true
+ * that it was untestable, and a fix with nothing holding it down is a fix that
+ * can come out again in a refactor without anyone noticing. Take either
+ * `overflow-wrap: anywhere` line out of `global.css` and this goes red on the
+ * first compaction frame.
+ */
+test.describe('at a phone width', () => {
+  test.use({ viewport: { width: 375, height: 812 } })
+
+  test('stepping the compacted run never makes the page scroll sideways', async ({
+    page,
+  }) => {
+    await page.goto(`posts/${SLUG}/`)
+    const player = await openCompactedRun(page)
+    const next = player.locator('[data-action="next"]')
+    await next.scrollIntoViewIfNeeded()
+
+    /** How far the document can scroll horizontally, in CSS pixels. */
+    const sideways = async (): Promise<number> =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      )
+
+    let worst = await sideways()
+    for (let step = 0; step < 40; step += 1) {
+      if (await next.isDisabled()) break
+      await next.click()
+      worst = Math.max(worst, await sideways())
+    }
+
+    // Not "small". None: the page is exactly as wide as the viewport at every
+    // frame of the run, including the six that quote URLs.
+    expect(worst).toBe(0)
+  })
+})
+
 test('the tally ships, and has a row per run', async ({ page }) => {
   await page.goto(`posts/${SLUG}/`)
   const link = page.getByRole('link', { name: 'runs.tsv' })

@@ -76,8 +76,8 @@ the extracts inside the published traces are quoted from the pages the traces
 link to and remain under that licence.
 
 Both tools cache every response to `agent/webcache/`, keyed by the request URL.
-The cache is **not** committed — it is a hundred-odd files of somebody else's
-prose — so a fresh clone starts cold:
+The cache is **not** committed — it is somebody else's prose, and `webcache/` is
+in `.gitignore` — so a fresh clone starts cold:
 
 ```
 npm run warm            # fetch everything the experiment needs, once
@@ -97,8 +97,10 @@ npm run window -- 300000     # send ~300k tokens of filler and see what happens
 ```
 
 A request that exceeds the model's input limit is rejected before inference and
-is not billed, so bisecting downwards from a rejection is free and the first
-acceptance costs about a hundredth of a cent per thousand tokens. This is where
+is not billed, so bisecting downwards from a rejection is free. Only the
+acceptance is billed, at the input rate: $0.25 per million, or 0.025 cents per
+thousand tokens, which put the 266,684-token acceptance at about seven cents.
+This is where
 `MEASURED_MODEL_WINDOW` in `agent/src/context.ts` comes from; it is a
 measurement rather than a model-card figure, and the probe prints both numbers
 it is bracketed by.

@@ -1,7 +1,7 @@
 ---
 order: 7
 title: Context Is the Real Constraint
-thesis: "One web search fills two per cent of the window, not the window. Compaction is what keeps the loop alive — fifty runs without it finished nothing — and what it costs is not the facts, it is that the agent goes back and fetches them again."
+thesis: "One web search fills two per cent of the window, not the window. Compaction keeps the loop alive against accumulation — fifty runs without it finished nothing, seventeen with it still died on one oversized turn — and what it costs is not the facts, it is that the agent goes back and fetches them again."
 pubDate: 2026-09-24
 commit: v7-context
 cover: ./cover.png
@@ -22,12 +22,19 @@ not, and it is not close: one search and one page read is **5,644 tokens**
 against a window of **266,684**, which is **2.1%** of it. You would need about
 forty-seven of them.
 
-The other half held, and held hard. Fifty runs with the history left alone
-finished nothing at all — not one of them wrote a single line of its answer down
-before it ran out of room.
+The other half held, but only against one of the two ways a context runs out.
+Fifty runs with the history left alone finished nothing at all — not one of them
+wrote a single line of its answer down before it ran out of room. Fifty runs with
+the rewrite allowed finished twenty-four. But seventeen of those fifty still
+ended on an overflow, and every one of the seventeen had asked for three tool
+calls in a single turn: compaction holds against a history that accumulates, and
+not against one turn that arrives bigger than the whole budget. The thesis at the
+top of this page carries that condition; the paragraph it comes from is under
+*The composition, before the causal reading*.
 
-So this post is a correction and a confirmation, and the interesting part is
-neither. It is what the confirmation cost.
+So this post is a correction and a conditional confirmation, and the interesting
+part is neither. It is what the confirmation cost, and where it stops buying
+anything.
 
 ## The claim, and what it would take to be wrong about it
 
@@ -96,17 +103,20 @@ stops being available.
 so, and the system instruction gained a sentence saying the same. Neither is a
 security control. A fence is a request, made in the same channel an attack
 would arrive in, and I have not tested whether this model honours it. What the
-fence buys is that a reader of a trace can see exactly which bytes came from
-outside.
+fence buys is that a reader of a trace can see exactly which bytes came out of a
+fetched page. Only `fetch_page` output is fenced: a search result is a title and
+a one-line snippet, also somebody else's words, and those arrive unmarked.
 
 **Cached to disk.** Every response is written to `agent/webcache/`, keyed by
 the request URL. `npm run warm` pulls everything the task needs before the
 first run; after that a re-run makes no requests at all. The hundred runs below
 made 159 requests between them, recorded per run in the tally. **A cached
 corpus is a different experiment from a live one** and I would rather say that
-than pretend the encyclopaedia held still. The cache is not committed — it is a
-hundred-odd files of somebody else's prose — and what is worth committing is
-what the model was actually handed, which is in the traces.
+than pretend the encyclopaedia held still. The cache is not committed — it is
+somebody else's prose, `webcache/` is in `.gitignore`, and a fresh clone starts
+cold and runs `npm run warm` — because what is worth committing is what the
+model was actually handed, which is in the traces. So the reproducibility here is
+"the same bytes if you fetch them again", not "the same bytes, committed".
 
 ### The rewrite
 
@@ -159,7 +169,9 @@ the size of the context once the result had been sent back. That is right up
 until something happens in between. A compaction rewrites the conversation, so
 the next request is not made of the same history; the post-rewrite figure
 landed on the frame **before** the rewrite, and the compaction itself rendered
-as a flat line. The first real trace:
+as a flat line. The first real trace — from the eighteen-run batch this defect
+made me throw away, so these four lines are not recomputable the way the tally
+below is, because the runs they came from are gone:
 
 ```
  7   6868  tool_call   fetch_page
@@ -218,9 +230,10 @@ comes back with the provider's own `inputTokens`, and that number already
 includes the system instruction and the six tool definitions, which are not in
 the message array at all. What is unknown is only the increment. So the
 estimator trusts the provider for the counted prefix and guesses only the new
-part. Across the hundred runs below it now reads **-8.0%** on both conditions:
-still wrong, and now wrong in the *other* direction — low, which lets through a
-request the provider might refuse, and which cannot have shortened the control.
+part. Across the hundred runs below it now reads **-8.0%** on the control and
+**-8.1%** on the compacted condition: still wrong, and now wrong in the *other*
+direction — low, which lets through a request the provider might refuse, and
+which cannot have shortened the control.
 
 ### The leak came out of the client library, not off the web
 
@@ -295,13 +308,18 @@ because those are data and data does not respect a measure. The prose frames
 never needed it, because until this commit everything a model said in a trace
 was words.
 
-At 375 pixels, stepping onto the compaction frame added **276 pixels of
-horizontal scroll to the whole page.** Not to the frame: to the page. Two lines
-of CSS fix it, and posts 1 to 6 are unaffected because none of them contains a
-frame that quotes a URL.
+At 375 pixels, stepping onto the first compaction frame added **276 pixels of
+horizontal scroll to the whole page.** Not to the frame: to the page. And 276 is
+where it starts rather than where it ends — by the fourth compaction it is 495.
+Two lines of CSS fix it, and posts 1 to 6 are unaffected because none of them
+contains a frame that quotes a URL.
 
-No test would have caught that, and none of the ones I wrote did. What caught it
-was opening the post on a phone-sized viewport and pressing Next fourteen times.
+None of the tests I had would have caught it, and what did catch it was opening
+the post on a phone-sized viewport and pressing Next fourteen times. That is not
+the same thing as untestable, which is the easy lesson to take and the wrong one:
+`e2e/context.spec.ts` now steps the whole compacted run at 375 pixels and fails
+unless the page is exactly as wide as the viewport at every frame of it. Take the
+two CSS lines back out and it reports 495.
 
 ### Two harnesses, one tally
 
@@ -353,7 +371,9 @@ window, which is the thing under test.
 ### The one thing here that is not real
 
 The ceiling in this experiment is **16,000 tokens**, and it is the program's,
-not the provider's. The provider's is 266,684.
+not the provider's. The provider took 266,684 and refused what came next, which
+by the definition at the top of this page is the number that counts; it is a
+floor on the model's window rather than a figure off a model card.
 
 I am not going to dress that up. Running this against the real wall means about
 forty-seven page fetches per run and roughly a dollar a run in re-billed
@@ -431,10 +451,13 @@ compaction kept the loop alive every single time — no overflow in eighteen
 runs.** When it pulled several pages into one turn, compaction failed to save it
 seventeen times in thirty-two.
 
-That is the sharpest sentence on this page and it is narrower than the thesis
-was. Compaction keeps the loop alive against *accumulation*. It cannot do
-anything about a single turn that is bigger than the budget, because the thing
-it would have to throw away is the thing it has to keep.
+That is the sharpest sentence on this page, and it is the condition the thesis at
+the top of this page carries. Compaction keeps the loop alive against
+*accumulation*. It cannot do anything about a single turn that is bigger than the
+budget, because the thing it would have to throw away is the thing it has to
+keep. The `max_parallel` column says it exactly: all seventeen of the compacted
+runs that overflowed had asked for three tool calls in one turn, and none of the
+eighteen that never asked for more than one overflowed at all.
 
 **And the zero needs its floor.** Post 6's rule is that a rate observed zero
 times is not a rate of zero. Eighteen runs with no overflow put the 95% upper
@@ -593,9 +616,10 @@ runs died anyway, all of them in the group that pulled several pages at once.
 
 **The summary is a summary of a summary.** By the sixth rewrite in one run, most
 of what is being compressed is the previous compression. In the right-hand trace
-you can watch the summaries grow rather than shrink, and one of them opens by
-quoting the summariser's own prompt back at itself — because that prompt was in
-the message it was summarising.
+you can watch the summaries grow rather than shrink, and **five of the six** open
+by quoting the summariser's own prompt back at itself — because that prompt was
+in the message it was summarising. The exception is the first one, which had no
+earlier summary to swallow, and that is what the mechanism predicts.
 
 **Nothing here tests the fence.** Fetched text comes back labelled as data and
 the system instruction says to treat it that way. No page in this experiment

@@ -15,8 +15,10 @@ import { MODEL_NAME } from '../agent/src/config.ts'
  *
  * A request that exceeds the input limit is rejected **before inference**, with
  * `code: "context_length_exceeded"`, and is not billed. A request that fits is
- * billed in full, so bisecting downwards from a rejection is free and the first
- * acceptance costs a tenth of a cent per thousand tokens. Run it downwards.
+ * billed in full, so bisecting downwards from a rejection is free; the first
+ * acceptance is the only thing that costs anything, at the input rate of $0.25
+ * per million — 0.025 cents per thousand tokens, so about seven cents for the
+ * 266,684-token acceptance below. Run it downwards.
  *
  * What it produced on 2026-09-24 against `gpt-5-mini`:
  *

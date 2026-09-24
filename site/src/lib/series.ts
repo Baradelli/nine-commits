@@ -83,15 +83,21 @@ export const PLANNED: readonly PlannedPost[] = [
     // The plan's thesis was "one web search can fill the window; compaction is
     // not an optimisation, it is what keeps the loop alive". The first half is
     // false by a factor of about fifty: one search and one page read is 5,644
-    // tokens against a window measured at 266,684. The second half held — fifty
-    // runs with the history left alone finished nothing at all — but what
-    // compaction buys turned out not to be the thing worth naming. The
+    // tokens against a window measured at 266,684. The second half held, but
+    // only against accumulation, and that condition is load-bearing enough to
+    // be on this line rather than four hundred lines into the post: fifty runs
+    // with the history left alone finished nothing at all, and seventeen of the
+    // fifty runs with compaction on still ended on an overflow — every one of
+    // those seventeen a run that had asked for three tool calls in a single
+    // turn (`runs.tsv`, `stopped_by` against `max_parallel`), while the
+    // eighteen runs that never asked for more than one lost none. What
+    // compaction buys also turned out not to be the thing worth naming: the
     // compacted runs kept 139 of the 143 answers the rewrite threw away, and
     // paid for it by fetching 5.54 pages a run against the control's 3.00. The
     // index is a claim the commits have to earn, so the claim changed rather
     // than the experiment. Post 7 shows the tally.
     thesis:
-      'One web search fills two per cent of the window, not the window. Compaction is what keeps the loop alive — fifty runs without it finished nothing — and what it costs is not the facts, it is that the agent goes back and fetches them again.',
+      'One web search fills two per cent of the window, not the window. Compaction keeps the loop alive against accumulation — fifty runs without it finished nothing, seventeen with it still died on one oversized turn — and what it costs is not the facts, it is that the agent goes back and fetches them again.',
   },
   {
     order: 8,

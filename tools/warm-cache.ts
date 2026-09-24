@@ -14,10 +14,12 @@ import { FACTS } from './context/task.ts'
  *   npm run warm
  *
  * It writes `agent/webcache/MANIFEST.md`, which is the thing a reader should
- * look at: what was fetched, when, and how big it was. The cache itself is
- * committed, so the runs are reproducible without a network connection — and
- * the post says plainly that a cached corpus is a different experiment from a
- * live one.
+ * look at: what was fetched, when, and how big it was. Neither the manifest nor
+ * the cache beside it is committed — `webcache/` is gitignored — so a fresh
+ * clone starts cold and has to run this first. After that the runs are
+ * reproducible without a network connection, against whatever corpus this
+ * fetch happened to get; the post says plainly that a cached corpus is a
+ * different experiment from a live one.
  *
  * The queries here are the ones a run is expected to make. A run that searches
  * for something else gets a cache miss and, under `--cache only`, a refusal
@@ -81,8 +83,11 @@ async function main(): Promise<void> {
     '# The cached corpus',
     '',
     'Every run in post 7’s tally read these bytes off this disk. They were',
-    'fetched once, from the English Wikipedia through the MediaWiki action API,',
-    'and committed so the experiment can be re-run without touching somebody',
+    'fetched once, from the English Wikipedia through the MediaWiki action API.',
+    'Neither this file nor the cache around it is committed: `webcache/` is',
+    'gitignored, so a fresh clone starts cold and runs `npm run warm` to get',
+    'here. What is reproducible is the procedure, not the bytes — but once the',
+    'cache exists the experiment can be re-run without touching somebody',
     'else’s service and without the corpus having moved underneath it.',
     '',
     `Fetched: ${new Date().toISOString()}`,

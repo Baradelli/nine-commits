@@ -617,7 +617,9 @@ pre {
  *
  * Found by stepping a real trace at phone width. Nothing before this commit
  * could have produced it: it took the first `compaction` frame that ever held
- * data to put a URL inside a paragraph.
+ * data to put a URL inside a paragraph. Pinned by `e2e/context.spec.ts`,
+ * which steps the whole compacted run at 375px and fails on any horizontal
+ * scroll at all; take these two `overflow-wrap` lines out and it reports 495.
  */
 .frame__speech {
   line-height: var(--leading-dialogue);

@@ -114,7 +114,13 @@ const LINE_LIMIT = 200
 
 /** A read is capped so one enormous file cannot fill the context by itself. */
 export const READ_LINE_LIMIT = 400
-const READ_CHAR_LIMIT = 24_000
+
+/**
+ * And capped in characters too. Exported because `web.ts` holds a fetched page
+ * to the same number deliberately, and a test has to be able to say so: a limit
+ * only one of the two tools knows about is a limit that can drift.
+ */
+export const READ_CHAR_LIMIT = 24_000
 
 /**
  * A write is capped too, for a different reason: a model that has started

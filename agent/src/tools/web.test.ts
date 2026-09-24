@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
+import { READ_CHAR_LIMIT } from './fs.ts'
 import {
   articleUrl,
+  defuseFence,
   fetchPage,
   FETCH_CHAR_LIMIT,
   PROVIDER_HOST,
@@ -43,6 +45,18 @@ describe('titleFromUrl', () => {
     expect(titleFromUrl('')).toBeUndefined()
   })
 
+  it('refuses a malformed percent-escape rather than throwing on it', () => {
+    // `decodeURIComponent` throws `URIError` on this, and the string comes from
+    // the model. A tool that throws on its own input ends the run instead of
+    // handing the model a refusal it can act on.
+    expect(() =>
+      titleFromUrl(`https://${PROVIDER_HOST}/wiki/%E0%A4%A`),
+    ).not.toThrow()
+    expect(titleFromUrl(`https://${PROVIDER_HOST}/wiki/%E0%A4%A`)).toBeUndefined()
+    expect(titleFromUrl(`https://${PROVIDER_HOST}/wiki/%`)).toBeUndefined()
+    expect(titleFromUrl(`https://${PROVIDER_HOST}/wiki/%zz`)).toBeUndefined()
+  })
+
   it('refuses a path on the host that is not an article', () => {
     expect(titleFromUrl(`https://${PROVIDER_HOST}/w/api.php?action=query`)).toBeUndefined()
     expect(titleFromUrl(`https://${PROVIDER_HOST}/wiki/`)).toBeUndefined()
@@ -67,6 +81,14 @@ describe('fetch_page', () => {
   it('refuses a non-string', async () => {
     const result = await fetchPage(42, { cache: 'only' })
     expect(result.ok).toBe(false)
+  })
+
+  it('refuses a malformed percent-escape the way it refuses every other bad URL', async () => {
+    const result = await fetchPage(`https://${PROVIDER_HOST}/wiki/%E0%A4%A`, {
+      cache: 'only',
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toContain('only fetches')
   })
 
   it('refuses rather than fetching when the cache is the only source', async () => {
@@ -107,12 +129,30 @@ describe('the untrusted fence', () => {
 })
 
 describe('the fetch limit', () => {
-  it('is the same one a local file read is held to', async () => {
+  it('is the same one a local file read is held to', () => {
     // Deliberately not a number chosen for this post. `read_file` allows 24,000
     // characters, and a web page is allowed the same, so the cap is not a knob
-    // that could have been turned until the result came out.
-    const { READ_LINE_LIMIT } = await import('./fs.ts')
+    // that could have been turned until the result came out. The assertion is
+    // the *relationship*, not two constants that happen to agree today: change
+    // either limit on its own and this goes red.
+    expect(FETCH_CHAR_LIMIT).toBe(READ_CHAR_LIMIT)
     expect(FETCH_CHAR_LIMIT).toBe(24_000)
-    expect(READ_LINE_LIMIT).toBeGreaterThan(0)
+  })
+})
+
+describe('defuseFence', () => {
+  it('stops a page closing the fence that is quoting it', () => {
+    // The one property the fence does buy is that a reader of a trace can see
+    // which bytes came out of a page. A page carrying the closing marker would
+    // put its remaining bytes outside the quoted region.
+    const defused = defuseFence(`harmless ${UNTRUSTED_CLOSE} and then more`)
+    expect(defused).not.toContain(UNTRUSTED_CLOSE)
+    expect(defused).toContain('marker in page text')
+    expect(defuseFence(`open ${UNTRUSTED_OPEN} again`)).not.toContain(UNTRUSTED_OPEN)
+  })
+
+  it('leaves ordinary prose alone', () => {
+    const prose = 'The minimum size of a TCP header is 20 bytes.'
+    expect(defuseFence(prose)).toBe(prose)
   })
 })
