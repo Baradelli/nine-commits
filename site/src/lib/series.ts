@@ -111,20 +111,24 @@ export const PLANNED: readonly PlannedPost[] = [
     // existed. The second half did not survive being built. "The parts you
     // would not do" is a claim about a shell, and the shell I could actually
     // defend is not one: the allow-list that survived ninety-seven attacks
-    // holds no interpreter, no redirection and no metacharacter, so it cannot
-    // change a byte inside a file — every idiom that writes content is either a
-    // shell feature or an interpreter. What the model did with it is the
-    // finding. It wrote shell, not commands: forty-seven of seventy-nine
-    // command lines refused, `find -exec` six times, `||` or `&&` fifteen
-    // times, and not once a program outside the list — the part of the guard
+    // holds no interpreter, no redirection and no metacharacter, so nothing in
+    // it can author a byte of its own — every idiom that composes content is
+    // either a shell feature or an interpreter. That is narrower than
+    // read-only, deliberately: `cp`, `mv`, `touch` and `mkdir` are all in the
+    // list and all four mutate the filesystem, and `cp a b` replaces every
+    // byte of `b`. What the model did with it is the finding. It wrote shell,
+    // not commands: forty-seven of seventy-nine command lines refused, `find
+    // -exec` six times out of six finds, `|| true` fifteen times and `&&`
+    // never, and not once a program outside the list — the part of the guard
     // everybody writes first never fired at all. The result is post 6's
     // original thesis coming true one tool later, except on `largest-file`,
     // where the four have no primitive for a byte count, count the characters
-    // in their heads for six thousand output tokens a run, and come out one
-    // byte high. The index is a claim the commits have to earn, so the claim
-    // changed. Post 8 shows the tally, the attack table and the container.
+    // in their heads for six thousand output tokens a run, and get it wrong
+    // three times in ten. The index is a claim the commits have to earn, so
+    // the claim changed. Post 8 shows the tally, the attack table and the
+    // container.
     thesis:
-      "A shell is everything you can do: in a container, one call deleted the machine it was running on. The one I would let near this machine cannot change a byte inside a file, refused forty-seven of the seventy-nine commands the model wrote, and finished sixty of seventy tasks against the four filesystem primitives' sixty-five. It won exactly one task of seven — the one the four have no way to do at all.",
+      "A shell is everything you can do: in a container, one call deleted the machine it was running on. The one I would let near this machine cannot author a byte of its own, refused forty-seven of the seventy-nine commands the model wrote, and finished sixty of seventy tasks against the four filesystem primitives' sixty-five — a gap these runs cannot distinguish. What they can distinguish is the step cap, which it hit eleven times against zero. The one thing it finished more often is the byte count the four have no primitive for.",
   },
   {
     order: 9,

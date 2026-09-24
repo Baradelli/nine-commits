@@ -181,6 +181,86 @@ describe('observationsOf, on the tools v6 added', () => {
   })
 })
 
+describe('observationsOf, on the tool v8 added', () => {
+  /*
+   * Post 8 states two properties of these observations in prose, as safety
+   * properties, and until this block existed neither was tested: dropping the
+   * `$ ` prefix and merging stderr into stdout's source both left the whole
+   * suite green. A claim stated as a safety property and tested by nothing is
+   * this series' oldest defect, so it is pinned here.
+   */
+  const ran = (stdout: string, stderr = ''): Trace =>
+    traceOf([
+      { type: 'user', content: 'q' },
+      {
+        type: 'tool_call',
+        id: '1',
+        name: 'run_command',
+        args: { command: 'grep -r parcel .' },
+      },
+      {
+        type: 'tool_result',
+        id: '1',
+        ok: true,
+        result: {
+          ok: true,
+          command: 'grep -r parcel .',
+          exitCode: 0,
+          stdout,
+          stderr,
+          truncated: false,
+          timedOut: false,
+        },
+      },
+    ])
+
+  it('puts the command in the file field, spelled with a $ so it cannot be read as a path', () => {
+    const [first] = observationsOf(ran('README.md:1:# parcel-relay'))
+    expect(first?.file).toBe('$ grep -r parcel .')
+    // The point of the `$ `: no path in this project starts with one, so a
+    // provenance check comparing sources to file names can never match a
+    // command line by accident.
+    expect(first?.file.startsWith('$ ')).toBe(true)
+  })
+
+  it('makes standard error a separate source, so a complaint is not evidence about the project', () => {
+    const observations = observationsOf(
+      ran('README.md:1:# parcel-relay', 'grep: ..: No such file or directory'),
+    )
+    expect(observations.map((o) => o.file)).toEqual([
+      '$ grep -r parcel .',
+      '$ grep -r parcel . [stderr]',
+    ])
+    expect(observations[1]).toMatchObject({
+      kind: 'line',
+      text: 'grep: ..: No such file or directory',
+    })
+  })
+
+  it('yields one observation per line of output, numbered from one within each stream', () => {
+    const observations = observationsOf(ran(['a', 'b', 'c'].join('\n'), 'x\ny'))
+    expect(
+      observations.map((o) => (o.kind === 'line' ? [o.file, o.line, o.text] : [o.file])),
+    ).toEqual([
+      ['$ grep -r parcel .', 1, 'a'],
+      ['$ grep -r parcel .', 2, 'b'],
+      ['$ grep -r parcel .', 3, 'c'],
+      ['$ grep -r parcel . [stderr]', 1, 'x'],
+      ['$ grep -r parcel . [stderr]', 2, 'y'],
+    ])
+  })
+
+  it('yields nothing for a refused command, because the model learned nothing about the files', () => {
+    const trace = traceOf([
+      { type: 'user', content: 'q' },
+      { type: 'tool_call', id: '1', name: 'run_command', args: { command: 'rm -rf .' } },
+      { type: 'tool_result', id: '1', ok: false, result: { ok: false, error: 'refused' } },
+    ])
+
+    expect(observationsOf(trace)).toEqual([])
+  })
+})
+
 describe('toolPath', () => {
   it('is the calls in order, which is the decision with the prose removed', () => {
     const trace = traceOf([

@@ -200,10 +200,16 @@ export function meanContext(rows: readonly ParsedRow[]): number {
 /**
  * The 95% upper bound on a failure rate, given `n` runs and no failures.
  *
- * The rule of three, exactly: `1 - 0.05 ** (1 / n)`. It is here rather than in
- * the prose because a null result stated without its detection floor is a
- * stronger claim than the runs support, and this series has now said that three
- * times without the arithmetic being anywhere a reader could check it.
+ * `1 - 0.05 ** (1 / n)`, which is the exact one-sided Clopper–Pearson upper
+ * bound for zero failures in `n` trials — **not** the rule of three, which is
+ * the approximation `3 / n` and gives 30% at n = 10 against the 25.9% this
+ * returns. An earlier version of this comment called it the rule of three; the
+ * values were right and the name was wrong.
+ *
+ * It is here rather than in the prose because a null result stated without its
+ * detection floor is a stronger claim than the runs support, and this series
+ * has now said that three times without the arithmetic being anywhere a reader
+ * could check it.
  */
 export function detectionFloor(n: number): number {
   return n === 0 ? 1 : 1 - Math.pow(0.05, 1 / n)

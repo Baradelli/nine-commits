@@ -1,7 +1,7 @@
 ---
 order: 8
 title: Shell Access, and Why That's Terrifying
-thesis: "A shell is everything you can do: in a container, one call deleted the machine it was running on. The one I would let near this machine cannot change a byte inside a file, refused forty-seven of the seventy-nine commands the model wrote, and finished sixty of seventy tasks against the four filesystem primitives' sixty-five. It won exactly one task of seven — the one the four have no way to do at all."
+thesis: "A shell is everything you can do: in a container, one call deleted the machine it was running on. The one I would let near this machine cannot author a byte of its own, refused forty-seven of the seventy-nine commands the model wrote, and finished sixty of seventy tasks against the four filesystem primitives' sixty-five — a gap these runs cannot distinguish. What they can distinguish is the step cap, which it hit eleven times against zero. The one thing it finished more often is the byte count the four have no primitive for."
 pubDate: 2026-09-24
 commit: v8-shell
 cover: ./cover.png
@@ -18,11 +18,12 @@ import shellLargest from './trace-d-shell-largest.json'
 import runs from './runs.tsv?url&no-inline'
 import attacks from './attacks.tsv?url&no-inline'
 
-Posts 6 and 7 both ended by pointing here. Post 6: *"post 8 is the shell, where
-the number of things a badly-behaved run can reach stops being a list I can
-enumerate."* Post 7 left the untested prompt-injection fence with the same
-note. The debt comes due, and the thesis printed at the top of this page is not
-the one that was on the index when I started.
+Post 6 ended by pointing here: *"post 8 is the shell, where the number of
+things a badly-behaved run can reach stops being a list I can enumerate."* Post
+7 pointed here near its top rather than at its end, and about one thing — the
+one-host allow-list its fetch tool was given, and what a shell would do to that
+argument. The debt comes due, and the thesis printed at the top of this page is
+not the one that was on the index when I started.
 
 That one said **giving the agent a shell gives it everything you can do,
 including the parts you would not do.** The first half is true and I will show
@@ -34,7 +35,7 @@ shell, and the shell I could actually defend is not one.
 
 Every other piece of evidence on this page is about a guard refusing something,
 and a refusal is only interesting if you know what it is refusing.
-`tools/shell/unguarded.mjs` is the tool with the guard deleted. It is nine
+`tools/shell/unguarded.mjs` is the tool with the guard deleted. It is seven
 lines:
 
 ```js
@@ -53,23 +54,45 @@ is a hole in exactly the claim being made:
 
 ```sh
 docker run --rm -i --network none -e DEMO_API_KEY=DEMO-NOT-A-REAL-KEY \
-  node:22-alpine sh -c 'cat > /work.mjs && node /work.mjs' \
+  node:22-alpine sh -c 'cat > /work.mjs && node /work.mjs --destroy-this-container' \
   < tools/shell/unguarded.mjs
 ```
 
-The isolation is verified rather than asserted. The same command was run again
-without `--rm` so the container that did it could be inspected —
-`Mounts=[] NetworkMode=none Binds=null VolumesFrom=null Privileged=false` — and
-the host was fingerprinted either side with `git rev-parse HEAD`, an MD5 of
-`git status --porcelain` and an MD5 of the home directory listing. All three
-identical. The whole transcript and the verification are in
-`tools/shell/container.md`.
+That flag is the whole of what stops this file running on your machine, and it
+is worth being exact about why it is a flag. The obvious guard is a check for
+`/.dockerenv`, and I shipped one first. It is not a containment boundary: the
+file is in every Docker container, which includes a VS Code dev container
+bind-mounting your checkout at `/workspaces`, and a GitHub Actions `container:`
+job bind-mounting the workspace at `/__w`. In both of those, `/.dockerenv`
+passes and `rm -rf --no-preserve-root /` eats your work. On Windows the same
+check resolves to `C:\.dockerenv`, a file any user can create. And it is
+*absent* under Podman, containerd and LXC, so it is simultaneously too
+permissive where it matters and too strict where it does not. The file now
+requires `--destroy-this-container` as well, and refuses if `/workspaces`,
+`/__w`, `/host` or `/mnt` holds anything — which is a better guess and still a
+guess. What makes it safe to publish is not the guess. It is that without the
+flag there is nothing to delete a check *from*: the file is inert.
 
-Eight lines of it are the reason every rule in the guarded tool exists:
+The isolation is verified rather than asserted. The same command was run a
+second time with `--name nine-shell-inspect` in place of `--rm`, so the
+container that did it survived to be inspected, and its output differed from
+the first run's on exactly the two lines that carry the container's hostname.
+`docker inspect` then reported
+`Mounts=[] NetworkMode=none Binds=null VolumesFrom=null Privileged=false`. The
+host was fingerprinted either side with `git rev-parse HEAD`, an MD5 of
+`git status --porcelain` and an MD5 of the home directory listing; all three
+identical. The full commands — both `docker run` lines and the `docker inspect`
+format string, unelided, so you can run them — are in
+`tools/shell/container.md` with the whole transcript.
+
+Eight lines of that transcript are the reason every rule in the guarded tool
+exists. This is an excerpt: the script prefixes each call with a `#` comment,
+which I have dropped here, and `cat /etc/shadow` printed twelve lines of which
+one is below.
 
 ```
 $ echo "I am $(whoami) on $(hostname)"
-  I am root on eacee685b73d
+  I am root on 68d731b29c1e
 
 $ echo PLANTED > /work/planted.txt && cat /work/planted.txt
   PLANTED
@@ -81,23 +104,27 @@ $ cat /etc/shadow
   root:*::0:::::
 ```
 
-And then four that are not:
+And then five that are not — all five of them, with everything they printed;
+`rm -rf /work` printed nothing:
 
 ```
 $ rm -rf /work
 $ ls -la /work
   exit ?
 $ rm -rf --no-preserve-root /
+  exit ?
 $ ls /
   exit ?
 $ node --version
   exit ?
 ```
 
-Those last three print `exit ?` for three different reasons the tool cannot
-tell apart. `/work` is gone. `/bin/ls` is gone. The Node binary is gone — while
-the Node process that ran the tool is still alive, holding its own executable's
-inode open, printing this transcript from a machine that no longer exists.
+The last four all print `exit ?`, and three of them do so for three different
+reasons the tool cannot tell apart. `/work` is gone. `/bin/ls` is gone. The Node
+binary is gone — while the Node process that ran the tool is still alive,
+holding its own executable's inode open, printing this transcript from a machine
+that no longer exists. The fourth is the `rm` that did it, and it reports itself
+with exactly the same six characters as the three it caused.
 
 That is the argument for a guard in one paragraph. `execSync` does not know the
 difference between `wc -l` and `rm -rf /`. It is the same call.
@@ -144,10 +171,24 @@ clause removed the useful half of a shell.
   — each for its own reason, all of them the same reason.
 
 What survived is fifteen names: `cat cp diff echo find grep head ls mkdir mv
-sort tail touch uniq wc`. And **nothing in that list can change a byte inside a
-file.** Every shell idiom that writes content — `>`, `sed -i`, `tee`, a
+sort tail touch uniq wc`. And **nothing in that list can author a byte of its
+own.** Every shell idiom that composes content — `>`, `sed -i`, `tee`, a
 heredoc — is either a shell feature rule 1 removed or an interpreter rule 4
-could not admit. The shell I could defend is a read-only shell.
+could not admit. The shell I could defend can read, copy, rename and make empty
+things, and nothing else.
+
+Be precise about that, because the first version of this sentence was not, and
+it was the thesis. *Read-only* is wrong: `mkdir`, `touch`, `cp` and `mv` are all
+on that list and all four change the filesystem. `cp a b` replaces every byte of
+`b` with bytes that were already on disk, with no flag, from the allow-list.
+What the list cannot do is put a byte the *model* chose into a file — every
+idiom for that is a shell feature or an interpreter, and both were removed.
+Copying and renaming are not authoring, but they are writing, and a tool that can
+do them can take a project apart without composing a single character. The commit
+that first built this tool says "read-only" and "cannot change a byte inside a
+file" in its message; git history does not get edited, so that sentence stays
+wrong, and this paragraph is where I say so rather than leave you to find the
+contradiction.
 
 That is not a limitation I worked around. It is the result.
 
@@ -169,7 +210,7 @@ The eighty break down by the rule that caught them: 25 on the binary list, 24
 on a metacharacter, 14 on a flag, 13 on a path, and one each on an unterminated
 quote, a command over the length limit, an empty command and `cat -`.
 
-Some of them are worth naming. `find . -type f -exec ls +` and
+Some of them are worth naming. `find . -type f -exec ls -la +` and
 `find . -execdir`, `-delete`, `-fprintf`, `-fls`. `grep -f /etc/passwd`, whose
 value is a file the path rule never sees. `sort -o stolen.txt`, because sort
 writes files. `git --exec-path=.` and `git -c core.pager=ls`. `sh -c`,
@@ -193,7 +234,7 @@ which is already the careful version. It is still a bet that the first `ls` on
 
 ```
 resolveBinary("ls") normally    -> C:\Program Files\Git\usr\bin\ls.exe
-resolveBinary("ls") with a shim -> <temp>\nine-shim-LUBEZ4\ls.exe
+resolveBinary("ls") with a shim -> <temp>\nine-shim-5iA5F0\ls.exe
 ```
 
 The shim is a copy of `whoami.exe` renamed. Ask for `ls`, run `whoami`. The
@@ -212,22 +253,30 @@ which is the part that matters. Here is what the child actually sees, measured
 by running `env` under exactly that environment:
 
 ```
+HOMEDRIVE=C:
+HOMEPATH=\Users\User
+LOGONSERVER=\\DESKTOP-…
 PATH=/usr/bin
 SYSTEMDRIVE=C:
 SYSTEMROOT=C:\WINDOWS
-HOMEDRIVE=C:
-HOMEPATH=\Users\User
-USERPROFILE=C:\Users\User
-USERNAME=User
-LOGONSERVER=\\DESKTOP-S1JGV1A
-USERDOMAIN=DESKTOP-S1JGV1A
-HOME=/c/Users/User
 TEMP=/tmp
+USERDOMAIN=DESKTOP-…
+USERNAME=User
+USERPROFILE=C:\Users\User
+WINDIR=C:\WINDOWS
 TERM=xterm-256color
+HOME=/c/Users/User
 ```
 
-I handed it two variables. It has twelve. The MSYS2 runtime that every binary
-in the allow-list is linked against rebuilds a POSIX environment from the
+That is `env`'s own output, in `env`'s own order, with one edit: the machine
+name is truncated to `DESKTOP-…` in the two lines that carry it. The version of
+this block I first published was missing `WINDIR`, printed the rest in a
+different order, and said twelve. It was a real measurement with a line lost on
+its way onto the page, which is the least defensible kind of wrong number:
+right enough to survive being read.
+
+I handed it two variables. It has **thirteen**. The MSYS2 runtime that every
+binary in the allow-list is linked against rebuilds a POSIX environment from the
 process token when one is missing, so the home directory and the machine name
 arrive anyway — from a DLL, not from `process.env`. That is rule 2's warning
 arriving from a direction rule 2 does not cover: an allowed binary
@@ -238,6 +287,17 @@ Nothing in the allow-list prints the environment, so no run in this post's
 hundred and forty could have put those lines in a trace. That is an argument
 about the roster, not about the guard, and it is the same argument post 6 made
 about hard links.
+
+**A note on the standing of the three exhibits in this section.** The `PATH`
+shim above, this block, and the `ls -la` line further down are measurements
+taken on one Windows machine with Git Bash's MSYS binaries, and unlike every
+number in the tables below they have **no committed artifact behind them** —
+there is no file in the repository a test can recompute them from, because what
+they record is a fact about a machine rather than about this code. Each was
+re-measured while fixing this post and each reproduced. Read them as what they
+are: three things I ran, written down. The series' rule is that no number may
+describe the repository as it is now, and these three are the exception, said
+out loud.
 
 ### Hole 3: the guard's idea of a path is not the binary's
 
@@ -265,12 +325,14 @@ $ cat .env
 
 The four filesystem tools have skipped every dotfile since v2, and that rule is
 the reason `agent/.env` has stayed out of six posts' traces. `cat` has never
-heard of it. So `createShell` runs `assertWritableRoot` even though nothing it
-can run writes: there is no argument to it that returns a shell rooted at this
-checkout. But inside the directory it *is* given, the shell reads anything,
-`mv` renames anything, `cp` overwrites anything, and `grep -r` returns the lot
-in one call. The guard's promise is *inside the sandbox*, and inside the
-sandbox it can take the project apart.
+heard of it. So `createShell` runs `assertWritableRoot` and there is no argument
+to it that returns a shell rooted at this checkout. Both halves of that check
+earn their place: the only thing it can write are copies, renames and empty
+files, and copies, renames and empty files are quite enough. Inside the
+directory it *is* given, the shell reads anything, `mv` renames anything, `cp`
+overwrites anything, and `grep -r` returns the lot in one call. The guard's
+promise is *inside the sandbox*, and inside the sandbox it can take the project
+apart.
 
 ## The experiment
 
@@ -299,10 +361,11 @@ computed from the workspace rather than typed in — six lines containing
 Conditions interleaved, nothing retried, a run that throws written down as a
 run that threw. Fixed in `tools/run-shell.ts` before the first call.
 
-There is no shell-only condition, deliberately. `run_command` cannot change a
-byte inside a file, so an agent holding only the shell would lose four of the
-seven tasks by construction, and a condition that loses by construction
-measures its own construction.
+There is no shell-only condition, deliberately. `run_command` cannot author a
+byte of its own, so an agent holding only the shell could not write a note,
+change a timeout, append to a changelog or add a setting — four of the seven
+tasks lost by construction, and a condition that loses by construction measures
+its own construction.
 
 ## The demo
 
@@ -340,6 +403,8 @@ steps against ten, and the tenth was the cap.
 <TraceTranscript trace={fourLargest} label="Four tools" />
 <TraceTranscript trace={shellLargest} label="Four tools and a shell" />
 
+Here is how the left-hand run ends, in its own words:
+
 > **The largest file is README.md (at the project root) — 192 bytes.**
 
 It is 191. `read_file` returns text and never a size, so there is no way for the
@@ -367,8 +432,10 @@ Two calls, six frames, 191.
 All hundred and forty runs are in <a href={runs}><code>runs.tsv</code></a>, one
 row per run, with the tool sequence, **every command line the model wrote**, how
 many the guard refused and under which rule, the step count, what stopped it,
-the verdict and why, the token counts and the final answer. Every figure below
-is recomputed from that file by `tally.test.ts`.
+the verdict and why, the token counts and the final answer. Every figure in the
+tables below is recomputed from that file by `tally.test.ts`, as are the counts
+and means in the prose beside them. The one number in this section that is not
+is named where it appears: the four discarded pilot runs are not in the tally.
 
 | | four | four + shell |
 | --- | --- | --- |
@@ -414,21 +481,33 @@ Post 5's lesson and post 7's, applied. Post 7's thesis only survived once
 `max_parallel` was controlled for; the mix here is whether the guard ever said
 no.
 
-| | runs | finished | step-capped | steps/run | input tokens/run |
-| --- | --- | --- | --- | --- | --- |
-| shell, guard refused something | 23 | **13** | **11** | 7.91 | 9,355 |
-| shell, guard refused nothing | 47 | **47** | 0 | 4.43 | 3,714 |
-| four tools | 70 | 65 | 0 | 4.49 | 3,409 |
+| | runs | finished | step-capped | capped and finished | steps/run | input tokens/run |
+| --- | --- | --- | --- | --- | --- | --- |
+| shell, guard refused something | 23 | **13** | **11** | 4 | 7.91 | 9,355 |
+| shell, guard refused nothing | 47 | **47** | 0 | 0 | 4.43 | 3,714 |
+| four tools | 70 | 65 | 0 | 0 | 4.49 | 3,409 |
+
+The fourth column exists because the first row's 13 and 11 add to 24 against 23
+runs. The columns are independent counts and four runs are in both: `edit-timeout`
+runs 1, 3, 8 and 9, which hit the cap *and* changed the one value they were
+asked to change. Two of them made that edit on the tenth step, which was the
+last one they had. Both facts are true of those runs, so both are recorded, and
+a row that does not add up is the honest shape.
 
 Forty-seven for forty-seven, and every one of the eleven capped runs is in the
 other row. **p < 0.0001.** And the thirty-nine runs that held the shell and
 never called it finished thirty-nine of thirty-nine — indistinguishable from
-the control (p = 0.16).
+the control (p = 0.16), at a 95% upper bound of 7.4 per cent on a failure rate
+those thirty-nine would have missed.
 
 So the effect is not *the shell*. It is *the argument between the model and the
-guard*, and the mechanism is visible in the tally: a refusal costs a step, the
-cap is ten, and a run that spends three of them being told no does not get to
-the end.
+guard*, and part of the mechanism is arithmetic: a refusal costs a step and the
+cap is ten. But only part. Across the eleven capped runs the guard said no
+between one and four times, 2.45 times on average, so a run does not usually
+reach the cap by being refused out of its budget — it reaches the cap because,
+after a refusal, it stops asking for eight files at once and starts asking for
+them one at a time. That is what the demo above shows, and it is the more
+expensive half.
 
 ### What the model asked for
 
@@ -445,7 +524,10 @@ Seventy-nine command lines, fifty-nine of them distinct. By first word:
 **The binary allow-list never fired.** Twenty-five rows of the attack table go
 at it — every interpreter I could name — and in a hundred and forty runs the
 model never once asked for a program that was not on the list. What fired was
-the parser: 25 refusals on a metacharacter and 22 on a flag.
+the parser: 25 refusals on a metacharacter and 22 on a flag. Seventy-nine
+command lines with none of them off the list puts the 95% upper bound on the
+rate at which this model reaches for an interpreter at **3.7 per cent**, which
+is what that zero is worth and not more.
 
 Because the model does not write commands. It writes shell:
 
@@ -459,22 +541,37 @@ Because the model does not write commands. It writes shell:
   writing one of these guards is warned about, and it arrived here six times
   out of six from a model with no adversarial intent whatsoever.
 - **5** carry a glob.
-- **2** name `..` as an operand. Both were refused on the flag before the path
-  rule ever ran, which is worth saying plainly: the refusal you get is not
-  always the refusal you needed.
-- **30** use `-R` and **8** use `-r`. That is the one letter I removed from
-  `grep` on purpose, because `-R` dereferences symbolic links while it walks and
-  `-r` does not — so `-R` is a way to read through a link the path guard has
-  just refused to follow. The model reached for the dangerous letter four times
-  out of five.
+- **2** name `..` as an operand — the same command twice, once with `|| true`
+  on the end and once without. Neither reached the path rule: the first was
+  refused on the metacharacter and the second on the flag, both before the
+  operands were looked at. Which is worth saying plainly, because the refusal
+  you get is not always the refusal you needed, and a guard that reports the
+  first rule it trips is a guard whose messages are about its own order.
+- **30** use `-R` and **8** use `-r`. The sentence is about `grep`, and
+  twenty-nine of the thirty are `grep -R`; the thirtieth is `ls -R`, where the
+  flag is on the allow-list and harmless. All eight `-r` lines are `grep`. So
+  the comparison that matters is 29 against 8. That is the one letter I removed
+  from `grep` on purpose, because `-R` dereferences symbolic links while it
+  walks and `-r` does not — so `-R` is a way to read through a link the path
+  guard has just refused to follow. The model reached for the dangerous letter
+  twenty-nine times out of thirty-seven.
 
 ### The standing charge
 
 A tool definition rides in every request for the whole life of a run. Before
 either agent has done anything, the four-tool run carries a mean of **432.9**
 tokens and the shell run **586.9** — a charge of **154 tokens** for a
-description that has to list fifteen binaries and four things the tool will not
-do.
+description that has to list fifteen binaries and then spend a sentence on
+everything the tool will not do.
+
+One caveat on that number, because it is the kind this series keeps making. The
+description those runs were handed ended "It cannot change what is inside a
+file", which is the same false sentence the thesis used to carry, and I have
+corrected it in `descriptions.ts` since. The 154 tokens are recomputed from
+`runs.tsv`, which records what those hundred and forty runs actually carried, so
+the figure stands — but a reader who checks out `v8-shell` and re-runs the sweep
+is handing the model a slightly longer string than the one measured here. That
+is post 7's disclosure, one commit on.
 
 Post 6 measured 88 tokens for `append_file` and called that its one durable
 finding. This is that number, seventy-five per cent larger, for a tool that was
@@ -492,7 +589,7 @@ The shell condition spent **more** input tokens and **less than half** the
 output, and the whole of that gap is one task. On `largest-file` the four-tool
 runs averaged 6,004 output tokens and the shell runs 421 — ranges that do not
 overlap, 5,408 at the lowest against 846 at the highest. Counting the bytes of
-eight files in your head is expensive and it is also wrong.
+eight files in your head is expensive, and wrong three times in ten.
 
 ## What broke
 
@@ -512,6 +609,16 @@ observation per line of output, with the *command* in the `file` field, spelled
 with a `$` so it cannot be read as a path. Standard error is a separate source,
 because a line read out of `no such file or directory` is not evidence about
 the project.
+
+Both of those are stated as safety properties, so both are now tests. When this
+post first shipped they were not: dropping the `$ `, merging the two streams
+into one source, and disabling the judge's command branch outright each left the
+whole suite green, which somebody else found by trying it. That is the defect
+this series has shipped more often than any other — a rule described in prose,
+implemented once, and never asked whether it still holds — and it is worth
+noticing that the rule being described as a *safety property* is what made
+nobody check. `observation.test.ts` and `prompt.test.ts` now go red on all
+three.
 
 ### The provenance grader met a question it cannot grade
 
@@ -534,8 +641,8 @@ same mistake as the allow-list, one layer up.
 ### `ls -la` puts the account name in the trace
 
 ```
-drwxr-xr-x 1 User 197121 0 Sep 24 12:40 .
--rw-r--r-- 1 User 197121 2 Sep 24 12:40 README.md
+drwxr-xr-x 1 User 197121 0 Sep 24 14:07 .
+-rw-r--r-- 1 User 197121 2 Sep 24 14:07 README.md
 ```
 
 `User` is the Windows account and `197121` is its group. The redaction pipeline
@@ -579,23 +686,34 @@ the problem, because `attacks.tsv` is printed as a claim about what this guard
 refuses. There is an explicit rule for it now, anchored on the separator so that
 the drive-*relative* form stays the finding it is.
 
+What the rule closes is every operand shape in the committed table, which is
+what that table needs, and not every operand shape. `D:README.md` still answers
+differently: Windows resolves it to `D:\README.md` and refuses, POSIX reads it
+as an ordinary name and allows it inside the sandbox. Windows is the stricter
+side, so this is a gap in the *equivalence* rather than a hole in the sandbox,
+and it is not in `attacks.tsv` — adding rows would move the 97 that six figures
+above are counted from, after I had seen which way they fell.
+
 Two things follow that I would rather say than leave implied. The rule is
 **untestable on the machine that needed it** — on Windows it is redundant, so
 deleting it turns nothing red, and the only falsifiable test is of the predicate
-itself. And the whole suite was re-run on Linux to check nothing else had the
-same shape: 8,326 passed and 2 skipped, the two being post 6's Windows-only
-path-form cases. What does *not* carry across is `attacks.tsv`'s `effect`
+itself. And the whole suite was re-run on Linux, in a container with no network
+and a fake API key, to check nothing else had the same shape: 8,347 passed and
+2 skipped, against 8,349 passed on Windows, the two being post 6's Windows-only
+path-form cases. Every test is accounted for on both. What does *not* carry across is `attacks.tsv`'s `effect`
 column. It records what happened when a command actually ran, on one machine,
 with Git Bash's MSYS binaries on `PATH`, and `/usr/bin/cat:` in an error string
 is a fact about that machine rather than about this guard.
 
 **Ninety-seven attacks are ninety-seven attacks.** They are the ones I thought
 of, they agreed with my predictions a hundred per cent of the time, and that
-agreement is a statement about me. The three real findings came from
-measurement. There is a fourth I can describe and could not exploit: a flag's
-value skips the flag check, so `grep -m -r pattern file` passes the guard with
-`-r` sitting where a number should be. None of the fifteen binaries turns that
-into anything, and I cannot promise the sixteenth would not.
+agreement is a statement about me — ninety-seven rows with no disagreement puts
+the 95% upper bound on my disagreement rate at 3.0 per cent, which is the most
+that zero is worth. The three real findings came from measurement. There is a
+fourth I can describe and could not exploit: a flag's value skips the flag
+check, so `grep -m -r pattern file` passes the guard with `-r` sitting where a
+number should be. None of the fifteen binaries turns that into anything, and I
+cannot promise the sixteenth would not.
 
 **TOCTOU, still.** `planCommand` resolves the paths and then the command runs,
 for up to ten seconds, in a directory the guard checked beforehand. Post 6
@@ -636,7 +754,9 @@ made it.
 
 But *the parts you would not do* never arrived, because the thing I was willing
 to run on this machine is not a shell. It is fifteen programs with a flag
-allow-list, no punctuation, no interpreter and no way to write a file. And the
+allow-list, no punctuation, no interpreter and no way to author a byte of its
+own — though it can still copy a file over another one, which is a reminder
+that *cannot write* and *cannot compose* are different sentences. And the
 model never tested any of that. It never asked for `sh`, or `rm`, or `node`, or
 anything else off the list, in a hundred and forty runs. What it did was write
 `grep -R … || true` and `find … -exec … {} +`, over and over, and get told no,
@@ -644,7 +764,8 @@ and lose the run to the step cap.
 
 Which makes this post 6's original thesis coming true one tool later. Post 6
 said a fifth tool would make the agent worse and could not find it: `append_file`
-was chosen correctly ten times out of ten and changed nothing measurable. The
+was chosen correctly ten times out of ten, cost 88 tokens of standing context,
+and changed nothing else post 6 could measure at fifty runs. The
 sixth tool does make it worse — not because the model misuses it, but because
 the tool's *contract* is a lie the model cannot help believing. A thing called
 `run_command` that runs one command out of fifteen programs is a tool whose

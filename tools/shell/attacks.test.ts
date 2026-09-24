@@ -161,7 +161,7 @@ describe('the committed attack table', () => {
 })
 
 describe('the allow-list the post names', () => {
-  it('is fifteen binaries and none of them can change a byte inside a file', () => {
+  it('is fifteen binaries and none of them can author a byte of its own', () => {
     // The post prints these fifteen names in a sentence. If one is added or
     // removed and the sentence is not, this is what says so.
     expect(ALLOWED_NAMES).toEqual([

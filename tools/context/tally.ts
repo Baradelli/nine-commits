@@ -142,7 +142,10 @@ export function meanEstimateError(rows: readonly ParsedRow[]): number {
 
 /**
  * The one-sided 95% upper bound on a rate that was observed zero times in `n`
- * trials — the rule of three, exactly.
+ * trials — the exact Clopper–Pearson bound. This comment used to call it "the
+ * rule of three, exactly"; the rule of three is the approximation `3 / n` and
+ * this is not it. The returned values are unchanged and no published figure
+ * moves; post 8's copy of the same comment carried the same mistake.
  *
  * Post 6 had to state this before its null result meant anything, and post 7
  * has a null of its own: if the compacted runs lose nothing measurable, the

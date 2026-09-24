@@ -38,9 +38,21 @@
  * v8's own string has the same hazard and is written to avoid it. `run_command`
  * names the commands it will run and says, in the sentence a model is most
  * likely to act on, that it is not a shell: no pipes, no redirection, no `&&`,
- * no globbing, nothing outside the directory, and no way to change what is
- * inside a file. A description that promised a shell would be measuring how
+ * no globbing, nothing outside the directory, and no way to write new content
+ * into a file. A description that promised a shell would be measuring how
  * often the model discovers the guard rather than what the guard is worth.
+ *
+ * **That last clause was wrong in the hundred and forty runs post 8 reports,
+ * and this is the fix.** It read "It cannot change what is inside a file",
+ * which `cp a b` falsifies in two tokens: `cp` and `mv` replace a destination
+ * file's contents outright, and `touch` and `mkdir` create things. What the
+ * allow-list cannot do is *author* content — there is no idiom in it that puts
+ * a byte the model chose into a file. The correction is worth the same note v7
+ * got: post 8's published context figures (432.9 and 586.9 tokens, a standing
+ * charge of 154) are recomputed by `tools/shell/tally.test.ts` from
+ * `runs.tsv`, which records what those runs were handed, so they are unchanged
+ * — but a reader who checks out this tag and re-runs the sweep is handing the
+ * model a slightly longer string than the one that was measured.
  */
 
 export type DescriptionStyle = 'precise' | 'thin'
@@ -105,7 +117,7 @@ export const DESCRIPTIONS: Record<DescriptionStyle, ToolDescriptions> = {
       'Run one command in this project directory and get back what it printed. ' +
       'Only these commands are available, and only with ordinary flags: cp, diff, echo, find, grep, head, ls, mkdir, mv, sort, tail, touch, uniq, wc — plus cat, which prints a whole file. ' +
       'Use it when a shell does the job in one call that the other tools would take several to do: counting, searching across files, or looking at what is there. ' +
-      'It runs one command, not a shell: no pipes, no redirection, no && or ;, no wildcards, no variables, and nothing outside this directory. It cannot change what is inside a file.',
+      'It runs one command, not a shell: no pipes, no redirection, no && or ;, no wildcards, no variables, and nothing outside this directory. It can copy, rename and create empty files, but it cannot write new content into one.',
   },
   thin: {
     list_files: 'Lists files.',

@@ -105,6 +105,36 @@ describe('what the shell did to the outcome', () => {
     const largestShell = perTask(rows, 'four-shell').get('largest-file')
     expect([largestFour?.passes, largestShell?.passes]).toEqual([7, 10])
     expect(fisherExact(7, 3, 10, 0)).toBeCloseTo(0.211, 2)
+
+    // The post prints 0.023 × 7 = 0.16 rather than rounding the collapse up
+    // into a result, so the multiplied figure is recomputed as well.
+    expect(fisherExact(8, 2, 2, 8) * 7).toBeCloseTo(0.16, 2)
+  })
+
+  it('won exactly one task, which is the one the thesis names', () => {
+    // The thesis says the shell finished more often on one task of the seven.
+    // Of the other six, three are level and three go the other way.
+    const better = TASKS.map((task) => task.id).filter((id) => {
+      const a = perTask(rows, 'four').get(id)?.passes ?? 0
+      const b = perTask(rows, 'four-shell').get(id)?.passes ?? 0
+      return b > a
+    })
+    expect(better).toEqual(['largest-file'])
+  })
+
+  it('prints p = 1.00 on the five tasks where nothing moved, recomputed rather than typed', () => {
+    // These five are printed as `1.00` in the per-task table and were the only
+    // figures in it that no test recomputed.
+    const expected: Record<string, [number, number]> = {
+      'find-timeout': [10, 9],
+      'write-note': [10, 10],
+      'edit-timeout': [10, 9],
+      'append-changelog': [10, 10],
+      'add-setting': [10, 10],
+    }
+    for (const [task, [a, b]] of Object.entries(expected)) {
+      expect(fisherExact(a, 10 - a, b, 10 - b), task).toBeCloseTo(1.0, 2)
+    }
   })
 
   it('moved nothing measurable on the five tasks post 6 already ran', () => {
@@ -162,6 +192,52 @@ describe('the composition check, before the causal reading', () => {
     expect(cutRefused.capped).toBe(11)
     expect(cutClean.capped).toBe(0)
     expect(fisherExact(13, 10, 47, 0)).toBeLessThan(0.0001)
+
+    // 13 + 11 = 24 against 23 runs, because the two columns are independent
+    // counts and four runs are in both: they hit the cap on the tenth step and
+    // the answer or the file was right anyway. The post prints the overlap
+    // rather than leaving a row that does not add up.
+    const both = refused.filter(
+      (row) => row.stopped_by === 'step-cap' && row.pass === 'pass',
+    )
+    expect(both).toHaveLength(4)
+    expect(both.map((row) => `${row.task}/${row.run}`)).toEqual([
+      'edit-timeout/1',
+      'edit-timeout/3',
+      'edit-timeout/8',
+      'edit-timeout/9',
+    ])
+    // Two of the four made the edit on the tenth call, which was the last one
+    // the cap left them.
+    const editedLast = both.filter(
+      (row) => row.tools_called.trim().split(/\s+/).at(-1) === 'edit_file',
+    )
+    expect(editedLast).toHaveLength(2)
+    // And the mechanism sentence. A refusal costs a step and the cap is ten,
+    // but the capped runs were refused between one and four times, 2.45 on
+    // average — nowhere near ten — so arithmetic is not the whole of it.
+    expect(both.map((row) => Number(row.refusals)).sort()).toEqual([1, 2, 4, 4])
+
+    const capped = shell.filter((row) => row.stopped_by === 'step-cap')
+    const refusals = capped.map((row) => Number(row.refusals))
+    expect(Math.min(...refusals)).toBe(1)
+    expect(Math.max(...refusals)).toBe(4)
+    expect(refusals.reduce((a, b) => a + b, 0) / refusals.length).toBeCloseTo(2.45, 2)
+  })
+
+  it('recomputes the steps and input tokens each composition row prints', () => {
+    const refused = shell.filter((row) => Number(row.refusals) > 0)
+    const clean = shell.filter((row) => Number(row.refusals) === 0)
+    const cutRefused = cut(refused)
+    const cutClean = cut(clean)
+
+    expect(cutRefused.steps / refused.length).toBeCloseTo(7.91, 2)
+    expect(cutClean.steps / clean.length).toBeCloseTo(4.43, 2)
+    expect(cutFour.steps / four.length).toBeCloseTo(4.49, 2)
+
+    expect(cutRefused.inputTokens / refused.length).toBeCloseTo(9355, -1)
+    expect(cutClean.inputTokens / clean.length).toBeCloseTo(3714, -1)
+    expect(cutFour.inputTokens / four.length).toBeCloseTo(3409, -1)
   })
 
   it('shows a shell that was never called is the control', () => {
@@ -172,8 +248,14 @@ describe('the composition check, before the causal reading', () => {
     expect(cut(never).passes).toBe(39)
     expect(cut(never).capped).toBe(0)
     expect(runsCalling(shell, 'run_command')).toBe(31)
-    // Against the four-tool condition's 65/70, that is not a difference.
+    // Against the four-tool condition's 65/70, that is not a difference. The
+    // post prints the figure, so the figure is recomputed and not only its
+    // inequality.
+    expect(fisherExact(39, 0, 65, 5)).toBeCloseTo(0.16, 2)
     expect(fisherExact(39, 0, 65, 5)).toBeGreaterThan(0.05)
+    // 39 runs with no failures is a 95% upper bound of 7.4%, which is the
+    // resolution this particular null is bought at.
+    expect(detectionFloor(39)).toBeCloseTo(0.0739, 4)
   })
 })
 
@@ -185,6 +267,8 @@ describe('what the model wrote, and what the guard did with it', () => {
     expect(cutShell.refusals).toBe(47)
     expect(cutShell.refused).toBe(23)
     expect(commands.length - cutShell.refusals).toBe(32)
+    // "fifty-nine of them distinct" is printed beside the seventy-nine.
+    expect(new Set(commands).size).toBe(59)
   })
 
   it('never contains the separator the tally joins commands with', () => {
@@ -240,6 +324,23 @@ describe('what the model wrote, and what the guard did with it', () => {
     )
     expect(capital).toHaveLength(30)
     expect(lower).toHaveLength(8)
+    // The sentence is specifically about the letter removed from `grep`, and
+    // one of the thirty is `ls -R`, where the flag is allowed. The grep-only
+    // count is twenty-nine against eight; all eight `-r` lines are `grep`.
+    expect(capital.filter((c) => c.trimStart().startsWith('grep'))).toHaveLength(29)
+    expect(capital.filter((c) => !c.trimStart().startsWith('grep'))).toEqual(['ls -R'])
+    expect(lower.every((c) => c.trimStart().startsWith('grep'))).toBe(true)
+    expect(29 + lower.length).toBe(37)
+  })
+
+  it('states the detection floor under each of the zeroes it prints', () => {
+    // Three nulls on this page are printed as bare zeroes — no program off the
+    // list in 79 command lines, no disagreement in 97 attack rows, no failure
+    // in the 39 runs that never called the shell. A null without its floor is
+    // a stronger claim than the runs support, which is this series' own rule.
+    expect(detectionFloor(79)).toBeCloseTo(0.037, 3)
+    expect(detectionFloor(97)).toBeCloseTo(0.030, 3)
+    expect(detectionFloor(39)).toBeCloseTo(0.074, 3)
   })
 })
 
@@ -279,6 +380,20 @@ describe('what it cost', () => {
     expect(cents(rows, 0.25, 2)).toBeCloseTo(42.7, 1)
     expect(cents(four, 0.25, 2)).toBeCloseTo(25.3, 1)
     expect(cents(shell, 0.25, 2)).toBeCloseTo(17.4, 1)
+  })
+
+  it('counted the tokens the post prints, and not only the cents derived from them', () => {
+    // Every one of these appears in a table or a sentence. Until this block
+    // existed only `cents()` recomputed them, which meant a wrong total and a
+    // compensating wrong total would have passed.
+    const sum = (rows: typeof four, column: 'input_tokens' | 'output_tokens'): number =>
+      rows.reduce((total, row) => total + Number(row[column]), 0)
+
+    expect(sum(four, 'output_tokens')).toBe(96_740)
+    expect(sum(shell, 'output_tokens')).toBe(38_400)
+    expect(sum(rows, 'input_tokens')).toBe(628_380)
+    expect(sum(rows, 'output_tokens')).toBe(135_140)
+    expect(sum(four, 'input_tokens') + sum(shell, 'input_tokens')).toBe(628_380)
   })
 })
 

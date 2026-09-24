@@ -177,9 +177,10 @@ export function buildTools(options: BuildOptions = {}): Record<string, Tool> {
 
   // Built before any tool, so a roster with a shell in it refuses an unsafe
   // root at the same moment a roster with a write in it does. `createShell`
-  // runs `assertWritableRoot` even though nothing it can run writes: the four
-  // filesystem tools skip dotfiles and `cat` does not, so a shell rooted at
-  // this checkout is a tool that can read `agent/.env`.
+  // runs `assertWritableRoot` even though nothing it can run authors content:
+  // the four filesystem tools skip dotfiles and `cat` does not, so a shell
+  // rooted at this checkout is a tool that can read `agent/.env` — and `cp`,
+  // `mv`, `touch` and `mkdir` would be rearranging it.
   const shell = rosterShells(roster) ? createShell(root, { onRefusal: options.onRefusal }) : undefined
 
   return Object.fromEntries(

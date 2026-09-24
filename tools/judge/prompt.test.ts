@@ -229,3 +229,95 @@ describe('the trace a judge is shown, on the tools v6 added', () => {
     expect(() => renderTrace(renamed)).toThrow(UnrenderableFrame)
   })
 })
+
+describe('the trace a judge is shown, on the tool v8 added', () => {
+  /*
+   * Disabling this branch entirely left the whole suite green, which made the
+   * line below — the one that stops a command result being rendered as
+   * silence — a claim with no test under it. It is the same defect post 4 and
+   * post 5 both shipped, one tool later.
+   */
+  const ran = trace([
+    { type: 'user', content: 'which file is largest' },
+    {
+      type: 'tool_call',
+      id: 'c1',
+      name: 'run_command',
+      args: { command: 'wc -c README.md' },
+    },
+    {
+      type: 'tool_result',
+      id: 'c1',
+      ok: true,
+      result: {
+        ok: true,
+        command: 'wc -c README.md',
+        exitCode: 0,
+        stdout: '191 README.md\n969 total',
+        stderr: '',
+        truncated: false,
+        timedOut: false,
+      },
+    },
+    { type: 'assistant', content: 'README.md, 191 bytes.' },
+  ])
+
+  it('renders a command result rather than raising on it', () => {
+    expect(() => renderTrace(ran)).not.toThrow(UnrenderableFrame)
+    expect(renderTrace(ran)).toContain('ran "wc -c README.md" — exit 0')
+  })
+
+  it('prints both streams, labelled, so a complaint is not read as a finding', () => {
+    const rendered = renderTrace(ran)
+    expect(rendered).toContain('out  191 README.md')
+    expect(rendered).toContain('out  969 total')
+
+    const failed = trace([
+      { type: 'user', content: 'search' },
+      { type: 'tool_call', id: 'c2', name: 'run_command', args: { command: 'grep -r x ..' } },
+      {
+        type: 'tool_result',
+        id: 'c2',
+        ok: true,
+        result: {
+          ok: true,
+          command: 'grep -r x ..',
+          exitCode: 2,
+          stdout: '',
+          stderr: 'grep: ..: No such file or directory',
+          truncated: false,
+          timedOut: false,
+        },
+      },
+    ])
+    const renderedFailure = renderTrace(failed)
+    expect(renderedFailure).toContain('ran "grep -r x .." — exit 2')
+    expect(renderedFailure).toContain('err  grep: ..: No such file or directory')
+    expect(renderedFailure).not.toContain('out  ')
+  })
+
+  it('says when the output was cut off or the command was killed', () => {
+    const killed = trace([
+      { type: 'user', content: 'search' },
+      { type: 'tool_call', id: 'c3', name: 'run_command', args: { command: 'grep -r x .' } },
+      {
+        type: 'tool_result',
+        id: 'c3',
+        ok: true,
+        result: {
+          ok: true,
+          command: 'grep -r x .',
+          exitCode: null,
+          stdout: 'a',
+          stderr: '',
+          truncated: true,
+          timedOut: true,
+        },
+      },
+    ])
+    const rendered = renderTrace(killed)
+    expect(rendered).toContain('exit killed')
+    expect(rendered).toContain('output cut off at the limit')
+    expect(rendered).toContain('killed at the timeout')
+  })
+})

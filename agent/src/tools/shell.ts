@@ -165,10 +165,17 @@ type Binary = {
  *   `curl` — each for its own reason, all of them the same reason.
  *
  * The consequence, stated plainly because it is the result: **nothing in this
- * list can change a byte inside a file.** Every shell idiom that writes
- * content — `>`, `sed -i`, `tee`, a heredoc — is either a shell feature rule 1
- * removed or an interpreter rule 4 could not admit. The shell I could defend
- * is a read-only shell.
+ * list can author a byte of its own.** Every shell idiom that puts content a
+ * caller chose into a file — `>`, `sed -i`, `tee`, a heredoc — is either a
+ * shell feature rule 1 removed or an interpreter rule 4 could not admit.
+ *
+ * That is narrower than *read-only*, and the difference is the whole of
+ * `mkdir`, `touch`, `cp` and `mv`. All four mutate the filesystem. `cp a b`
+ * replaces every byte of `b` with bytes that were already on disk, `mv` moves a
+ * file out from under whatever expected to find it, and `touch` creates one.
+ * Copying and renaming are not authoring, but they are writing, and a shell
+ * that can do them can take a project apart without composing a single byte.
+ * The defensible claim is the narrow one.
  */
 export const ALLOWED: Readonly<Record<string, Binary>> = {
   ls: { flags: ['-l', '-a', '-A', '-1', '-R', '-h', '-r', '-t', '-S', '-d', '-F'], bundled: true },
@@ -459,6 +466,20 @@ function checkOperand(root: string, line: string, value: string): void {
   // other test still passes. It is load-bearing only on POSIX, so testing it
   // through `planCommand` on this machine would be a test that can never go
   // red on the machine it was written on.
+  //
+  // What this closes is **every operand shape in the committed attack table**,
+  // and not every operand shape. Simulating POSIX resolution over all 97 rows
+  // gives zero flips, which is what `attacks.tsv` needs. The residual is a
+  // drive-*relative* path naming a different drive: `D:README.md` resolves to
+  // `D:\README.md` on Windows — outside, refused — and to
+  // `<root>/D:README.md` on POSIX — inside, allowed. `driveQualified` is
+  // anchored on the separator and deliberately does not match it, because
+  // `C:x` is a published finding about the guard and the binary disagreeing.
+  // Windows is the stricter side either way, so this is a gap in the
+  // *equivalence*, not in the sandbox. It is not in the table: adding rows for
+  // it would move the 97 that six figures on the published page are counted
+  // from, which is the one thing this series will not do after seeing a
+  // result.
   if (driveQualified(value)) {
     throw new ShellRefusal(line, 'path', `"${value}" is outside the sandbox`)
   }
@@ -520,12 +541,17 @@ export type ShellOptions = {
 /**
  * The shell tool, bound to one root.
  *
- * `assertWritableRoot` runs here even though nothing in `ALLOWED` writes, and
- * the reason is `cat`. The four filesystem tools skip every dotfile, which is
- * how `agent/.env` has stayed out of six posts' traces; `cat` has never heard
- * of that rule. A `run_command` rooted at this checkout is a tool that can read
- * this project's one real secret, so there is no argument to this function that
- * produces one.
+ * `assertWritableRoot` runs here for two reasons, and the first one is `cat`.
+ * The four filesystem tools skip every dotfile, which is how `agent/.env` has
+ * stayed out of six posts' traces; `cat` has never heard of that rule. A
+ * `run_command` rooted at this checkout is a tool that can read this project's
+ * one real secret, so there is no argument to this function that produces one.
+ *
+ * The second reason is that `ALLOWED` holds `cp`, `mv`, `touch` and `mkdir`.
+ * Nothing in it can *author* content, which is the finding, but all four of
+ * those mutate the filesystem — `cp` and `mv` replace a destination file
+ * outright. A root this function accepted would be a root those four could
+ * rearrange, so the same check earns its place twice.
  */
 export function createShell(root: string, options: ShellOptions = {}) {
   assertWritableRoot(root)

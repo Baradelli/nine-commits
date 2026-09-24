@@ -181,12 +181,23 @@ describe('the binary allow-list', () => {
     }
   })
 
-  it('cannot change a byte inside a file, which is the result rather than an omission', () => {
+  it('cannot author a byte of its own, which is the result rather than an omission', () => {
     // If this ever stops being true, the sentence in `descriptions.ts` that
     // tells the model so becomes false, and the post's argument for why a
-    // defensible shell is a read-only one goes with it.
+    // defensible shell cannot compose content goes with it.
     for (const writer of ['sed', 'tee', 'awk', 'perl', 'python', 'sh', 'bash', 'ed', 'patch', 'dd', 'truncate']) {
       expect(ALLOWED_NAMES).not.toContain(writer)
+    }
+  })
+
+  it('does hold four binaries that mutate the filesystem, which is why the claim is the narrow one', () => {
+    // The thesis says "cannot author a byte of its own" and deliberately not
+    // "read-only". This is the difference, and it is not hypothetical: `cp`
+    // replaces a destination file's contents outright, with no flag, from the
+    // allow-list. If someone widens the published claim back to read-only,
+    // this test is the sentence that contradicts it.
+    for (const mutator of ['cp', 'mv', 'touch', 'mkdir']) {
+      expect(ALLOWED_NAMES).toContain(mutator)
     }
   })
 })
@@ -507,6 +518,40 @@ describe('createShell', () => {
       expect(readdirSync(outside)).toEqual(['canary.txt'])
     } finally {
       rmSync(outside, { recursive: true, force: true })
+    }
+  })
+
+  it('does change every byte of a file inside the sandbox, with cp and no flag', async () => {
+    // The published thesis used to say the tool "cannot change a byte inside a
+    // file". `cp` falsifies that in two tokens, and this is the measurement,
+    // end to end through the same function a live run calls. The claim that
+    // survives is narrower: nothing in the allow-list can *author* content.
+    const box = mkdtempSync(join(tmpdir(), 'nine-shell-cp-'))
+    try {
+      writeFileSync(join(box, 'source.txt'), 'OTHER\n', 'utf8')
+      writeFileSync(join(box, 'target.txt'), 'ORIGINAL-CONTENT\n', 'utf8')
+      const shell = createShell(box)
+
+      const copied = await shell.runCommand('cp source.txt target.txt')
+      expect(copied.ok).toBe(true)
+      if (copied.ok) expect(copied.exitCode).toBe(0)
+      expect(readFileSync(join(box, 'target.txt'), 'utf8')).toBe('OTHER\n')
+
+      expect((await shell.runCommand('touch brand-new.txt')).ok).toBe(true)
+      expect((await shell.runCommand('mkdir newdir')).ok).toBe(true)
+      expect((await shell.runCommand('mv source.txt renamed.txt')).ok).toBe(true)
+      expect(readdirSync(box).sort()).toEqual([
+        'brand-new.txt',
+        'newdir',
+        'renamed.txt',
+        'target.txt',
+      ])
+
+      // And the narrow claim, which is the one the post makes: every byte now
+      // in the sandbox was already on disk. Nothing the model composed is.
+      expect(readFileSync(join(box, 'brand-new.txt'), 'utf8')).toBe('')
+    } finally {
+      rmSync(box, { recursive: true, force: true })
     }
   })
 })

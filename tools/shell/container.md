@@ -6,16 +6,60 @@ refusal is only interesting if you know what it is refusing. This is what it is
 refusing, run for real.
 
 `unguarded.mjs` beside this file is `run_command` with every rule deleted:
-`execSync(command, { cwd: '/work' })`. Nine lines. The only guard left in it is
-a check for `/.dockerenv`, which is not a safety property of the tool — it is a
-refusal to leave a loaded gun in a public repository. On this machine it prints
+`execSync(command, { cwd: '/work' })`. Seven lines.
+
+## The three checks in front of it, and what they are not
+
+They are a speed bump, not a containment boundary. In order:
+
+1. **`--destroy-this-container` has to be on the command line.** Without it the
+   file is inert. This is the only one of the three that does not depend on
+   guessing where it is running, and it is the reason the file is safe to leave
+   in a public repository.
+2. **`/.dockerenv` has to exist.** This proves *Dockerness*, not *isolation*,
+   and isolation is the property that matters. The file is present in every
+   Docker container — including a VS Code dev container, which bind-mounts your
+   checkout at `/workspaces/<repo>`, and a GitHub Actions `container:` job,
+   which bind-mounts the workspace at `/__w`. It can be created by hand in WSL,
+   where `/mnt/c` is your C: drive. On Windows it resolves to `C:\.dockerenv`,
+   an ordinary file any user can touch. And it is *absent* under Podman,
+   containerd and LXC, so the check is too permissive where it matters and too
+   strict where it does not.
+3. **None of `/workspaces`, `/__w`, `/host` or `/mnt` may hold anything.** That
+   is where a dev container, a CI container, a `-v /:/host` and WSL put the
+   host's files. The test is *non-empty* rather than *exists* because `/mnt`
+   exists and is empty in a stock `node:22-alpine`, which is the image below.
+
+Measured, all three, on the tree this file was written from. Each refusal is one
+line in the terminal and is wrapped here to fit; the `exit 1` lines are the exit
+status, which the script does not print.
 
 ```
-refusing to run: this file is an unguarded shell and it only runs inside a
-container. There is no /.dockerenv here.
+$ node tools/shell/unguarded.mjs                      # on Windows, no flag
+refusing to run: this file is an unguarded shell that deletes the filesystem it
+runs on. It does nothing without --destroy-this-container on the command line.
+exit 1
+
+$ docker run --rm -i --network none node:22-alpine \
+    sh -c 'cat > /work.mjs && node /work.mjs' < tools/shell/unguarded.mjs
+refusing to run: this file is an unguarded shell that deletes the filesystem it
+runs on. It does nothing without --destroy-this-container on the command line.
+exit 1
+
+$ docker run --rm -i --network none -v "$SCRATCH":/host:ro node:22-alpine \
+    sh -c 'cat > /work.mjs && node /work.mjs --destroy-this-container' \
+    < tools/shell/unguarded.mjs
+refusing to run: /host holds files. That is where a dev container, a CI
+container and WSL put the host's data, and this file would destroy it.
+exit 1
 ```
 
-and exits 1.
+The third one is the case the `/.dockerenv` check alone gets wrong: it is a
+container, `/.dockerenv` is there, and the thing it would delete is yours. The
+file mounted at `/host` was still there afterwards.
+
+Do not read any of this as *it cannot run outside a container*. It can. What it
+cannot do is run by accident.
 
 ## The isolation, and how it was verified
 
@@ -23,7 +67,7 @@ and exits 1.
 docker run --rm -i --network none \
   -e DEMO_API_KEY=DEMO-NOT-A-REAL-KEY \
   node:22-alpine \
-  sh -c 'cat > /work.mjs && node /work.mjs' \
+  sh -c 'cat > /work.mjs && node /work.mjs --destroy-this-container' \
   < tools/shell/unguarded.mjs
 ```
 
@@ -31,12 +75,29 @@ The script goes in on **standard input**, not through a bind mount, because a
 bind mount is a hole in exactly the claim being made. There is no `-v`, no
 `--mount`, no `--volumes-from`, no `--privileged`, and `--network none`.
 
-Verified rather than asserted. The same command was run a second time without
-`--rm` so the container that did it could be inspected, and it produced
-byte-identical output apart from the container's own hostname:
+Verified rather than asserted. The same command was run a second time with
+`--name` instead of `--rm`, so the container that did it survived to be
+inspected:
+
+```sh
+docker run --name nine-shell-inspect -i --network none \
+  -e DEMO_API_KEY=DEMO-NOT-A-REAL-KEY \
+  node:22-alpine \
+  sh -c 'cat > /work.mjs && node /work.mjs --destroy-this-container' \
+  < tools/shell/unguarded.mjs
+```
+
+Its output differed from the first run's on exactly two lines, both of them the
+container's own hostname (`uname -a` and `echo "I am $(whoami) on $(hostname)"`).
+Then, with the format string in full so it can be run as written:
+
+```sh
+docker inspect nine-shell-inspect --format 'Mounts={{json .Mounts}} NetworkMode={{.HostConfig.NetworkMode}} Binds={{json .HostConfig.Binds}} VolumesFrom={{json .HostConfig.VolumesFrom}} Privileged={{.HostConfig.Privileged}}
+Image={{.Config.Image}}
+ImageID={{.Image}}'
+```
 
 ```
-$ docker inspect nine-shell-inspect --format 'Mounts={{json .Mounts}} NetworkMode=... '
 Mounts=[] NetworkMode=none Binds=null VolumesFrom=null Privileged=false
 Image=node:22-alpine
 ImageID=sha256:7c3b093add7c43400ee83b815ab2cda98794a10045bcf76ce9bb2f89b97cbc5c
@@ -46,13 +107,19 @@ And the host was fingerprinted either side of the run — `git rev-parse HEAD`,
 an MD5 of `git status --porcelain`, and an MD5 of the home directory listing:
 
 ```
-before   2c6ba0af682b773db31c95229c8d2fbdf37002c0
-         1e8877071d88a962147b4e31db09ed62   (git status)
+before   bd2ce097e59ca216b8735efd8462f8dd1587bc15
+         687e0b6d912e57bf2099897f8fd86e48   (git status)
          00bffc2c4042abc39db89b974f77997b   (ls ~)
-after    2c6ba0af682b773db31c95229c8d2fbdf37002c0
-         1e8877071d88a962147b4e31db09ed62
+after    bd2ce097e59ca216b8735efd8462f8dd1587bc15
+         687e0b6d912e57bf2099897f8fd86e48
          00bffc2c4042abc39db89b974f77997b
 ```
+
+`HEAD` is `bd2ce09`, the commit this fix round was built on top of, and the
+working tree was mid-round and therefore dirty — which is why the `git status`
+hash is not the hash of an empty status. What the three pairs show is that
+nothing on the host moved across the run; they were taken with the same three
+commands either side, minutes apart.
 
 What this does **not** prove: a container is a kernel namespace, not a virtual
 machine, and a container escape is a category of bug that exists. What it does
@@ -61,15 +128,18 @@ about, and that the host was unchanged afterwards.
 
 ## The transcript
 
-Every line below is output from the run, unedited except for indentation of the
-command output, which `unguarded.mjs` does itself.
+Every line below is output from the run. Nothing is edited. Two things the
+script does to its own output are worth knowing before you read it: it indents
+each command's output by two spaces, and **it prints only the first twelve
+lines of it** (`unguarded.mjs`, `show`). `cat /etc/shadow` and `ls /` are both
+cut at exactly twelve — neither is the whole file or the whole directory.
 
 ```
 === where this is running ===
 
 $ uname -a
 # the machine
-  Linux eacee685b73d 6.6.87.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Mon Apr 21 17:08:54 UTC 2025 x86_64 Linux
+  Linux 68d731b29c1e 6.6.87.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Mon Apr 21 17:08:54 UTC 2025 x86_64 Linux
 
 $ id
 # who the agent is
@@ -78,14 +148,14 @@ $ id
 $ ls -la /work
 # the project it was given
   total 32
-  drwxr-xr-x    6 root     root          4096 Sep 24 15:23 .
-  drwxr-xr-x    1 root     root          4096 Sep 24 15:23 ..
-  -rw-r--r--    1 root     root            33 Sep 24 15:23 README.md
-  drwxr-xr-x    2 root     root          4096 Sep 24 15:23 config
-  drwxr-xr-x    2 root     root          4096 Sep 24 15:23 docs
-  drwxr-xr-x    2 root     root          4096 Sep 24 15:23 notes
-  -rw-r--r--    1 root     root            47 Sep 24 15:23 package.json
-  drwxr-xr-x    2 root     root          4096 Sep 24 15:23 src
+  drwxr-xr-x    6 root     root          4096 Sep 24 16:57 .
+  drwxr-xr-x    1 root     root          4096 Sep 24 16:57 ..
+  -rw-r--r--    1 root     root            33 Sep 24 16:57 README.md
+  drwxr-xr-x    2 root     root          4096 Sep 24 16:57 config
+  drwxr-xr-x    2 root     root          4096 Sep 24 16:57 docs
+  drwxr-xr-x    2 root     root          4096 Sep 24 16:57 notes
+  -rw-r--r--    1 root     root            47 Sep 24 16:57 package.json
+  drwxr-xr-x    2 root     root          4096 Sep 24 16:57 src
 
 === things the guarded tool refuses ===
 
@@ -105,10 +175,10 @@ $ echo "echo PIPED-INTO-A-SHELL" | sh
 
 $ echo "I am $(whoami) on $(hostname)"
 # command substitution
-  I am root on eacee685b73d
+  I am root on 68d731b29c1e
 
 $ echo PLANTED > /work/planted.txt && cat /work/planted.txt
-# redirection, which is how a read-only shell writes files
+# redirection, which is how a shell authors a file
   PLANTED
 
 $ node -e "console.log('ARBITRARY CODE, exit code', 0)"
@@ -176,12 +246,15 @@ $ node --version
 
 ## What is worth reading twice
 
-The last four calls all print `exit ?`, and they print it for different reasons
-that the tool cannot tell apart. `ls -la /work` fails because the directory is
-gone. `ls /` fails because `/bin/ls` is gone. `node --version` fails because the
-Node binary is gone — while the Node process that ran the tool is still alive,
-holding its own executable's inode open, printing this transcript from a machine
-that no longer exists.
+The last four calls all print `exit ?` — `ls -la /work`, `rm -rf
+--no-preserve-root /`, `ls /` and `node --version` — and the tool cannot tell
+any of them apart from any other. Three of them have three different causes.
+`ls -la /work` fails because the directory is gone. `ls /` fails because
+`/bin/ls` is gone. `node --version` fails because the Node binary is gone —
+while the Node process that ran the tool is still alive, holding its own
+executable's inode open, printing this transcript from a machine that no longer
+exists. The fourth, `rm -rf --no-preserve-root /`, is the call that did it, and
+it reports itself the same way.
 
 That is the whole argument for the guard in one paragraph. The tool had no
 opinion about any of it. `execSync` does not know the difference between `wc -l`
@@ -192,17 +265,26 @@ And the eight lines above the deletions are the ones a guard has to earn.
 `childEnvironment` in `shell.ts` builds one instead of inheriting it. `cat
 /etc/shadow` is the reason every operand goes through post 6's path guard.
 `echo ... > /work/planted.txt` is the reason the metacharacter rule exists and
-also the reason the guarded tool cannot write a file: the two are the same rule.
-And `node -e` is the reason the allow-list contains no interpreter, which is the
-reason it is a read-only shell.
+also the reason the guarded tool cannot author content: the two are the same
+rule. And `node -e` is the reason the allow-list contains no interpreter, which
+is the reason the guarded tool can copy and rename but never write a byte of
+its own.
 
 ## Reproducing it
 
 ```sh
 docker run --rm -i --network none -e DEMO_API_KEY=DEMO-NOT-A-REAL-KEY \
-  node:22-alpine sh -c 'cat > /work.mjs && node /work.mjs' \
+  node:22-alpine sh -c 'cat > /work.mjs && node /work.mjs --destroy-this-container' \
   < tools/shell/unguarded.mjs
 ```
 
-It takes a few seconds and destroys nothing you own. Running
-`node tools/shell/unguarded.mjs` on your own machine prints a refusal.
+It takes a few seconds and destroys nothing you own — that container has no
+mount, no volume and no network, so the only filesystem it can reach is its
+own.
+
+Running `node tools/shell/unguarded.mjs` with no arguments prints a refusal,
+wherever you run it. Running it *with* `--destroy-this-container` prints a
+refusal on a machine with no `/.dockerenv`, and on a container that looks like
+it is holding your files — and that second test is a guess, not a guarantee. If
+you are inside a container that mounts your work somewhere the list above does
+not name, this file will delete it.
