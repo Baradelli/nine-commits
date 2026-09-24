@@ -296,6 +296,18 @@ describe('what the model wrote, and what the guard did with it', () => {
     })
   })
 
+  it('never called the one binary that would have falsified the tool description', () => {
+    // `uniq` takes an optional output operand, so it writes — and the string
+    // the model was handed in all 140 runs said the tool "cannot change what is
+    // inside a file", while the string that replaced it said it could not write
+    // new content into one. Nothing found either out from the runs, because
+    // nothing ran it: not one of the 79 command lines names `uniq`, and eleven
+    // of the fifteen binaries were never asked for at all. The post says so,
+    // and this is the assertion behind that sentence.
+    expect(commands.filter((c) => /(^|\s)uniq(\s|$)/.test(c))).toEqual([])
+    expect([...binaryCounts(shell).keys()].sort()).toEqual(['find', 'grep', 'ls', 'wc'])
+  })
+
   it('reached for the canonical way out of a command allow-list six times', () => {
     // `find -exec` is the first thing anyone writing one of these guards is
     // warned about, and it arrived here from a model trying to do its job.

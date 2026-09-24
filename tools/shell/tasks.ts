@@ -13,9 +13,11 @@ import { TASKS as ROSTER_TASKS, type Task } from '../roster/tasks.ts'
  * `append-changelog` in its set on purpose — *a question set with no task the
  * extra tool is good at would make "the fifth makes it worse" true by
  * construction* — and the same rule applies with more force here, because the
- * shell in `ALLOWED` is read-only and every one of post 6's five tasks but one
- * ends in a write. A set of five write tasks and no counting task would be a
- * set designed for the four to win.
+ * shell in `ALLOWED` cannot author content — it copies, renames, creates and
+ * counts, and has no idiom at all that puts chosen text into a file, which
+ * `tools/shell/writers.test.ts` measures — while every one of post 6's five
+ * tasks but one ends in exactly that. A set of five such tasks and no counting
+ * task would be a set designed for the four to win.
  *
  * So: one task whose answer is a search across every file, and one whose answer
  * is a number the four tools cannot obtain at all. `read_file` returns text; it

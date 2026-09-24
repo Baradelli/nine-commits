@@ -190,13 +190,19 @@ describe('the binary allow-list', () => {
     }
   })
 
-  it('does hold four binaries that mutate the filesystem, which is why the claim is the narrow one', () => {
+  it('does hold binaries that mutate the filesystem, which is why the claim is the narrow one', () => {
     // The thesis says "cannot author a byte of its own" and deliberately not
     // "read-only". This is the difference, and it is not hypothetical: `cp`
     // replaces a destination file's contents outright, with no flag, from the
     // allow-list. If someone widens the published claim back to read-only,
     // this test is the sentence that contradicts it.
-    for (const mutator of ['cp', 'mv', 'touch', 'mkdir']) {
+    //
+    // It is deliberately not the whole answer. This assertion listed four
+    // names, the published prose listed the same four, and the fifth — `uniq`,
+    // whose second operand is an output file — was missed by both, because a
+    // list of members cannot go red over a member nobody thought of.
+    // `tools/shell/writers.test.ts` derives the set by running the binaries.
+    for (const mutator of ['cp', 'mv', 'touch', 'mkdir', 'uniq']) {
       expect(ALLOWED_NAMES).toContain(mutator)
     }
   })
@@ -547,11 +553,15 @@ describe('createShell', () => {
         'target.txt',
       ])
 
-      // And the narrow claim, which is the one the post makes: every byte now
-      // in the sandbox was already on disk. Nothing the model composed is.
+      // And the narrow claim, which is the one the post makes: nothing here is
+      // content the model composed. Not "every byte was already on disk" —
+      // that is what this comment said, and `uniq -c` composes a count column
+      // that was on none. `tools/shell/writers.test.ts` measures that one.
       expect(readFileSync(join(box, 'brand-new.txt'), 'utf8')).toBe('')
     } finally {
       rmSync(box, { recursive: true, force: true })
     }
-  })
+    // Four real child processes. The default 5,000 ms timeout flaked once in
+    // five full-suite runs on this machine, so the headroom is deliberate.
+  }, 20_000)
 })

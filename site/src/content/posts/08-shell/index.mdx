@@ -174,21 +174,66 @@ What survived is fifteen names: `cat cp diff echo find grep head ls mkdir mv
 sort tail touch uniq wc`. And **nothing in that list can author a byte of its
 own.** Every shell idiom that composes content — `>`, `sed -i`, `tee`, a
 heredoc — is either a shell feature rule 1 removed or an interpreter rule 4
-could not admit. The shell I could defend can read, copy, rename and make empty
-things, and nothing else.
+could not admit.
 
-Be precise about that, because the first version of this sentence was not, and
-it was the thesis. *Read-only* is wrong: `mkdir`, `touch`, `cp` and `mv` are all
-on that list and all four change the filesystem. `cp a b` replaces every byte of
-`b` with bytes that were already on disk, with no flag, from the allow-list.
-What the list cannot do is put a byte the *model* chose into a file — every
-idiom for that is a shell feature or an interpreter, and both were removed.
-Copying and renaming are not authoring, but they are writing, and a tool that can
-do them can take a project apart without composing a single character. The commit
-that first built this tool says "read-only" and "cannot change a byte inside a
-file" in its message; git history does not get edited, so that sentence stays
-wrong, and this paragraph is where I say so rather than leave you to find the
+Be precise about that, because I have now got it wrong twice: the first time it
+was the thesis, and the second time it was the sentence I wrote to fix the
+thesis. *Read-only* is wrong: five of the fifteen change the filesystem.
+`cp a b` replaces every byte of `b` with bytes that were already on disk, with
+no flag. `mv` moves a file out from under whatever expected to find it. `mkdir`
+and `touch` create things. And `uniq` writes, which is the one I missed — its
+synopsis is `uniq [OPTION]... [INPUT [OUTPUT]]`, so the second operand is an
+output file, and the path guard has no notion of read against write. It asks
+whether a path is inside the sandbox and nothing else. So:
+
+```
+before  target.txt = "ORIGINAL-CONTENT\n"
+uniq -c in.txt target.txt -> ok:true exitCode:0
+after   target.txt = "      2 a\n      1 b\n"
+```
+
+That is worse than `cp` in a way worth naming. The count column, and the spaces
+padding it into a column, were on no disk anywhere: `uniq` composed them.
+The correction I shipped before this one said the tool "can read, copy, rename
+and make empty things, and nothing else", and that sentence was a fix that
+introduced a new false claim. An enumeration is a claim about everything it
+leaves out.
+
+What the list cannot do is put a byte the *model* chose into a file, and that
+still holds — but check the reasoning rather than taking it, because it is the
+thesis. A `uniq -c` count is a property of its input. The only way the model
+changes it is by naming a different file that already exists, and nothing in the
+fifteen concatenates, repeats or composes, so there is no way to build an input
+that yields a chosen output. The model can select bytes. It cannot compose them.
+Copying, renaming and counting are not authoring, but all three are writing, and
+a tool that can do them can take a project apart without composing a single
+character.
+
+The five are now measured rather than listed: `tools/shell/writers.test.ts`
+runs every one of the fifteen, with every flag the allow-list gives it, against
+a scratch directory and watches what moves. It also reads this post, the tool
+description and `shell.ts`, and goes red if any of them describes the writing
+set more narrowly than the measurement does. Two commit messages in this
+repository are still wrong about it: the one that built the tool calls these
+"fifteen read-only programs", and the one that corrected *that* names four of
+the five writers and stops. Git history does not get edited, so both stay
+wrong, and this is where I say so rather than leave you to find the
 contradiction.
+
+And here is the part that should have caught it earlier. **`uniq` was never
+called.** Not once in a hundred and forty runs: the seventy-nine command lines
+the model wrote are fifty-five `grep`, seventeen `wc`, six `find` and one `ls`.
+The hole was real for every one of those runs and nothing went near it, so every
+sentence describing the tool read clean — the one the model itself was handed,
+which said the tool could not change what is inside a file, and the one that
+replaced it, which said it could not write new content into one.
+
+Post 6 printed `escapes recorded: 0` under three tools that had just died on an
+`ENOENT`: a zero from a counter that never got to move. This zero is its cousin.
+Nothing wrote through `uniq` because nothing asked to, and I read the quiet as
+the property holding. A number that stays at zero because nothing tried it is
+not a measurement of the thing you wanted to measure, and a property nothing
+tested is not a property that passed.
 
 That is not a limitation I worked around. It is the result.
 
@@ -327,10 +372,10 @@ The four filesystem tools have skipped every dotfile since v2, and that rule is
 the reason `agent/.env` has stayed out of six posts' traces. `cat` has never
 heard of it. So `createShell` runs `assertWritableRoot` and there is no argument
 to it that returns a shell rooted at this checkout. Both halves of that check
-earn their place: the only thing it can write are copies, renames and empty
-files, and copies, renames and empty files are quite enough. Inside the
-directory it *is* given, the shell reads anything, `mv` renames anything, `cp`
-overwrites anything, and `grep -r` returns the lot in one call. The guard's
+earn their place: nothing it writes is content the agent composed, and nothing
+it writes has to be, for it to be quite enough. Inside the directory it *is*
+given, the shell reads anything, the five binaries that write rewrite anything
+they are pointed at, and `grep -r` returns the lot in one call. The guard's
 promise is *inside the sandbox*, and inside the sandbox it can take the project
 apart.
 
@@ -451,6 +496,13 @@ is named where it appears: the four discarded pilot runs are not in the tally.
 | total input tokens | 238,635 | 389,745 |
 | total output tokens | 96,740 | 38,400 |
 
+A marker on the *context before the first action* row, because this is where you
+meet it and its caveat lives further down under *The standing charge*. The tool
+description those runs were handed has been corrected twice since; 586.9 is what
+the version carrying the false sentence cost. The figure stands, because it is
+recomputed from `runs.tsv`, which records what those runs were handed — but a
+re-run today hands the model a longer string.
+
 **65 against 60 is not a result.** Fisher's exact test on that table gives
 **p = 0.27**, and a difference between two proportions printed without a
 p-value is a difference the reader has to take on trust. The overall pass rate
@@ -566,12 +618,14 @@ everything the tool will not do.
 
 One caveat on that number, because it is the kind this series keeps making. The
 description those runs were handed ended "It cannot change what is inside a
-file", which is the same false sentence the thesis used to carry, and I have
-corrected it in `descriptions.ts` since. The 154 tokens are recomputed from
+file", which is the same false sentence the thesis used to carry. It has been
+corrected in `descriptions.ts` twice: the first correction ended "it cannot
+write new content into one", which `uniq` falsifies, and the second states the
+property instead of listing the members. The 154 tokens are recomputed from
 `runs.tsv`, which records what those hundred and forty runs actually carried, so
 the figure stands — but a reader who checks out `v8-shell` and re-runs the sweep
-is handing the model a slightly longer string than the one measured here. That
-is post 7's disclosure, one commit on.
+is handing the model a longer string than the one measured here, and longer
+again than after the first correction. That is post 7's disclosure, twice.
 
 Post 6 measured 88 tokens for `append_file` and called that its one durable
 finding. This is that number, seventy-five per cent larger, for a tool that was
@@ -698,12 +752,19 @@ Two things follow that I would rather say than leave implied. The rule is
 **untestable on the machine that needed it** — on Windows it is redundant, so
 deleting it turns nothing red, and the only falsifiable test is of the predicate
 itself. And the whole suite was re-run on Linux, in a container with no network
-and a fake API key, to check nothing else had the same shape: 8,347 passed and
-2 skipped, against 8,349 passed on Windows, the two being post 6's Windows-only
-path-form cases. Every test is accounted for on both. What does *not* carry across is `attacks.tsv`'s `effect`
+and a fake API key, to check nothing else had the same shape: 8,354 passed and
+2 skipped, against 8,356 passed on Windows, the two being post 6's Windows-only
+path-form cases. Every test is accounted for on both, and that includes the
+measurement of which binaries write — the same five on Linux as on Windows. What does *not* carry across is `attacks.tsv`'s `effect`
 column. It records what happened when a command actually ran, on one machine,
 with Git Bash's MSYS binaries on `PATH`, and `/usr/bin/cat:` in an error string
-is a fact about that machine rather than about this guard.
+is a fact about that machine rather than about this guard. It does not even
+carry across time: the `ls-long` row quotes `ls -la`'s `total` line, which is a
+block count of the scratch directory, and `npm run attacks` rewrites that one
+cell on this machine today. Every `verdict`, `rule` and `agreed` cell
+regenerates byte for byte, and those are the columns every number on this page
+is counted from — but "`attacks.tsv` regenerates unchanged" was a claim I made
+about the whole file and it was never true of all of it.
 
 **Ninety-seven attacks are ninety-seven attacks.** They are the ones I thought
 of, they agreed with my predictions a hundred per cent of the time, and that
@@ -755,8 +816,9 @@ made it.
 But *the parts you would not do* never arrived, because the thing I was willing
 to run on this machine is not a shell. It is fifteen programs with a flag
 allow-list, no punctuation, no interpreter and no way to author a byte of its
-own — though it can still copy a file over another one, which is a reminder
-that *cannot write* and *cannot compose* are different sentences. And the
+own — though five of the fifteen still write, and one of them writes bytes that
+were on no disk, which is a reminder that *cannot write*, *cannot compose* and
+*cannot be dictated to* are three different sentences. And the
 model never tested any of that. It never asked for `sh`, or `rm`, or `node`, or
 anything else off the list, in a hundred and forty runs. What it did was write
 `grep -R … || true` and `find … -exec … {} +`, over and over, and get told no,

@@ -187,7 +187,10 @@ export function perTask(
  * extra tool is a standing charge rather than a one-off. Post 6 measured 88
  * tokens for `append_file` and that was its one positive finding; this is the
  * same meter pointed at a tool whose description has to list fifteen binaries
- * and four things it will not do.
+ * and then spend a sentence on everything the tool will not do. (This comment
+ * said "four things it will not do" and the description listed seven. Editing
+ * the description for accuracy changes that count again, which is the argument
+ * for a sentence that does not carry one.)
  */
 export function meanContext(rows: readonly ParsedRow[]): number {
   const present = rows

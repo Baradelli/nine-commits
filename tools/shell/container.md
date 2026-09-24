@@ -267,8 +267,10 @@ And the eight lines above the deletions are the ones a guard has to earn.
 `echo ... > /work/planted.txt` is the reason the metacharacter rule exists and
 also the reason the guarded tool cannot author content: the two are the same
 rule. And `node -e` is the reason the allow-list contains no interpreter, which
-is the reason the guarded tool can copy and rename but never write a byte of
-its own.
+is the reason the guarded tool has no way to put a byte you chose into a file.
+It can still write: five of its fifteen binaries change the filesystem, and
+`uniq -c in out` will even derive a count that was on no disk. What none of
+them will do is take dictation.
 
 ## Reproducing it
 

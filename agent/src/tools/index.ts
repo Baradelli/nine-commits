@@ -179,8 +179,10 @@ export function buildTools(options: BuildOptions = {}): Record<string, Tool> {
   // root at the same moment a roster with a write in it does. `createShell`
   // runs `assertWritableRoot` even though nothing it can run authors content:
   // the four filesystem tools skip dotfiles and `cat` does not, so a shell
-  // rooted at this checkout is a tool that can read `agent/.env` — and `cp`,
-  // `mv`, `touch` and `mkdir` would be rearranging it.
+  // rooted at this checkout is a tool that can read `agent/.env` — and the five
+  // entries in `ALLOWED` that write (`cp`, `mv`, `touch`, `mkdir` and `uniq`,
+  // measured rather than remembered in `tools/shell/writers.test.ts`) would be
+  // rearranging it.
   const shell = rosterShells(roster) ? createShell(root, { onRefusal: options.onRefusal }) : undefined
 
   return Object.fromEntries(

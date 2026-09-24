@@ -114,9 +114,12 @@ export const PLANNED: readonly PlannedPost[] = [
     // holds no interpreter, no redirection and no metacharacter, so nothing in
     // it can author a byte of its own — every idiom that composes content is
     // either a shell feature or an interpreter. That is narrower than
-    // read-only, deliberately: `cp`, `mv`, `touch` and `mkdir` are all in the
-    // list and all four mutate the filesystem, and `cp a b` replaces every
-    // byte of `b`. What the model did with it is the finding. It wrote shell,
+    // read-only, deliberately: five of the fifteen mutate the filesystem —
+    // `cp`, `mv`, `touch`, `mkdir` and `uniq`, whose second operand is an
+    // output file — and `cp a b` replaces every byte of `b`. Two rounds of
+    // corrections named four of the five, which is why the set is measured in
+    // `tools/shell/writers.test.ts` and not listed from memory anywhere that
+    // ships. What the model did with it is the finding. It wrote shell,
     // not commands: forty-seven of seventy-nine command lines refused, `find
     // -exec` six times out of six finds, `|| true` fifteen times and `&&`
     // never, and not once a program outside the list — the part of the guard

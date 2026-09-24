@@ -169,13 +169,30 @@ type Binary = {
  * caller chose into a file — `>`, `sed -i`, `tee`, a heredoc — is either a
  * shell feature rule 1 removed or an interpreter rule 4 could not admit.
  *
- * That is narrower than *read-only*, and the difference is the whole of
- * `mkdir`, `touch`, `cp` and `mv`. All four mutate the filesystem. `cp a b`
- * replaces every byte of `b` with bytes that were already on disk, `mv` moves a
- * file out from under whatever expected to find it, and `touch` creates one.
- * Copying and renaming are not authoring, but they are writing, and a shell
- * that can do them can take a project apart without composing a single byte.
- * The defensible claim is the narrow one.
+ * That is narrower than *read-only*, and the difference is five of the fifteen.
+ * Do not take the five on trust: `tools/shell/writers.test.ts` derives them by
+ * running every binary in this table, with every flag this table gives it,
+ * against a scratch directory and watching what moves. The version of this
+ * comment before this one said *read-only*, which `cp` falsifies; the version
+ * after that named four writers from memory, and there are five.
+ *
+ * `cp a b` replaces every byte of `b` with bytes that were already on disk,
+ * `mv` moves a file out from under whatever expected to find it, `mkdir` and
+ * `touch` create things — and `uniq` writes, which is the one nobody looks at.
+ * Its synopsis is `uniq [OPTION]... [INPUT [OUTPUT]]`: the second operand is an
+ * output file, and `checkOperand` has no notion of read against write, because
+ * it asks only whether a path is inside the sandbox. So `uniq -c in.txt out.txt`
+ * replaces `out.txt`, and with `-c` it puts bytes there that were on no disk
+ * anywhere — the repeat count, and the spaces padding it into a column.
+ *
+ * The claim survives that, and the reason belongs here rather than in anyone's
+ * head. A `uniq -c` count is a property of its input, and the only way a caller
+ * changes it is by naming a different file that already exists: there is no
+ * idiom in this table that concatenates, repeats or composes, so a caller can
+ * select bytes and cannot compose them. Copying, renaming and counting are not
+ * authoring, but all three are writing, and a shell that can do them can take a
+ * project apart without composing a single byte. The defensible claim is the
+ * narrow one.
  */
 export const ALLOWED: Readonly<Record<string, Binary>> = {
   ls: { flags: ['-l', '-a', '-A', '-1', '-R', '-h', '-r', '-t', '-S', '-d', '-F'], bundled: true },
@@ -547,11 +564,14 @@ export type ShellOptions = {
  * `run_command` rooted at this checkout is a tool that can read this project's
  * one real secret, so there is no argument to this function that produces one.
  *
- * The second reason is that `ALLOWED` holds `cp`, `mv`, `touch` and `mkdir`.
- * Nothing in it can *author* content, which is the finding, but all four of
- * those mutate the filesystem — `cp` and `mv` replace a destination file
- * outright. A root this function accepted would be a root those four could
- * rearrange, so the same check earns its place twice.
+ * The second reason is that five of the fifteen entries in `ALLOWED` write:
+ * `cp`, `mv`, `touch`, `mkdir` and `uniq`, the last of them through the output
+ * operand its synopsis gives it and nobody remembers. Nothing in the table can
+ * *author* content, which is the finding, but all five mutate the filesystem —
+ * `cp` and `mv` replace a destination file outright. A root this function
+ * accepted would be a root those five could rearrange, so the same check earns
+ * its place twice. The five are measured in `tools/shell/writers.test.ts`
+ * rather than remembered.
  */
 export function createShell(root: string, options: ShellOptions = {}) {
   assertWritableRoot(root)
