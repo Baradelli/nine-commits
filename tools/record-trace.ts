@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { normalize } from './trace/normalize.ts'
 import { defaultDenyList } from './trace/redact.config.ts'
 import { readEnvFile, mergeEnv } from './trace/env-file.ts'
@@ -44,4 +45,19 @@ function main(): void {
   console.log(`wrote ${out} (${trace.frames.length} frames, ${trace.outcome})`)
 }
 
-main()
+/*
+ * Only run when this file is the process entry point.
+ *
+ * A module that does its work at import time does that work for anything that
+ * imports it for a constant. `tools/context/tally.test.ts` imports two out of
+ * `run-context.ts`, and without this guard that made `npm test` start a
+ * hundred billed runs on any machine with a key in the environment. Every
+ * entry point in the repository carries the guard now, and
+ * `tools/entrypoints.test.ts` goes red if one of them loses it.
+ */
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  main()
+}

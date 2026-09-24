@@ -21,6 +21,18 @@
  * cannot see the size of what it is about to pull into its own context will
  * pull three of them. Whether saying so changes anything is not measured here
  * — post 2's experiment is about that, and this commit does not re-run it.
+ *
+ * Both of those two v7 strings are also **wider than the tools underneath
+ * them**, and they are left that way on purpose. `web_search` says "the public
+ * web" and searches one encyclopaedia (`PROVIDER_HOST` in `web.ts`).
+ * `fetch_page` says it "only accepts URLs that web_search returned" and in fact
+ * accepts any `https://en.wikipedia.org/wiki/<article>` URL, whether a search
+ * returned it or not. The post is accurate about both where it describes the
+ * tools; these strings are not. They are frozen because the model read these
+ * exact bytes in all one hundred runs, and they are part of the 708-token
+ * baseline that post 7's "2.12% of the window" is measured against — so
+ * correcting them would be tuning the instrument after seeing the result. They
+ * get fixed in the commit that changes the roster anyway.
  */
 
 export type DescriptionStyle = 'precise' | 'thin'

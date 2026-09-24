@@ -1,5 +1,6 @@
 import { writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { runOnce } from './run.ts'
 import { toRawTrace } from './recorder.ts'
 import { UnsafeRoot } from './tools/sandbox.ts'
@@ -138,15 +139,30 @@ async function main(): Promise<void> {
   console.error(`[recorded ${out}, logged ${RUNS_FILE}]`)
 }
 
-main().catch((error: unknown) => {
-  // A refused root is a configuration mistake, not a crash, and the likeliest
-  // one is a typo in AGENT_ROOT. Printing the whole Error object for that
-  // shows a stack through `buildTools` and buries the one sentence that says
-  // what to do. Everything else still prints in full.
-  if (error instanceof UnsafeRoot) {
-    console.error(`AGENT_ROOT was refused: ${error.message}`)
+/*
+ * Only run when this file is the process entry point.
+ *
+ * A module that does its work at import time does that work for anything that
+ * imports it for a constant. `tools/context/tally.test.ts` imports two out of
+ * `run-context.ts`, and without this guard that made `npm test` start a
+ * hundred billed runs on any machine with a key in the environment. Every
+ * entry point in the repository carries the guard now, and
+ * `tools/entrypoints.test.ts` goes red if one of them loses it.
+ */
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  main().catch((error: unknown) => {
+    // A refused root is a configuration mistake, not a crash, and the likeliest
+    // one is a typo in AGENT_ROOT. Printing the whole Error object for that
+    // shows a stack through `buildTools` and buries the one sentence that says
+    // what to do. Everything else still prints in full.
+    if (error instanceof UnsafeRoot) {
+      console.error(`AGENT_ROOT was refused: ${error.message}`)
+      process.exit(1)
+    }
+    console.error(error)
     process.exit(1)
-  }
-  console.error(error)
-  process.exit(1)
-})
+  })
+}

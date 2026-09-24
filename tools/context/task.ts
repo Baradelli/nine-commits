@@ -18,7 +18,8 @@ import { articleUrl } from '../../agent/src/tools/web.ts'
  * - **Every answer is inside the part of the page the agent is handed.** The
  *   fetch limit is 24,000 characters and the TCP article is 70,763, so an
  *   answer buried at the end would be measuring the limit rather than the run.
- *   `task.test.ts` asserts all three are reachable, against the cached pages.
+ *   `task.test.ts` asserts all three are reachable, against the page bodies in
+ *   the published traces.
  * - **It asks for a citation.** `gpt-5-mini` very probably knows all three of
  *   these without looking, and a task it can answer from memory is not a task
  *   about context. Requiring the URL forces the page into the context, and the

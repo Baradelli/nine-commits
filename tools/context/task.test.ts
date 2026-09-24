@@ -151,7 +151,9 @@ describe('check', () => {
  * the fetch limit is 24,000, so an answer in the last third would make this a
  * measurement of the limit rather than of the run.
  *
- * Checked against the committed cache, which is the corpus the runs read.
+ * Checked against the page bodies inside the published traces — the bytes the
+ * model was actually handed, which is what the claim is about. Not against the
+ * cache: `webcache/` is gitignored, so it is not an artifact a reader has.
  */
 describe('what the agent was actually handed', () => {
   /** Every page body that reached the model, across every published trace. */

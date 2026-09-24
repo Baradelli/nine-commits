@@ -1,5 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { runOnce } from '../agent/src/run.ts'
 import { toRawTrace } from '../agent/src/recorder.ts'
 import type { Roster } from '../agent/src/tools/roster.ts'
@@ -178,7 +179,22 @@ async function main(): Promise<void> {
   console.error(`[roster] wrote ${out}`)
 }
 
-main().catch((error: unknown) => {
-  console.error(error)
-  process.exit(1)
-})
+/*
+ * Only run when this file is the process entry point.
+ *
+ * A module that does its work at import time does that work for anything that
+ * imports it for a constant. `tools/context/tally.test.ts` imports two out of
+ * `run-context.ts`, and without this guard that made `npm test` start a
+ * hundred billed runs on any machine with a key in the environment. Every
+ * entry point in the repository carries the guard now, and
+ * `tools/entrypoints.test.ts` goes red if one of them loses it.
+ */
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  main().catch((error: unknown) => {
+    console.error(error)
+    process.exit(1)
+  })
+}
