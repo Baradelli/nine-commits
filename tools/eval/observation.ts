@@ -72,6 +72,44 @@ const mutation = z.object({
   created: z.boolean(),
 })
 
+/**
+ * v7's `web_search`.
+ *
+ * A search result is two different things at once and this eval has cared
+ * about the difference since post 4. The URL is a name: the model learned that
+ * a page exists and nothing about what is in it. The snippet is text: the model
+ * read a sentence, chosen by somebody else's ranking, out of that page. So a
+ * result contributes one observation of each kind, and the `line` number is the
+ * result's rank rather than a line in a document — there is no document yet.
+ */
+const webSearch = z.object({
+  ok: z.literal(true),
+  results: z.array(
+    z.object({ title: z.string(), url: z.string(), snippet: z.string() }),
+  ),
+})
+
+/**
+ * v7's `fetch_page`.
+ *
+ * The same treatment `read_file` gets — one `line` observation per line, real
+ * line numbers — and for the same reason: a run that fetched the page and a run
+ * that was handed the same sentence some other way have both seen the sentence.
+ *
+ * The `file` of a web observation is its URL. That is a small violation of the
+ * field's name and a large improvement on the alternative, which is a second
+ * observation kind that every consumer of this type would have to learn about.
+ * A provenance check asks "did this line come back, and where from", and a URL
+ * answers that question in exactly the same shape a path does.
+ */
+const fetched = z.object({
+  ok: z.literal(true),
+  url: z.string(),
+  title: z.string(),
+  chars: z.number(),
+  content: z.string(),
+})
+
 const refusal = z.object({ ok: z.literal(false) })
 
 /**
@@ -160,6 +198,37 @@ export function observationsOf(trace: Trace): Observation[] {
           tool,
           kind: 'line',
           file: asRead.data.file,
+          line: line + 1,
+          text,
+        })
+      })
+      return
+    }
+
+    const asWebSearch = webSearch.safeParse(frame.result)
+    if (asWebSearch.success) {
+      asWebSearch.data.results.forEach((hit, rank) => {
+        out.push({ frame: index, tool, kind: 'path', file: hit.url })
+        out.push({
+          frame: index,
+          tool,
+          kind: 'line',
+          file: hit.url,
+          line: rank + 1,
+          text: hit.snippet,
+        })
+      })
+      return
+    }
+
+    const asFetched = fetched.safeParse(frame.result)
+    if (asFetched.success) {
+      asFetched.data.content.split(/\r\n|\r|\n/).forEach((text, line) => {
+        out.push({
+          frame: index,
+          tool,
+          kind: 'line',
+          file: asFetched.data.url,
           line: line + 1,
           text,
         })

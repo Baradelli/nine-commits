@@ -51,6 +51,34 @@ const mutation = z.object({
   created: z.boolean(),
 })
 
+/** v7's `web_search`: a ranked list of pages, with somebody else's extract. */
+const webSearch = z.object({
+  ok: z.literal(true),
+  query: z.string().optional(),
+  results: z.array(
+    z.object({ title: z.string(), url: z.string(), snippet: z.string() }),
+  ),
+  cached: z.boolean().optional(),
+})
+
+/**
+ * v7's `fetch_page`.
+ *
+ * `chars` and `truncated` are printed rather than dropped, because they are the
+ * difference between a run that read a page and a run that read the first
+ * quarter of one — and a judge asked where an answer came from should be able
+ * to see that the rest of the page was never in front of the agent.
+ */
+const fetched = z.object({
+  ok: z.literal(true),
+  url: z.string(),
+  title: z.string(),
+  chars: z.number(),
+  truncated: z.boolean().optional(),
+  cached: z.boolean().optional(),
+  content: z.string(),
+})
+
 const refusal = z.object({ ok: z.literal(false), error: z.string().optional() })
 
 function renderResult(index: number, ok: boolean, result: unknown): string {
@@ -92,6 +120,32 @@ function renderResult(index: number, ok: boolean, result: unknown): string {
     const body = content
       .split(/\r\n|\r|\n/)
       .map((text, line) => `    ${file}:${line + 1}  ${text}`)
+    return [head, ...body].join('\n')
+  }
+
+  const asWebSearch = webSearch.safeParse(result)
+  if (asWebSearch.success) {
+    const { query, results, cached } = asWebSearch.data
+    const head =
+      `  searched the web for ${JSON.stringify(query ?? '')} — ${results.length} result(s)` +
+      `${cached === true ? ', from the cache' : ''}`
+    const lines = results.flatMap((hit, rank) => [
+      `    ${rank + 1}. ${hit.title} — ${hit.url}`,
+      `       ${hit.snippet}`,
+    ])
+    return [head, ...lines].join('\n')
+  }
+
+  const asFetched = fetched.safeParse(result)
+  if (asFetched.success) {
+    const { url, title, chars, truncated, cached, content } = asFetched.data
+    const head =
+      `  fetched ${title} — ${url}, ${chars} character(s)` +
+      `${truncated === true ? ', cut off at the limit' : ''}` +
+      `${cached === true ? ', from the cache' : ''}`
+    const body = content
+      .split(/\r\n|\r|\n/)
+      .map((text, line) => `    ${url}:${line + 1}  ${text}`)
     return [head, ...body].join('\n')
   }
 
@@ -139,6 +193,21 @@ export function renderTrace(trace: Trace): string {
           return `[${index}] the agent called ${frame.name} with ${JSON.stringify(frame.args)}`
         case 'tool_result':
           return `[${index}] the result:\n${renderResult(index, frame.ok, frame.result)}`
+        case 'compaction':
+          // A judge handed a trace with a hole in the middle and no note about
+          // it would be grading a run whose evidence was deleted without being
+          // told. The summary is printed in full, because after a compaction it
+          // is the only thing standing in for everything before it — and
+          // whether that was enough is exactly what post 7 asks.
+          return (
+            `[${index}] the run's history was compacted here: about ${frame.before} ` +
+            `tokens of it were replaced with about ${frame.after}. Everything ` +
+            `before this point was reduced to:\n` +
+            frame.summary
+              .split('\n')
+              .map((line) => `  ${line}`)
+              .join('\n')
+          )
         default:
           throw new UnrenderableFrame(
             `frame ${index}: a ${frame.type} frame this renderer does not understand`,

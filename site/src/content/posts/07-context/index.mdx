@@ -1,0 +1,661 @@
+---
+order: 7
+title: Context Is the Real Constraint
+thesis: "One web search fills two per cent of the window, not the window. Compaction is what keeps the loop alive — fifty runs without it finished nothing — and what it costs is not the facts, it is that the agent goes back and fetches them again."
+pubDate: 2026-09-24
+commit: v7-context
+cover: ./cover.png
+coverTrace: trace-b-on.json
+coverAlt: "Title card for commit 07 of Nine Commits, Context Is the Real Constraint, with the opening line of a recorded run printed beneath it"
+---
+
+import TraceCompare from '../../../components/TraceCompare.tsx'
+import TraceTranscript from '../../../components/TraceTranscript.astro'
+import off from './trace-a-off.json'
+import on from './trace-b-on.json'
+import runs from './runs.tsv?url&no-inline'
+import judgements from './judgements.tsv?url&no-inline'
+
+The thesis printed at the top of this page is not the one that was on the index
+when I started. That one said **one web search can fill the window**. It does
+not, and it is not close: one search and one page read is **5,644 tokens**
+against a window of **266,684**, which is **2.1%** of it. You would need about
+forty-seven of them.
+
+The other half held, and held hard. Fifty runs with the history left alone
+finished nothing at all — not one of them wrote a single line of its answer down
+before it ran out of room.
+
+So this post is a correction and a confirmation, and the interesting part is
+neither. It is what the confirmation cost.
+
+## The claim, and what it would take to be wrong about it
+
+"Fill the window" needs a definition before anyone can be wrong about it. Mine
+is the strictest one available: **the context handed to the model reaches the
+largest input the provider will accept.** Not *feels big*. Not *is expensive*.
+The number at which the request is refused.
+
+That number is not in a model card as far as this series is concerned, because
+the rule here is that a number comes from an artifact. So it was measured by
+sending a request that was too big and reading what came back.
+`tools/window-probe.ts` is committed and does exactly that. Against
+`gpt-5-mini` on 24 September 2026:
+
+```
+1,200,015 characters  ->  ACCEPTED, provider counted 266,684 input tokens
+1,224,000 characters  ->  REJECTED, context_length_exceeded
+```
+
+A request that exceeds the limit is rejected before inference and is not
+billed, so bisecting downwards from a rejection is free. The wall is between
+those two numbers, and the program's default ceiling is the lower one — the
+largest context I have evidence the model will take.
+
+Against that, one search and one read of a page:
+
+```
+708     the instruction, six tool definitions and the task
+1,226   after a web search comes back
+6,352   after one page of it is read
+```
+
+The page alone is **5,044 tokens** — nearly four times the whole of the rest of
+the context at the moment it arrives. It is also 2% of the window. Both of
+those are true and only one of them is the thesis, so the thesis changed.
+
+## What I built
+
+Two tools and one rewrite.
+
+### The tools
+
+`web_search(query)` returns five results — a title, a URL and a one-line
+snippet each. `fetch_page(url)` returns the plain text of one of those pages.
+They are the first things this agent has ever done that leave the machine.
+
+The provider is the **English Wikipedia**, through the MediaWiki action API.
+Three reasons, and the third is the one that matters for the claim: it is a
+documented public API with a stated User-Agent policy and no key; its text is
+CC BY-SA, so quoting a page inside a published trace is licit with attribution;
+and its articles are long enough that *does one page fill the window* is a real
+question rather than a rhetorical one. What it costs is generality. This is a
+search over one site, not over the web, and every sentence here about "one web
+search" means one search of one encyclopaedia.
+
+Three rules in the tool layer, all of them about the fact that the bytes come
+from somewhere else.
+
+**One host.** `fetch_page` takes a URL, because that is what a search result
+is, and it refuses any URL whose host is not the one the search results came
+from. An agent that can be handed a URL by a page it has just read is an agent
+that can be steered. Here the allow-list has one entry. Post 8 is where that
+stops being available.
+
+**Data, never instructions.** Fetched text comes back inside a fence that says
+so, and the system instruction gained a sentence saying the same. Neither is a
+security control. A fence is a request, made in the same channel an attack
+would arrive in, and I have not tested whether this model honours it. What the
+fence buys is that a reader of a trace can see exactly which bytes came from
+outside.
+
+**Cached to disk.** Every response is written to `agent/webcache/`, keyed by
+the request URL. `npm run warm` pulls everything the task needs before the
+first run; after that a re-run makes no requests at all. The hundred runs below
+made 159 requests between them, recorded per run in the tally. **A cached
+corpus is a different experiment from a live one** and I would rather say that
+than pretend the encyclopaedia held still. The cache is not committed — it is a
+hundred-odd files of somebody else's prose — and what is worth committing is
+what the model was actually handed, which is in the traces.
+
+### The rewrite
+
+Compaction lives in one place: `prepareStep`, the hook the SDK calls with the
+message array on its way to the provider. It is the only point in a loop where
+a program gets to say *this conversation has got too big to send*. Three
+outcomes, in order:
+
+1. it fits — send it;
+2. it is over the trigger and compaction is on — rewrite it, then check again;
+3. it is over the ceiling and there is nothing left to do — throw, and let the
+   run end where it ended.
+
+The rewrite keeps the task verbatim at the front and the most recent assistant
+turn with its tool results verbatim at the back, and replaces everything
+between with a summary written by a second model call. The cut lands on an
+assistant message rather than at a fixed depth, because a cut between a tool
+call and its result produces a request the provider rejects.
+
+The middle is gone. Not summarised-and-also-kept: **gone**. That is what makes
+this measurable, and it is the whole of what the experiment is about.
+
+## What broke
+
+### The frame that had never existed
+
+`tools/trace/schema.ts` has defined a `compaction` frame since commit 1 —
+`before`, `after`, `summary`. The site renders it in three separate switch
+arms, gives it a colour and a dotted margin rule, and the player carries a
+comment saying the budget meter must be able to retreat, "which is the whole
+point of post 7". Before this commit:
+
+```
+$ grep -rl '"compaction"' site/src/content/posts/
+$ echo $?
+1
+```
+
+Nothing. A rendering path, a colour, a label and a token-budget behaviour
+carried for six commits with no data ever reaching them. That is the same
+defect class as post 1's leak gate that had never seen a real trace and post
+6's escape counter that read zero because nothing had tried to escape. Three
+times now.
+
+It broke the moment it was real, and not where I expected.
+
+**The budget meter could not go down.** `tokens[]` is one entry per frame, and
+the recorder's rule for a tool result was *carry the next step's input count* —
+the size of the context once the result had been sent back. That is right up
+until something happens in between. A compaction rewrites the conversation, so
+the next request is not made of the same history; the post-rewrite figure
+landed on the frame **before** the rewrite, and the compaction itself rendered
+as a flat line. The first real trace:
+
+```
+ 7   6868  tool_call   fetch_page
+ 8   6576  tool_result
+ 9   6576  compaction   before=15064 after=6997
+10   6708  tool_call    web_search
+```
+
+The retreat is the whole exhibit, and it had been attributed to the wrong frame
+and shrunk to two hundred tokens. I found it by printing a token curve beside a
+frame list, not by reading the code.
+
+The fix is that the two frames either side of a compaction carry the program's
+own estimate — `before` on the result, `after` on the compaction — while every
+other entry stays a figure the provider reported. Those two are the only
+numbers that exist for a request that was never sent, and they come off one
+instrument, so the drop between them is the size of the drop.
+
+**And a compaction could vanish entirely.** When the rewrite happens and the
+rewritten history *still* does not fit, the run ends on a request that never
+went — so there is no step to hang the frame on, and the first version dropped
+it. Three of the first eight recorded runs said `1 compaction` in the tally and
+showed none in the trace. A record that disagrees with itself is worse than one
+that says nothing, so a trailing compaction is now emitted at the end, where it
+happened.
+
+Both are pinned by tests that fail against the old rule.
+
+### Post 5's predicted line fired, and moved
+
+Post 5 wrote a guard into the judge's trace renderer: a frame variant it does
+not understand raises rather than rendering as nothing, because a judge handed
+a trace with a hole in it would grade a run on evidence that had been deleted
+without being told. The test that pinned that guard used a `compaction` frame
+as its example of a variant nobody had built.
+
+This commit built it. So that test now asserts the opposite — that a compaction
+is shown, with its summary, in full — and the guard moves to the one variant
+still unbuilt, which is post 9's `approval`.
+
+### The estimator was a third wrong, in the direction that flattered me
+
+The compaction decision has to be made **before** the request, and the only
+thing that can count a request exactly is the request that has not been sent.
+So the program estimates: four characters per token over the serialized
+messages.
+
+Measured against the provider on the discarded pilots, that estimate was
+between 20% and 33% out. That is not a rounding problem. The control condition
+dies when the estimate crosses the ceiling, so an estimator reading a third
+high kills the control a third of a window early — and the control dying early
+is exactly the result I was hoping for.
+
+The fix is that the exact count *is* available, one request late. Every step
+comes back with the provider's own `inputTokens`, and that number already
+includes the system instruction and the six tool definitions, which are not in
+the message array at all. What is unknown is only the increment. So the
+estimator trusts the provider for the counted prefix and guesses only the new
+part. Across the hundred runs below it now reads **-8.0%** on both conditions:
+still wrong, and now wrong in the *other* direction — low, which lets through a
+request the provider might refuse, and which cannot have shortened the control.
+
+### The leak came out of the client library, not off the web
+
+The brief for this commit warned that fetched web pages are a leak shape the
+redaction baseline has never seen. They are. But the thing that actually
+reached a trace came from the other direction.
+
+The summariser was handed `JSON.stringify(droppedMessages)`, which is the
+obvious thing to write. A `ModelMessage` from this SDK is not only the
+conversation: it also carries `providerOptions`, and on this provider that
+holds a per-message `openai.itemId` and an encrypted blob of the model's own
+reasoning. The summariser summarised those too. Verbatim, from a recorded run:
+
+```
+- Assistant reasoning metadata: providerOptions.openai.itemId
+  "rs_028420d8dfbd4bc3006ab507a5e97c87d28a6820a6a1078bd6";
+  reasoningEncryptedContent present (large encrypted blob).
+- Tool calls (all toolName "web_search"):
+  1. toolCallId "call_XZ3PbKFhNsMxQ4udgfNl9GYm"; input.query "minimum size of a
+     TCP header in bytes"; providerOptions.openai.itemId
+     "fc_028420d8dfbd4bc3006ab507a96b6087d2af66840c0600667b".
+```
+
+About a third of that summary is plumbing, and the summary is a frame in a
+published trace. So: provider-side object identifiers tied to my account, on
+their way to a public web page, laundered through a model that was asked to
+repeat what it had been shown. The redaction pipeline did not fire on any of
+it, and it is right not to — nothing there matches an API-key shape, a bearer
+token or a home path. It is a class the baseline has never seen, and it arrived
+from the client library rather than from the internet.
+
+It also made compaction worse at its job, which is the part I would have missed
+if I had only been looking for secrets. A summariser told to write under 250
+words was spending a third of them on `toolCallId`s.
+
+The fix is that the transcript is **rendered** rather than serialized: roles,
+text, tool names, arguments and outputs, and nothing else. A part shape the
+renderer does not recognise is dropped rather than falling back to JSON, since
+a fallback to JSON is the defect with one more step in front of it.
+
+I found it with a sweep for leak shapes over the raw traces. I did not find it
+by reading a trace, and I had already read several.
+
+### The grader accepted the word instead of the link
+
+The task asks for three numbers and the URL each came from, and a run passes
+when a line of the note holds both. The first version accepted the bare article
+title anywhere on the line. A test written before the runs caught what that
+costs:
+
+```
+IPv6 address length: 128 bits — https://en.wikipedia.org/wiki/IP_address
+```
+
+The line says `IPv6` in its own prose, so a title match passed a citation
+pointing at a different page. The task asked for a URL; the grader now asks for
+one too. That failure is not hypothetical — a pilot run produced exactly that
+line, having lost track across a compaction of which page the number came from.
+
+An earlier version was wrong the other way: it demanded the unit, and failed a
+run that had written `20` beside the right URL. That is grading formatting, not
+the answer — post 6's finding about the recorder with the polarity reversed.
+
+### And then it broke the page
+
+The last thing the first real compaction frame did was overflow a phone.
+
+A compaction summary quotes the pages it read, so it contains URLs — and a URL
+is a sixty-character word that cannot be hyphenated. `.payload`, the block that
+prints a tool's `args` and `result`, has had `overflow-wrap: anywhere` since v2,
+because those are data and data does not respect a measure. The prose frames
+never needed it, because until this commit everything a model said in a trace
+was words.
+
+At 375 pixels, stepping onto the compaction frame added **276 pixels of
+horizontal scroll to the whole page.** Not to the frame: to the page. Two lines
+of CSS fix it, and posts 1 to 6 are unaffected because none of them contains a
+frame that quotes a URL.
+
+No test would have caught that, and none of the ones I wrote did. What caught it
+was opening the post on a phone-sized viewport and pressing Next fourteen times.
+
+### Two harnesses, one tally
+
+Stopping a background run stopped the shell and not the process under it. The
+replacement started writing to the same tally file, and for about ninety
+seconds the experiment had two authors. I noticed because run 16 appeared above
+run 2.
+
+Nothing was filtered out. The file was thrown away whole and the experiment
+started again from empty, which is the only move available to a project whose
+rule is that a run that happened is a row.
+
+## The experiment
+
+Two conditions, one task, **fifty runs each**, interleaved, nothing retried.
+The only thing that changes between them is whether the program is allowed to
+rewrite the conversation when it grows past the trigger.
+
+> Use the web tools to answer these three questions, then write the answers to
+> `notes/research.md` as three lines — one per question, each giving the number
+> and the URL of the page you took it from.
+>
+> 1. What is the minimum size of a TCP header, in bytes?
+> 2. How many bits long is an IPv6 address?
+> 3. How many Unicode code points can UTF-8 encode?
+>
+> Look each one up rather than answering from memory: the citation has to be a
+> page you actually fetched.
+
+Three constraints it was built under, all fixed before the first run.
+
+**Every answer is a distinctive string.** Not `4`, which appears in any
+paragraph: `20`, `128` and `1,112,064`, each matched as a standalone number so
+`2026` and `1128` do not count, and each required on the same line as its
+source, so a note with every number and every URL mispaired still fails.
+
+**Every answer is inside the part of the page the agent is handed.** The fetch
+limit is 24,000 characters — the same limit `read_file` has had since v6, so it
+is not a knob that could have been turned until the numbers came out — and the
+TCP article is 70,763 characters. An answer in the last third would have been a
+measurement of the limit rather than of the run. A test asserts all three are
+reachable in the pages the published traces contain.
+
+**It asks for a citation.** `gpt-5-mini` almost certainly knows all three of
+these without looking. A task it can answer from memory is not a task about
+context, so the note has to name the page — which forces the page into the
+window, which is the thing under test.
+
+### The one thing here that is not real
+
+The ceiling in this experiment is **16,000 tokens**, and it is the program's,
+not the provider's. The provider's is 266,684.
+
+I am not going to dress that up. Running this against the real wall means about
+forty-seven page fetches per run and roughly a dollar a run in re-billed
+context, and this series has spent less than that on everything it has
+published. So the ceiling came down by a factor of about seventeen, and what it
+preserves is the ratio: a task needing three page reads against a budget that
+holds about two and a half is the same shape as a task needing forty-seven
+against a budget that holds forty.
+
+The overflow is my program's `ContextOverflow` rather than OpenAI's
+`context_length_exceeded`. It is written to be recognisable as the same event
+at a lower height, and the real one is in the window probe above — same code,
+same sentence, same behaviour of ending the run before inference.
+
+**And I got the height wrong.** A budget has to be larger than the largest
+single turn, or it is not a budget, it is a guarantee of failure that no
+compaction strategy can do anything about. `fetch_page` returns about five
+thousand tokens and the model can ask for three at once, so a single turn can
+put fifteen thousand tokens into the history — most of the whole ceiling. When
+that happens the material the rewrite would have to drop is the most recent
+exchange, which is the one thing it has to keep.
+
+I could have worked that out before the first run and did not. I have **not**
+changed the ceiling, because changing an apparatus after seeing which way it
+falls is the one thing this series does not do — and because the fix that
+suggests itself, forbidding parallel tool calls, is a change to the agent that
+makes the result I expected easier to get. Instead the tally carries a
+`max_parallel` column and every cut below is reported for both groups.
+
+## The numbers
+
+All hundred runs are in <a href={runs}><code>runs.tsv</code></a>, one row per
+run, with the tool sequence, what stopped it, how many times it compacted, which
+answers reached the note, which answers compaction threw away and which of those
+the summary carried, the token counts and the final answer. Every figure below is
+recomputed from that file by `tally.test.ts`, so if the prose and the file drift
+apart, `npm test` says so.
+
+| | compaction off | compaction on |
+| --- | --- | --- |
+| runs | 50 | 50 |
+| finished the task | **0** | **24** |
+| wrote the note at all | 0 | 29 |
+| ended on context overflow | **50** | 17 |
+| ended because the model stopped | 0 | 29 |
+| ended on the step cap | 0 | 4 |
+| compactions per run | 0 | 3.7 |
+| steps per run | 5.3 | 8.5 |
+| largest request the provider counted | 15,415 | 12,823 |
+| pages fetched per run | 3.00 | 5.54 |
+
+**Nought of fifty.** Not one uncompacted run wrote a single line of its answer
+down. That is not a weak result and it is not a subtle one, and it is worth
+saying exactly what produced it: the model does all of its reading before it
+writes anything, so when the room ran out it had everything and had recorded
+none of it. A differently-shaped agent — one that wrote as it went — would have
+degraded rather than failed outright. The 0 is a fact about this loop, not a law.
+
+### The composition, before the causal reading
+
+Post 5's best line was correct arithmetic that fell apart once the mix of
+labels was controlled for. The mix here is whether a run ever pulled more than
+one page into a single turn.
+
+| | runs | finished | overflowed |
+| --- | --- | --- | --- |
+| off, one page per turn | 26 | 0 | 26 |
+| off, several at once | 24 | 0 | 24 |
+| on, one page per turn | 18 | 11 | **0** |
+| on, several at once | 32 | 13 | 17 |
+
+The control fails identically in both groups, so its zero is not a mix effect.
+The condition is where the mix lives: **when the agent read one page per turn,
+compaction kept the loop alive every single time — no overflow in eighteen
+runs.** When it pulled several pages into one turn, compaction failed to save it
+seventeen times in thirty-two.
+
+That is the sharpest sentence on this page and it is narrower than the thesis
+was. Compaction keeps the loop alive against *accumulation*. It cannot do
+anything about a single turn that is bigger than the budget, because the thing
+it would have to throw away is the thing it has to keep.
+
+**And the zero needs its floor.** Post 6's rule is that a rate observed zero
+times is not a rate of zero. Eighteen runs with no overflow put the 95% upper
+bound on the overflow rate for that group at **15.3%** — so what these runs
+support is *compaction stopped the loop dying on accumulation, at a rate below
+about one run in six*, and not *it never will*. The control's fifty-for-fifty is
+the other way round and has the resolution the count buys: fifty runs with no
+successes put the upper bound on the uncompacted success rate at **5.8%**.
+
+### What compaction actually lost
+
+A summary is lossy by construction, so the question is what it loses. Measured
+against the dropped messages themselves rather than against the finished trace
+— because a trace keeps every frame, including the ones the model was made to
+forget:
+
+**143 of the three graded answers were in history that compaction threw away.
+The summary carried 139 of them through. Four were lost.** All four were the
+same one, the UTF-8 code-point count.
+
+There is a second, smaller loss beside it, and it is the one the grader caught
+rather than the one the count did. Across the compacted runs, 80 answers were
+written into a note and only **77** of them were written on a line naming the
+page they came from. Three times the number was right and the attribution was
+not — `IPv6 address length: 128 bits`, cited to `/wiki/IP_address`. Two of those
+three would have passed a grader that looked at the note as one blob instead of
+line by line.
+
+So the loss is real and it is small, and it is not where the cost is. The cost
+is in the next row of the table above: **the compacted runs fetched 5.54 pages
+each against the control's 3.00.** Cut the history and the agent goes back and
+reads the page again, because the summary told it what it had found and not
+what it had in front of it. In the demonstration run below it fetches the TCP
+article three times and IPv6 three times, for three questions.
+
+Compaction did not make the run cheaper. It made the run possible, and then
+charged for it twice.
+
+### Is the summary telling the truth?
+
+Whether a number survived a summary is a string comparison. Whether the summary
+*says something the transcript does not* is not, and it is the failure that
+actually frightens me about compaction: a run whose history has been replaced
+by a confident paragraph of invention carries on as if it knew things.
+
+So the compaction summaries in the published run went to a model judge, nine
+times each, in <a href={judgements}><code>judgements.tsv</code></a>. Post 5's rule
+applies: half the panel has a known answer and the judge is not told which half
+it is looking at. The known cases are built by construction out of the same run
+— a summary assembled entirely from quotations of the transcript, which cannot
+contain an unsupported claim; and the same real summary with one number changed
+to one the transcript does not contain, which certainly does.
+
+**The panel did not finish.** On call 131 of 162 the judge replied with
+something that was not JSON, and nothing here is retried, so the run stopped —
+which is the rule post 5 wrote and the first time it has fired. What ships is
+the 130 calls that happened: five of the six compaction summaries judged nine
+times each, the sixth not at all, and one control case four times instead of
+nine. I have not re-run it. Re-rolling until the dice come up parseable is how
+a tally becomes a tally of the attempts that went well.
+
+Of those 130: the controls came back **85 of 85 correct** — every quotation-built
+summary called supported, every corrupted one called unsupported, with the
+changed number quoted back every time. No judgement cited a sentence the summary
+did not contain.
+
+The real summaries came back 44 supported and **1 unsupported**, and that one is
+the most useful row in the file. It objects to this, from a summary that
+introduced it with the word *verbatim*:
+
+```
+{"ok":true,"url":"https://en.wikipedia.org/wiki/Transmission_Control_Protocol",
+ "title":"Transmission Control Protocol","chars":70763,"truncated":true,
+ "cached":true,...}
+```
+
+> The summary claims the fetch returned a JSON object with an `"ok":true` field
+> verbatim, but the transcript's fetch metadata lists url/title/chars/truncated/
+> cached without an `"ok"` field, so that exact claim is not supported.
+
+**The judge is right about its own evidence and wrong about the world, and that
+is my fault.** The summariser sees the conversation through one renderer and the
+judge sees it through another — `renderForSummary` prints a tool's output as
+JSON, and `renderTrace` prints it as prose. The summariser quoted what it was
+shown. The judge looked for it in a different rendering of the same run and did
+not find it. So the one dissent in the panel is an artefact of my panel, not a
+fabrication by the summariser.
+
+I have not fixed it, and the reason is the direction: showing the judge the same
+rendering would make its agreement rate go **up**, which is the result I would
+prefer, and adjusting an instrument after seeing which way it falls is the thing
+this series does not do. It is a defect, it is disclosed, and the eight-to-one
+majority on that case should be read as a coin the panel design was weighting.
+
+The other caveat is the size of the claim. The corrupted control is the easiest
+possible case — a number simply not in the source — so what the panel establishes
+is that the judge notices a fabricated figure, not that it would notice a subtler
+one.
+
+### What it cost
+
+The hundred runs cost **226 cents** at the list price I used — $0.25 per
+million input and $2 per million output — of which **174 cents** is the
+compacted condition and **96 cents of that is the summariser**. The summariser
+is counted into the bill rather than beside it, because a cost table that left
+compaction's own bill out would be an advertisement.
+
+The judge cost another 127 cents, and everything thrown away on the way
+here cost about 137 more. Yours will differ; that is the premise:
+
+```sh
+npm run warm             # fetch the corpus once
+npm run context          # the whole thing, 100 runs
+npm run context:tally    # the committed file, recounted
+npm run window -- 300000 # find the wall yourself
+```
+
+## The demo
+
+Two runs of the same task, picked by a rule fixed before I looked at any of
+them — run 1 of each condition — rather than for what they show.
+
+<TraceCompare
+  traces={[
+    { label: 'Compaction off', trace: off },
+    { label: 'Compaction on', trace: on },
+  ]}
+  caption="The same task, the same tools, the same ceiling. The left-hand run found all three answers and never wrote one down. One run per side, which this series has spent two posts learning not to read as an effect — the tally above has all hundred."
+  client:idle
+/>
+<TraceTranscript trace={off} label="Compaction off" />
+<TraceTranscript trace={on} label="Compaction on" />
+
+Step the left-hand run and the measure in the margin only ever goes up: a
+search, a page, a search, a page, five more searches, a page — and then it
+stops. It had fetched all three pages and had every answer in front of it. The
+request that would have written them down did not fit.
+
+The right-hand run is the same task with the history allowed to be rewritten.
+**This is the first trace in seven posts where the budget meter goes down.** It
+does it six times, from 14,063 tokens to 5,500 and again and again, and the run
+finishes with all three answers and all three citations.
+
+Watch what it costs while you step it. Frames 19 to 31 are the agent fetching
+the TCP article, then IPv6, then TCP again, then UTF-8, then IPv6 again. It is
+not confused. It is reading the summary of what it found, deciding it no longer
+has the page, and going back for it.
+
+## What this does not fix
+
+**The ceiling is mine, not the provider's**, and the arithmetic for the real one
+is above rather than hidden.
+
+**A budget smaller than one turn is not a budget.** Seventeen of the compacted
+runs died anyway, all of them in the group that pulled several pages at once.
+
+**The summary is a summary of a summary.** By the sixth rewrite in one run, most
+of what is being compressed is the previous compression. In the right-hand trace
+you can watch the summaries grow rather than shrink, and one of them opens by
+quoting the summariser's own prompt back at itself — because that prompt was in
+the message it was summarising.
+
+**Nothing here tests the fence.** Fetched text comes back labelled as data and
+the system instruction says to treat it that way. No page in this experiment
+contained a sentence aimed at the agent — I swept every published byte for
+instruction-shaped text and found none — so the defence was never exercised.
+That is the standing post 6's sandbox had before somebody attacked it on
+purpose, and post 6's sandbox turned out to have a hole.
+
+**The provenance grader cannot see a compaction.** Post 4's eval asks whether
+the answer appears in something a tool returned, and reads the committed trace
+to find out. The trace keeps every frame, including the ones the model was made
+to forget. So a compacted run that wrote a number it could no longer see grades
+exactly like one that could. The measurement that does work is the one this
+commit added, and it compares the dropped messages against the summary that
+replaced them — a comparison the trace cannot support, because a trace records
+what happened in a conversation and not what was later removed from it.
+
+**The schema can represent a rewrite and not a refusal.** `tools/trace/` is
+frozen for this commit and I am not editing it, so this is a report rather than
+a fix: a run that ends because the next request would not fit has no frame for
+that. The last thing in the left-hand trace is a page arriving; the reason the
+run stops is in the prose and in the tally rather than in the trace.
+
+**The experiment I did not run** is the one where the ceiling sits above one
+turn and parallel calls are left alone, which is what a real agent faces.
+
+## What was thrown away, and why
+
+This post discarded more runs than any before it, and not one of them was
+discarded for what it said.
+
+1. **Two pilot runs**, one per condition, with a grader that demanded a unit —
+   `20 bytes` — where the model had written `20` beside the right URL.
+2. **Eighteen runs**, when the token rule put the post-compaction figure on the
+   frame before the rewrite and made the retreat invisible.
+3. **Eight runs**, when a stopped harness process turned out to be alive and
+   two of them were appending to one tally.
+4. **Ten runs**, when the summariser turned out to be summarising the SDK's
+   `providerOptions` into a published trace.
+5. **Sixty-nine judge calls**, when three concurrent judgements alongside the
+   hundred-run experiment exhausted the account's tokens-per-minute allowance
+   and the run stopped on a rate limit. Nothing here is retried, so it stopped
+   correctly; the panel was simply put again from empty.
+
+Each time the file was thrown away whole and the experiment started again from
+nothing. Priced at the same rate as the runs that survived, together they cost
+about **137 cents** — more than five times what post 6 spent on its entire
+hundred and fifty runs.
+
+## The commit
+
+The frame has been in the schema since commit 1. It took until commit 7 to
+contain anything, and the hour after it did was spent finding out that the
+recorder could not describe it, that the meter read it backwards, and that the
+thing writing its contents was quoting the client library into a public file.
+
+Three defects in a path that had been carried, reviewed and rendered for six
+commits without a single byte going through it. It is the third time this series
+has shipped that shape — post 1's leak gate, post 6's escape counter, this — and
+the lesson is the same one in a louder voice: **a code path with no data in it
+is not written, it is only typed.**
+
+The context is the constraint. Just not the way the index said it was.

@@ -604,10 +604,26 @@ pre {
   transform-origin: top;
 }
 
+/*
+ * A speech frame can now contain a URL.
+ *
+ * `.payload` has had `overflow-wrap: anywhere` since v2, because `args` and
+ * `result` are data and data does not respect a measure. The prose frames did
+ * not need it while everything a model said was words — and post 7 is the
+ * first post where that stopped being true. A compaction summary quotes the
+ * pages it read, so an unbreakable sixty-character token lands in a `<p>` at a
+ * 319px measure, and at a 375px viewport the whole page gained 276px of
+ * horizontal scroll the moment you stepped onto that frame.
+ *
+ * Found by stepping a real trace at phone width. Nothing before this commit
+ * could have produced it: it took the first `compaction` frame that ever held
+ * data to put a URL inside a paragraph.
+ */
 .frame__speech {
   line-height: var(--leading-dialogue);
   max-width: 56ch;
   text-wrap: pretty;
+  overflow-wrap: anywhere;
 }
 
 /*
@@ -623,6 +639,9 @@ pre {
 
 .frame__body li {
   line-height: var(--leading-dialogue);
+  /* A summary's list items are where the URLs actually are. Same rule, same
+     reason as `.frame__speech` above. */
+  overflow-wrap: anywhere;
 }
 
 .frame__body li::marker {

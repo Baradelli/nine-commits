@@ -1,3 +1,4 @@
+import type { CompactionEvent } from './context.ts'
 import type { RunStep } from './run.ts'
 
 export type Outcome = 'success' | 'failure' | 'partial'
@@ -15,6 +16,17 @@ export type RecorderInput = {
    * bound to.
    */
   expected: string[]
+  /**
+   * v7. A rewrite that happened and was then followed by nothing.
+   *
+   * Every other compaction is attached to the step it made room for. This one
+   * has no step after it: the history was rewritten, the rewrite was not
+   * enough, and the run ended on the request that did not fit. Without this the
+   * frame would be dropped — the run's own tally would say it compacted once
+   * and its trace would show no compaction at all, which is the same class of
+   * defect as the token rule two paragraphs below.
+   */
+  trailingCompaction?: CompactionEvent
 }
 
 type Frame = Record<string, unknown>
@@ -86,6 +98,25 @@ export function deriveOutcome(steps: RunStep[], expected: string[]): Outcome {
  * - a tool result is only measured once it is sent back, so it carries the
  *   next step's input count — or, if there is no next step because nothing was
  *   ever sent, the last measurement taken.
+ *
+ * v7 adds the frame the schema has carried unused since commit 1, and it also
+ * breaks the third of those rules for one frame in a hundred. A tool result is
+ * sized by what the next request cost — and when a compaction happens in
+ * between, the next request is not made of the same conversation. The history
+ * the result landed in really was `compaction.before` tokens long; it was
+ * never sent, so the provider never counted it, and the first version of this
+ * put the post-compaction figure on the result instead. The effect was that a
+ * trace which had just thrown away half its context showed a flat line: the
+ * drop was attributed to the frame before the rewrite and the rewrite itself
+ * looked free.
+ *
+ * So the two frames either side of a compaction are the program's own
+ * estimate — `before` on the result, `after` on the compaction — and every
+ * other entry is a figure the provider reported. They are the only numbers
+ * that exist for a request that was never made. Both come off one instrument,
+ * so the drop between them is the size of the drop; the post states how far
+ * that instrument sits from the provider's meter on the requests where both
+ * exist.
  */
 export function toRawTrace(input: RecorderInput): unknown {
   const frames: Frame[] = [{ type: 'user', content: input.userMessage }]
@@ -93,6 +124,16 @@ export function toRawTrace(input: RecorderInput): unknown {
 
   input.steps.forEach((step, index) => {
     const next = input.steps[index + 1]
+
+    if (step.compaction !== undefined) {
+      frames.push({
+        type: 'compaction',
+        before: step.compaction.before,
+        after: step.compaction.after,
+        summary: step.compaction.summary,
+      })
+      tokens.push(step.compaction.after)
+    }
 
     for (const call of step.toolCalls) {
       frames.push({
@@ -111,7 +152,20 @@ export function toRawTrace(input: RecorderInput): unknown {
         ok: result.ok,
         result: result.result,
       })
-      tokens.push(next?.inputTokens ?? step.totalTokens)
+      // The size of the history this result landed in. Normally that is what
+      // the next request cost; when the next request was preceded by a
+      // compaction it is what the history was worth before the rewrite, which
+      // is a number no request ever carried. And when there is no next request
+      // at all because the run ran out of room, it is what the rewrite that
+      // failed to save it was measuring.
+      const after =
+        next?.compaction?.before ??
+        next?.inputTokens ??
+        (index === input.steps.length - 1
+          ? input.trailingCompaction?.before
+          : undefined) ??
+        step.totalTokens
+      tokens.push(after)
     }
 
     if (step.text.trim() !== '') {
@@ -119,6 +173,16 @@ export function toRawTrace(input: RecorderInput): unknown {
       tokens.push(step.totalTokens)
     }
   })
+
+  if (input.trailingCompaction !== undefined) {
+    frames.push({
+      type: 'compaction',
+      before: input.trailingCompaction.before,
+      after: input.trailingCompaction.after,
+      summary: input.trailingCompaction.summary,
+    })
+    tokens.push(input.trailingCompaction.after)
+  }
 
   return {
     id: input.id,

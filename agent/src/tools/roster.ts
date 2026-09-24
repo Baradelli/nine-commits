@@ -26,7 +26,7 @@ import type { ToolName } from './descriptions.ts'
  * appended, so the only difference a model can see between two conditions is
  * that there is one more definition after the ones it already had.
  */
-export type Roster = 'four' | 'five-append' | 'five-search'
+export type Roster = 'four' | 'five-append' | 'five-search' | 'web'
 
 const FOUR: readonly ToolName[] = [
   'list_files',
@@ -39,6 +39,16 @@ export const ROSTERS: Record<Roster, readonly ToolName[]> = {
   four: FOUR,
   'five-append': [...FOUR, 'append_file'],
   'five-search': [...FOUR, 'search_files'],
+  /**
+   * v7. The four, plus the two that reach outside the machine.
+   *
+   * It is a sixth and seventh tool rather than a replacement because post 7's
+   * question is about the context and not about the roster: the agent still
+   * has to write its answer to a file, so `write_file` and `edit_file` are
+   * still the product, and what changes is that one tool result can now be
+   * larger than everything else in the run put together.
+   */
+  web: [...FOUR, 'web_search', 'fetch_page'],
 }
 
 export const DEFAULT_ROSTER: Roster = 'four'

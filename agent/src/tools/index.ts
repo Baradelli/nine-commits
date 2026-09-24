@@ -8,6 +8,7 @@ import {
   type ToolName,
 } from './descriptions.ts'
 import { ROSTERS, type Roster } from './roster.ts'
+import { fetchPage, webSearch, type WebOptions } from './web.ts'
 
 /*
  * The tools the model is handed, built from three pieces of data: which root
@@ -29,6 +30,8 @@ const editInput = z.object({
   old_text: z.string(),
   new_text: z.string(),
 })
+const queryInput = z.object({ query: z.string() })
+const urlInput = z.object({ url: z.string() })
 
 export type BuildOptions = {
   root?: string
@@ -36,9 +39,25 @@ export type BuildOptions = {
   style?: DescriptionStyle
   /** Called whenever the guard refused a path, so a block is never silent. */
   onEscape?: (error: SandboxEscape) => void
+  /**
+   * How the two v7 tools treat the on-disk cache, and who is told about a
+   * request that actually left the machine.
+   *
+   * Passed through rather than read from the environment here, because a
+   * harness running fifty runs has to be able to say "cache only" once and be
+   * sure none of the fifty went to the network — and because a tool that
+   * decides its own network policy from an environment variable is a tool
+   * whose policy is not in the trace.
+   */
+  web?: WebOptions
 }
 
-function define(name: ToolName, fs: Fs, style: DescriptionStyle): Tool {
+function define(
+  name: ToolName,
+  fs: Fs,
+  style: DescriptionStyle,
+  web: WebOptions,
+): Tool {
   const description = DESCRIPTIONS[style][name]
 
   switch (name) {
@@ -79,6 +98,18 @@ function define(name: ToolName, fs: Fs, style: DescriptionStyle): Tool {
         inputSchema: writeInput,
         execute: ({ path, content }) => fs.appendFile(path, content),
       })
+    case 'web_search':
+      return tool({
+        description,
+        inputSchema: queryInput,
+        execute: ({ query }) => webSearch(query, web),
+      })
+    case 'fetch_page':
+      return tool({
+        description,
+        inputSchema: urlInput,
+        execute: ({ url }) => fetchPage(url, web),
+      })
   }
 }
 
@@ -110,6 +141,6 @@ export function buildTools(options: BuildOptions = {}): Record<string, Tool> {
   })
 
   return Object.fromEntries(
-    ROSTERS[roster].map((name) => [name, define(name, fs, style)]),
+    ROSTERS[roster].map((name) => [name, define(name, fs, style, options.web ?? {})]),
   )
 }

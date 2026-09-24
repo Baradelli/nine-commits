@@ -162,3 +162,160 @@ describe('deriveOutcome', () => {
     expect(deriveOutcome(shouted, [VALUE])).toBe('success')
   })
 })
+
+/*
+ * v7: the frame the schema has carried since commit 1, and the reason its
+ * arrival needed a rule change rather than a new branch.
+ *
+ * `tokens` drives the site's budget meter, and the meter's whole job in post 7
+ * is to go down. It could not. A tool result is sized by what the next request
+ * cost, and when a compaction happens in between, the next request is made of a
+ * different conversation — so the post-rewrite figure landed on the frame
+ * BEFORE the rewrite, the drop was attributed to the wrong frame, and the
+ * compaction itself rendered as a flat line. Caught by reading a real trace's
+ * token curve, not by reading the code.
+ */
+describe('a compacted run', () => {
+  const compaction = {
+    before: 15_000,
+    after: 6_500,
+    summary: 'searched, read two pages, found both numbers',
+    dropped: 6,
+    droppedText: '[]',
+  }
+
+  const compacted: RunStep[] = [
+    step({
+      toolCalls: [CALL],
+      toolResults: [{ id: 'call_1', ok: true, result: { ok: true } }],
+      inputTokens: 900,
+      totalTokens: 1_000,
+    }),
+    step({
+      text: `It is set in ${FILE}, to ${VALUE}.`,
+      inputTokens: 6_600,
+      totalTokens: 6_700,
+      compaction,
+    }),
+  ]
+
+  const input = {
+    id: 'a-compacted-run',
+    commit: 'v7-context',
+    model: 'a-model',
+    task: TASK,
+    userMessage: TASK,
+    steps: compacted,
+    expected: [FILE, VALUE],
+  }
+
+  it('emits the frame in the place the rewrite happened', () => {
+    const trace = parseTrace(toRawTrace(input))
+    expect(trace.frames.map((f) => f.type)).toEqual([
+      'user',
+      'tool_call',
+      'tool_result',
+      'compaction',
+      'assistant',
+    ])
+  })
+
+  it('carries the rewrite\u2019s own numbers into the frame', () => {
+    const trace = parseTrace(toRawTrace(input))
+    expect(trace.frames[3]).toEqual({
+      type: 'compaction',
+      before: 15_000,
+      after: 6_500,
+      summary: compaction.summary,
+    })
+  })
+
+  it('lets the budget go down, which is the whole point of the frame', () => {
+    const trace = parseTrace(toRawTrace(input))
+    // The result landed in a 15,000-token history; the rewrite left 6,500.
+    expect(trace.tokens[2]).toBe(15_000)
+    expect(trace.tokens[3]).toBe(6_500)
+    expect(trace.tokens[3]).toBeLessThan(trace.tokens[2] as number)
+    // And the peak the meter scales against is the pre-rewrite size, so the
+    // retreat is visible rather than being the top of the chart.
+    expect(Math.max(...trace.tokens)).toBe(15_000)
+  })
+
+  it('still sizes a tool result by the next request when nothing intervened', () => {
+    const plain = { ...input, steps: [compacted[0] as RunStep, step({ text: 'done', inputTokens: 1_200, totalTokens: 1_260 })] }
+    const trace = parseTrace(toRawTrace(plain))
+    expect(trace.tokens[2]).toBe(1_200)
+  })
+})
+
+/*
+ * The rewrite that was followed by nothing.
+ *
+ * The history is compacted, the rewrite is not enough, and the request it was
+ * making room for never goes. There is no step to hang the frame on, so the
+ * first version of this dropped it: the run's own tally said it compacted once
+ * and its trace showed no compaction at all. Found by opening three traces of
+ * overflowed runs and counting.
+ */
+describe('a rewrite that did not save the run', () => {
+  const trailing = {
+    before: 20_500,
+    after: 19_100,
+    summary: 'searched three times, then fetched three pages at once',
+    dropped: 2,
+    droppedText: '[]',
+  }
+
+  const input = {
+    id: 'an-overflowed-run',
+    commit: 'v7-context',
+    model: 'a-model',
+    task: TASK,
+    userMessage: TASK,
+    steps: [
+      step({
+        toolCalls: [CALL],
+        toolResults: [{ id: 'call_1', ok: true, result: { ok: true } }],
+        inputTokens: 900,
+        totalTokens: 1_000,
+      }),
+      step({
+        text: 'looking that up',
+        toolCalls: [{ id: 'call_2', name: 'fetch_page', args: { url: 'x' } }],
+        toolResults: [{ id: 'call_2', ok: true, result: { ok: true } }],
+        inputTokens: 1_200,
+        totalTokens: 1_400,
+      }),
+    ],
+    expected: [FILE, VALUE],
+    trailingCompaction: trailing,
+  }
+
+  it('still records the compaction, at the end, where it happened', () => {
+    const trace = parseTrace(toRawTrace(input))
+    expect(trace.frames.at(-1)).toEqual({
+      type: 'compaction',
+      before: 20_500,
+      after: 19_100,
+      summary: trailing.summary,
+    })
+  })
+
+  it('sizes the last result by the history the rewrite was measuring', () => {
+    const trace = parseTrace(toRawTrace(input))
+    const lastResult = trace.frames
+      .map((frame, index) => ({ frame, index }))
+      .filter(({ frame }) => frame.type === 'tool_result')
+      .map(({ index }) => index)
+      .pop() as number
+    expect(trace.tokens[lastResult]).toBe(20_500)
+    expect(trace.tokens.at(-1)).toBe(19_100)
+  })
+
+  it('leaves an ordinary run alone', () => {
+    const { trailingCompaction, ...plain } = input
+    expect(trailingCompaction).toBeDefined()
+    const trace = parseTrace(toRawTrace(plain))
+    expect(trace.frames.some((f) => f.type === 'compaction')).toBe(false)
+  })
+})

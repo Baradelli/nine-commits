@@ -14,6 +14,13 @@
  * is applied to `append_file` exactly as it is to the other four. A comparison
  * whose extra tool is described worse than its neighbours is not measuring the
  * extra tool.
+ *
+ * v7 adds two more, and they are the first descriptions in this file for tools
+ * that touch something outside the machine. Both say what the tool costs as
+ * well as what it does: `fetch_page` returns a whole article, and a model that
+ * cannot see the size of what it is about to pull into its own context will
+ * pull three of them. Whether saying so changes anything is not measured here
+ * — post 2's experiment is about that, and this commit does not re-run it.
  */
 
 export type DescriptionStyle = 'precise' | 'thin'
@@ -25,6 +32,8 @@ export type ToolName =
   | 'write_file'
   | 'edit_file'
   | 'append_file'
+  | 'web_search'
+  | 'fetch_page'
 
 export type ToolDescriptions = Record<ToolName, string>
 
@@ -61,6 +70,16 @@ export const DESCRIPTIONS: Record<DescriptionStyle, ToolDescriptions> = {
       'Creates the file if it does not exist, and starts a new line first if the file did not end with one. ' +
       'Use it when the change is purely an addition at the end. ' +
       'It cannot change anything already in the file, and it cannot insert anywhere but the end.',
+    web_search:
+      'Search the public web for a query and get back a handful of matching pages. ' +
+      'Returns a title, a URL and a one-line snippet for each result, and nothing else. ' +
+      'Use it to find the page that answers a question you cannot answer from this project. ' +
+      'It cannot tell you what a page says: the snippet is an extract chosen by the search engine, not the article.',
+    fetch_page:
+      'Read the full text of one page found by web_search, given the URL from its result. ' +
+      'Returns the whole article as plain text, which is long — often several thousand words — and all of it stays in your context for the rest of the run. ' +
+      'Use it when the snippet is not enough, and read one page at a time rather than everything that looked relevant. ' +
+      'It only accepts URLs that web_search returned, and it cannot search.',
   },
   thin: {
     list_files: 'Lists files.',
@@ -69,6 +88,8 @@ export const DESCRIPTIONS: Record<DescriptionStyle, ToolDescriptions> = {
     write_file: 'Writes a file.',
     edit_file: 'Edits a file.',
     append_file: 'Appends to a file.',
+    web_search: 'Searches the web.',
+    fetch_page: 'Fetches a page.',
   },
 }
 

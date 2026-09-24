@@ -110,13 +110,37 @@ describe('the trace a judge is shown', () => {
     expect(() => renderTrace(odd)).toThrow(UnrenderableFrame)
   })
 
-  it('refuses a frame type it does not understand', () => {
+  /**
+   * This case used to assert the opposite, with a `compaction` frame as its
+   * example of a variant the renderer does not know. v7 makes that frame real,
+   * so the assertion moves to the one variant that is still unbuilt — post 9's
+   * `approval` — and this one becomes a test that a compaction is shown rather
+   * than skipped.
+   *
+   * Skipping would be the worse failure of the two. A judge handed a trace
+   * whose middle had silently vanished would grade a run on evidence that was
+   * deleted without being told it had been, and would blame the run for it.
+   */
+  it('shows a compaction, including what the summary stood in for', () => {
     const compacted = trace([
       { type: 'user', content: 'a long task' },
-      { type: 'compaction', before: 9000, after: 1200, summary: 'earlier steps' },
+      { type: 'compaction', before: 9000, after: 1200, summary: 'read two pages' },
       { type: 'assistant', content: 'done' },
     ])
-    expect(() => renderTrace(compacted)).toThrow(UnrenderableFrame)
+    const rendered = renderTrace(compacted)
+    expect(rendered).toContain('compacted')
+    expect(rendered).toContain('9000')
+    expect(rendered).toContain('1200')
+    expect(rendered).toContain('read two pages')
+  })
+
+  it('refuses a frame type it does not understand', () => {
+    const approved = trace([
+      { type: 'user', content: 'delete it' },
+      { type: 'approval', tool: 'run_shell', decision: 'allow' },
+      { type: 'assistant', content: 'done' },
+    ])
+    expect(() => renderTrace(approved)).toThrow(UnrenderableFrame)
   })
 })
 

@@ -8,6 +8,7 @@ import {
   BINARY_QUESTION,
   FILE_COUNT_QUESTION,
   MODEL_NAME_QUESTION,
+  RESEARCH_QUESTION,
   type Question,
 } from './question.ts'
 
@@ -120,6 +121,20 @@ export const CASES: readonly Case[] = [
     question: ADD_SETTING_QUESTION,
     expect: { answer: 'success', provenance: 'grounded', unread: [] },
     note: 'the same decisions with a fifth tool in hand, plus one read that checked the result',
+  },
+  {
+    post: '07-context',
+    file: 'trace-a-off.json',
+    question: RESEARCH_QUESTION,
+    expect: { answer: 'failure', provenance: 'undecidable', unread: [] },
+    note: 'found all three answers and ran out of room before it could write any of them down',
+  },
+  {
+    post: '07-context',
+    file: 'trace-b-on.json',
+    question: RESEARCH_QUESTION,
+    expect: { answer: 'success', provenance: 'undecidable', unread: ['note'] },
+    note: 'the compacted run: it wrote the file, and the trace cannot show it ever saw the file',
   },
 ]
 

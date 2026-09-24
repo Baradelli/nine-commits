@@ -67,6 +67,56 @@ rather than `success`. The questions live in `tools/eval/question.ts` and the
 per-trace verdicts in `tools/eval/suite.ts`, which `npm test` gates. This is
 post 4.
 
+## The web tools, and the cache
+
+v7 adds `web_search` and `fetch_page`, which are the first things the agent
+does that leave the machine. The provider is the English Wikipedia through the
+MediaWiki action API: documented, public, no key, and its text is CC BY-SA, so
+the extracts inside the published traces are quoted from the pages the traces
+link to and remain under that licence.
+
+Both tools cache every response to `agent/webcache/`, keyed by the request URL.
+The cache is **not** committed — it is a hundred-odd files of somebody else's
+prose — so a fresh clone starts cold:
+
+```
+npm run warm            # fetch everything the experiment needs, once
+npm run context         # the 100-run experiment, off vs on
+npm run context:tally   # the committed tally, recounted
+```
+
+`npm run warm` writes `agent/webcache/MANIFEST.md` saying what was fetched,
+when, and how large each page was. Every row of the tally records how many
+requests actually left the machine during that run; a second pass makes none.
+A cached corpus is a different experiment from a live one, and post 7 says so.
+
+## Measuring the window
+
+```
+npm run window -- 300000     # send ~300k tokens of filler and see what happens
+```
+
+A request that exceeds the model's input limit is rejected before inference and
+is not billed, so bisecting downwards from a rejection is free and the first
+acceptance costs about a hundredth of a cent per thousand tokens. This is where
+`MEASURED_MODEL_WINDOW` in `agent/src/context.ts` comes from; it is a
+measurement rather than a model-card figure, and the probe prints both numbers
+it is bracketed by.
+
+## Judging a summary
+
+```
+npm run summary-judge          # 18 cases x 9 repeats over the published run
+npm run summary-judge:tally    # the committed judgements, recounted
+```
+
+Compaction's deterministic cost — did a number survive the summary — is checked
+by code in `tools/context/task.ts`. The half code cannot check is whether the
+summary says anything the transcript does not, and that is what this judge is
+asked. Half its panel has a known answer built by construction: a summary
+assembled from quotations, and the same summary with one number changed. This
+is post 5's method pointed at post 7's problem.
+
 ## Attribution
 
 Built while following **"Build an AI Agent from Scratch"** by

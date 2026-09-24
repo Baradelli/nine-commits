@@ -20,7 +20,13 @@
     "e2e": "playwright test",
     "judge": "tsx --env-file=agent/.env tools/run-judge.ts",
     "roster": "tsx --env-file=agent/.env tools/run-roster.ts",
-    "roster:tally": "tsx tools/roster/report.ts"
+    "roster:tally": "tsx tools/roster/report.ts",
+    "context": "tsx --env-file=agent/.env tools/run-context.ts",
+    "context:tally": "tsx tools/context/report.ts",
+    "warm": "tsx tools/warm-cache.ts",
+    "window": "tsx --env-file=agent/.env tools/window-probe.ts",
+    "summary-judge": "tsx --env-file=agent/.env tools/run-summary-judge.ts",
+    "summary-judge:tally": "tsx tools/judge/summary-tally.ts"
   },
   "devDependencies": {
     "@ai-sdk/openai": "^4.0.69",

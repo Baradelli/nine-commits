@@ -128,3 +128,34 @@ export const ADD_SETTING_QUESTION: Question = {
   truthFile: 'config/settings.json',
   tell: 'maxBatch',
 }
+
+/**
+ * The task the two runs published with post 7 were given.
+ *
+ * The first question in this series whose corpus is not on this machine at all.
+ * The agent searches the English Wikipedia and reads what it finds, so a
+ * `truthFile` here is a URL rather than a path — which the observation reader
+ * already handles, because a provenance check asks "did this line come back,
+ * and where from", and a URL answers that in exactly the shape a path does.
+ *
+ * `facts` is deliberately thin, and it is the same string the recorder was
+ * given. The product of this task is a **file**, and post 6 is the reason: the
+ * sentence grade and the file grade disagreed four times in a hundred and
+ * fifty, and the file was right every time. So the prose axis here is checking
+ * that the run said where it put its answer, and the real grade lives in
+ * `tools/context/task.ts`, against the note.
+ *
+ * `tell` is `1,112,064`, which is on one line of one of the three pages and
+ * nowhere else in anything the agent could see. That makes provenance
+ * decidable for this question in a way it never was for the model-name
+ * question — and post 7 has a paragraph about what it decides, because a
+ * compacted run's trace still contains the page the run was made to forget.
+ */
+export const RESEARCH_QUESTION: Question = {
+  id: 'research',
+  prompt:
+    'Use the web tools to answer three questions and write the answers to notes/research.md, each with the URL it came from.',
+  facts: [{ id: 'note', text: 'notes/research.md' }],
+  truthFile: 'https://en.wikipedia.org/wiki/UTF-8',
+  tell: '1,112,064',
+}

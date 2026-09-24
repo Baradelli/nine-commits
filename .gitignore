@@ -6,3 +6,5 @@ traces/
 test-results/
 playwright-report/
 .claude/
+webcache/
+.scratch/
