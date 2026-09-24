@@ -78,13 +78,17 @@ const dateFormat = new Intl.DateTimeFormat('en-GB', {
            * are listed with the claim each commit still has to earn", which
            * stops being true the moment there is no rest — and the sentence
            * that replaces it is the one the series is actually for: four of
-           * the nine claims below are not the claims that were written before
-           * the commits, because the commits disagreed with them.
+           * the nine claims below had to be corrected, because the commits
+           * disagreed with them. Three of those four were corrected twice —
+           * once in the commit, once in a later fix round — and post 9's line
+           * grew without being corrected, so the standfirst says "four were
+           * corrected" rather than "four strings changed", which would be
+           * five.
            */
           written === 0
             ? 'Nothing is published yet. The agent exists and the first run is being recorded. Until then, here is the whole series and the claim each commit has to earn.'
             : written === SERIES_LENGTH
-              ? 'All nine are published. Four of the theses below are not the ones I wrote before building them — posts 3, 6, 7 and 8 each corrected their own claim on the evidence the commit produced, and say so.'
+              ? 'All nine are published. Four of the theses below had to be corrected because the commit disagreed with them — posts 3, 6, 7 and 8, three of them twice, and each says so. The ninth grew without being corrected, and the other four are untouched.'
               : `${spelled[written]} of the nine ${written === 1 ? 'is' : 'are'} published. The rest are listed with the claim each commit still has to earn.`
         }
       </p>

@@ -58,9 +58,9 @@ export default function TraceBranch({
   /*
    * How many times the reader has asked to be taken to the question.
    *
-   * The prefix of the published pair is thirteen frames of real work, and the
+   * The prefix of the published pair is fourteen frames of real work, and the
    * fork is the point of the block, so a reader who wants to answer without
-   * pressing Next thirteen times has to be able to. It is a counter rather
+   * pressing Next fourteen times has to be able to. It is a counter rather
    * than a boolean because it is part of the player's `key`: the frozen state
    * machine has no way to move a position from outside, so moving one means
    * mounting a new player, and mounting a new player at the same `start`

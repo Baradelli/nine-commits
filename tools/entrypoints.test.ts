@@ -74,6 +74,11 @@ describe('every command guards its own entry point', () => {
     expect(names).toContain('agent/src/cli.ts')
     expect(names).toContain('tools/run-shell.ts')
     expect(names).toContain('tools/shell/unguarded.mjs')
+    // The two commands that spend the most money per invocation, named for the
+    // same reason as the five above: the floor below catches a disappearance,
+    // and a name catches a rename that quietly drops one of them.
+    expect(names).toContain('tools/run-hitl.ts')
+    expect(names).toContain('tools/run-fork.ts')
     expect(names.length).toBeGreaterThanOrEqual(11)
   })
 

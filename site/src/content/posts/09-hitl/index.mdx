@@ -21,8 +21,10 @@ no, decided in advance, by me, with no idea what the run is actually for. The
 next commit is the one where somebody is asked."*
 
 This is that commit, and the first thing to say about it is that the thesis at
-the top of this page still contains the sentence I wrote before building it.
-That has not happened since post 5. Posts 3, 6, 7 and 8 all had to rewrite
+the top of this page still makes the claim I wrote before building it. Not word
+for word — the sentence was widened, and the comment on `series.ts` entry 9 says
+which words moved — but the claim did not have to be corrected, and that has not
+happened since post 5. Posts 3, 6, 7 and 8 all had to rewrite
 their claims because the commit meant to prove them disagreed with them; this
 one held, and then turned out to be the least interesting true thing about the
 gate.
@@ -106,11 +108,24 @@ them and asked a person. Counted from that committed file by
 | runs interrupted at least once | 31 of 140 |
 
 The model reached for four programs in those hundred and forty runs: `grep`
-fifty-five times, `wc` seventeen, `find` six, `ls` once. Not one of them can
-change anything. The count is deliberately generous to the gate — a command
-whose binary is off post 8's allow-list is counted as *could change something*,
-even though the guard would have refused it, because the gate is asked first and
-does not know that. It still comes out at seventy-nine out of seventy-nine.
+fifty-five times, `wc` seventeen, `find` six, `ls` once. Not one of those
+seventy-nine invocations could change anything: I read all six `find` lines and
+every one of them is `find . -type f -exec grep …` or `-exec wc -c …`.
+
+That is a claim about those seventy-nine lines and not about the four programs.
+`find` itself deletes and writes, given `-delete`, `-exec rm` or `-fprintf`, and
+the instrument has the same blind spot the sentence used to have:
+`tools/hitl/overask.ts` classifies a command line by its binary name alone, so
+`couldChangeSomething('find . -delete')` answers *could not change a byte*.
+Nothing in this corpus is such a line — `overask.test.ts` asserts that, and
+asserts the blind spot beside it — so the seventy-nine keeps its meaning. The
+classifier is pinned rather than fixed, because fixing it means knowing what
+every flag of fifteen programs does, which is the argument two paragraphs down.
+
+The count is deliberately generous to the gate — a command whose binary is off
+post 8's allow-list is counted as *could change something*, even though the
+guard would have refused it, because the gate is asked first and does not know
+that. It still comes out at seventy-nine out of seventy-nine.
 
 The obvious fix is to look at the arguments: ask about `cp a b`, do not ask
 about `wc -c README.md`. That fix is post 8's allow-list one layer up. To know
@@ -237,6 +252,22 @@ EOF
 The gate stopped the write. It did not stop the change; it moved the change from
 the agent to me, with instructions. Hold on to that, because the hundred and
 fifty runs say it is typical rather than a fluke.
+
+**The context meter halves when you answer, and that is not what answering
+costs.** It climbs to 1,221 at the question and repeats 1,221 on the approval
+frame — answering adds nothing to the conversation, which is the rule the
+recorder documents. The frame after it reads **635** in the allowed branch and
+**799** in the denied one — the first is a request's input count and the second
+a step's total, because the meter's rule differs for a result frame and a call
+frame. Both are figures the provider reported, and the reason they are smaller
+is that a continuation is a *separate request*: the SDK rebuilds the
+conversation from what the suspended run handed back, adds the approval answer,
+and sends it. The provider counted that prompt at 635 input tokens against the
+prefix's last prompt at 1,052. **Why the rebuilt prompt is smaller than the one
+before it, I could not establish without paying for another run.** The likeliest
+explanation is that reasoning parts are not replayed into it. Post 7 shipped a
+meter that read a drop backwards, so this one is on the page as a thing I do not
+fully account for, rather than left for a reader to find.
 
 <TraceTranscript trace={allow} label="Allowed" />
 <TraceTranscript trace={deny} label="Denied" />
@@ -414,24 +445,30 @@ I read all forty answers. The real figures:
 - **2** said nothing whatever — the two capped runs, with empty final answers.
 - **0** claimed to have made the change.
 
-Which means my column missed **12 runs that plainly say so**, in phrasings like
+Which means my column missed **11 runs that plainly say so**, in phrasings like
 *"I couldn't write the file automatically"*, *"I can't modify files right now"*
 and — my favourite — *"I wasn't allowed to modify files in the repository"*,
 which misses because my list holds `not allowed` and the model wrote `wasn't`
-with a typographic apostrophe.
+with a typographic apostrophe. The twelfth run it scored `no` it scored
+correctly — that is the one answer that never mentions being stopped at all. 26
+plus 11 is the 37 I counted by eye, which is the arithmetic that has to close
+and does.
 
 This is post 4's finding landing on an instrument I built in post 9. Post 4 is
 the post that says a substring check over a sentence grades the prose and not
 the decision; I wrote one anyway, four posts later, for a question a substring
-check cannot answer, and it was wrong on twelve of the forty rows it was asked about. It ships
-in the tally with its failure asserted in `tally.test.ts` rather than being
-quietly fixed, because the number you should trust here is the one I got by
-reading forty paragraphs, and a reader deserves to see the difference between
-the two.
+check cannot answer, and it was wrong on eleven of the forty rows it was asked
+about. It ships in the tally with its failure asserted in `tally.test.ts` rather
+than being quietly fixed, because the number you should trust here is the one I
+got by reading forty paragraphs, and a reader deserves to see the difference
+between the two.
 
-The one honest thing the automatic column does establish: **no denied run
-claimed success.** That was the failure mode I was most worried about and it did
-not happen once in forty.
+The thing I was most worried about did not happen: **no denied run claimed
+success**, not once in forty. That is the by-eye reading, not the column. A
+substring check for thirteen refusal words can tell you a sentence contains one
+of them; it cannot establish that fourteen other sentences do not claim
+something, and crediting the broken column with it, inside the section about the
+column being broken, would be post 4's error one more time in one more place.
 
 ## The two graders rank the branches in opposite orders
 
@@ -616,18 +653,44 @@ carry it.
 | **total** | **≈ 91** (about **$0.91**) |
 
 At the list price used throughout: $0.25 per million input, $2 per million
-output (`gpt-5-mini`). The run figures are measured per run in
-<a href={runs}>the tally</a> and the arithmetic is `cents()` in
-`tools/hitl/tally.ts`, asserted. The fork pair is measured by `run-fork.ts`
-itself — 7,330 input and 821 output tokens for the prefix and both
-continuations. The three discarded forks are estimated from that one, and they
-were shorter.
+output (`gpt-5-mini`). **One row of that table can be recomputed from this
+repository. Five cannot, for three different reasons.** Here is which is which,
+because a table printed in one typeface is not a claim that its rows are worth
+the same.
 
-**More was thrown away than was spent.** 59.5 cents of discards against 30.4
-cents of published work, and the two big discards were both mine rather than the
-program's: one for changing an instrument mid-batch, one for not making sure a
-process was dead. This is the fourth commit in the series where the discard pile
-outweighs the result, and the first where none of it was the agent's fault.
+- **30.0** is measured per run in <a href={runs}>the tally</a>, with the
+  arithmetic in `cents()` in `tools/hitl/tally.ts`, asserted. This is the row a
+  reader can recompute.
+- **0** for the over-ask measurement is not a price at all: `overask.ts` reads a
+  committed file and makes no model call.
+- **18.6** and **40.5** are the per-run cost of the batch that survived, applied
+  to the rows that were thrown away — 92 and 199 rows at about 0.20 cents each,
+  which is what the hundred and fifty in the tally cost per run. The tallies
+  those two rows describe were destroyed with the runs, so there is nothing left
+  to measure and nothing to check them against. Post 7 priced its own discarded
+  run batches the same way, and said so in its report rather than on its page;
+  this is that sentence, on the page.
+- **0.4** for three pilot runs and **~1.0** for three discarded fork recordings
+  are estimates rather than measurements. The forks are estimated from the one
+  that shipped, and they were shorter; the pilots predate the tally.
+- **0.4** for the published fork pair is measured — 7,330 input and 821 output
+  tokens — but `run-fork.ts` prints that to stderr and persists it nowhere, and
+  `agent/traces/` is gitignored. **It is the one number on this page a reader
+  cannot check without paying for a re-run.**
+
+**More was thrown away than was spent.** 60.5 cents of discards against 30.4
+cents of published work — the table's own total — and the two big discards were
+both mine rather than the program's: one for changing an instrument mid-batch,
+one for not making sure a process was dead.
+
+**This is the first commit in the series where the discard pile outweighs the
+result.** It is the fourth that disclosed a discard pile at all, which is a
+different sentence and the one I nearly wrote instead: post 6 mentions three
+pilot runs and does not price them, post 7 threw away 137 cents against 353
+cents of published work, and post 8 threw away 2.1 against 42.7. Of the posts
+that published a bill, none of them spent more on what was destroyed than on
+what shipped; posts 1 to 4 published no figures either way, so they are outside
+the comparison rather than inside it.
 
 ## Did the thesis hold
 
@@ -665,16 +728,58 @@ the only one that matters.
 
 Here is what I would tell someone about to do this.
 
-**Four of the nine claims on the index are not the claims I started with.** Post
-3's thirty lines were three lines deleted. Post 6 predicted a fifth tool would
-make the agent worse and could not find it at fifty runs. Post 7 said one web
-search fills the window and it fills two per cent of it. Post 8 said a shell
-gives you everything you would not do, and the shell I could defend cannot
-author a byte of its own. Every one of those corrections came from the commit
-that was supposed to prove the claim. Not from a reviewer, not from a rethink —
-from building the thing and looking at what came out, which is a mechanism
-available to anybody and is almost the only thing in this series that was not
-already known.
+**Four of the nine claims on the index had to be corrected, because the commit
+built to prove them disagreed with them.** Post 3's thirty lines were three
+lines deleted. Post 6 predicted a fifth tool would make the agent worse and
+could not find it at fifty runs. Post 7 said one web search fills the window and
+it fills two per cent of it. Post 8 said a shell gives you everything you would
+not do, and the shell I could defend cannot author a byte of its own. A fifth
+thesis string changed without being corrected — the one at the top of this page
+grew — and the remaining four are untouched since the day they were written.
+
+**The first correction to each of those four came from the commit that was
+supposed to prove the claim**, from building the thing and looking at what came
+out. Three of the four then needed a *second* correction, in a later `fix:`
+commit, and that is the half I would have left out of this paragraph if I had
+not gone and read my own history:
+
+```
+git log -p --follow -- site/src/lib/series.ts
+```
+
+- **Post 6.** `a495404` replaced *a fifth makes the agent worse* with a measured
+  null; `1c020e8` added the floor — *changed nothing else **I could measure at
+  fifty runs*** — which is where the qualifier in my sentence above comes from.
+- **Post 7.** `fe21ff7` got *two per cent of the window*; `a8a19f0` put the
+  condition on the half that held, because the corrected thesis was still
+  unconditional.
+- **Post 8.** `bd2ce09` shipped *"cannot change a byte inside a file"*, which is
+  false of `cp`. **The phrase at the top of this section — "cannot author a byte
+  of its own" — is not mine.** It was written by the reviewer of `bd2ce09` as
+  the smallest correct fix, and it landed in `545ef33`, whose message opens
+  *"Two blockers from the review of bd2ce09"*. A third round then found `uniq`
+  and rewrote the sentences around the thesis without moving the thesis again.
+
+Only post 3's is cleanly a correction that building produced and nothing else
+touched.
+
+So **building the thing produced the first correction every time and never the
+last one.** The other three — the floor under post 6's null, the condition on
+post 7's thesis, and the exact words at the top of this section — came from an
+adversarial pass over a post I had already decided was finished. Neither
+mechanism found what the other found and neither would have been enough alone:
+a hundred and fifty runs cannot tell you that a sentence is wider than they are,
+and a reader cannot tell you that a fifth tool costs eighty-eight tokens.
+
+Two limits on that, because it would be easy to read as a recommendation.
+**Those reviews were mine** — I wrote the posts, commissioned the reviews and
+ran them, over my own work, which is the weakest adversarial review there is and
+starts from the same reading of the same evidence. And **the review files are
+not in this repository** — they live under `.superpowers/`, which this
+repository does not track — so what you can check is the commits: entries 6, 7
+and 8 each rewritten twice, and `545ef33` naming the review it is acting on.
+What all of this says is not that reviewing beats measuring. It is that a first
+pass is not a pass.
 
 That is the useful half. Here is the rest of it, and it is less flattering.
 
@@ -697,27 +802,35 @@ wrong in the thing doing the measuring: an estimator 20 to 33 per cent high in t
 that would have produced my preferred result; a grader that accepted the word
 instead of the link; a token rule that made compaction look free; a trace
 recorder that dropped the one frame proving a write happened; a keyword column
-in this post that was wrong about twelve rows out of forty. Every one of those
+in this post that was wrong about eleven rows out of forty. Every one of those
 was found by putting real data through the thing and looking at the output, and
 none of them by reading the code.
 
-**A third of what I spent was thrown away, and that is the price of not
-filtering.** Three of the nine posts published a bill: $5.03, $0.45 and $0.91,
-and $2.00 of that $6.39 went into batches that were destroyed rather than
-cleaned. Every time the choice was between filtering a tally and destroying it,
-destroying it was correct, and it never once felt correct at the time.
+**Just under a third of what I spent was thrown away, and that is the price of
+not filtering.** Five of the nine posts published a bill, and these are the
+figures those pages print: about 13 cents in post 5, about 25 in post 6, 226 +
+127 + 137 in post 7, 42.7 + 2.1 in post 8, and 91 here. Posts 1 to 4 published
+none, and two of the five carry an unpriced extra — post 5's single recorded
+run, post 6's three pilot runs. That is about **$6.64**, of which **$2.00 went
+into
+batches that were destroyed rather than cleaned**: post 7's 137 cents, post 8's
+2.1, and the 60.5 above. Every time the choice was between filtering a tally and
+destroying it, destroying it was correct, and it never once felt correct at the
+time.
 
 **And the fix is the dangerous part.** Post 8 needed two rounds of corrections,
 and the second round existed because the first round's replacement sentence was
 also false — an enumeration of four writers where there were five. Post 7's fix
-round claimed to have swept every false sentence and had missed two. The moment
-you are relieved to have fixed something is the moment you write the next wrong
-sentence, and the only defence I found that works is to stop writing the list and
-write the property instead, with a test that derives the membership by running
-the code.
+round found five sentences in three files saying the web cache was committed
+when `.gitignore` had held it since the feature commit, and corrected four,
+because the grep that found them missed the fifth; the commit after it is named
+for that sentence. The moment you are relieved to have fixed something is the
+moment you write the next wrong sentence, and the only defence I found that
+works is to stop writing the list and write the property instead, with a test
+that derives the membership by running the code.
 
 **What I would not do again.** I would build every frame type against a fixture
-before paying for a run — post 7 paid four discarded batches to learn that, wrote
+before paying for a run — post 7 paid five discarded batches to learn that, wrote
 it down as the thing it would do differently, and post 9 is the first commit that
 actually did it: the whole approval path, including the suspend-and-resume the
 two branches on this page are built from, ran green against a mock model before
@@ -744,7 +857,8 @@ The agent is finished, in the sense that the nine commits are done. It is a
 loop, under four thousand lines of TypeScript, four guards I would not stand
 behind, and eighteen published recordings of what it actually did. Every claim
 on the index is checkable against a file in this repository, and four of them
-say something different from what I believed before I built them.
+say something different from what I believed before I built them — and three of
+those four took a second correction after the commit was already done.
 
 That is the whole argument. Not that agents are hard — that the part you can
 reason about is not the part that will be wrong.

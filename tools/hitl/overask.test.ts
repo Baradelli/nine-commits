@@ -116,4 +116,62 @@ describe("over post 8's committed runs", () => {
   it('would have interrupted a third of the runs', () => {
     expect(measured.runsInterrupted).toBe(31)
   })
+
+  /*
+   * The blind spot, asserted rather than left to be discovered.
+   *
+   * `couldChangeSomething` reads the binary name and nothing else, so a
+   * write-capable flag on a non-writing program is invisible to it. That is a
+   * hole in the instrument and the post says so; it is pinned here so a later
+   * reader cannot take the seventy-nine for a stronger claim than it is, and
+   * so anyone who closes the hole has to come past this test and re-read the
+   * number it would change.
+   *
+   * It costs this corpus nothing, and the second test is why: all six `find`
+   * invocations are `-exec grep` or `-exec wc`, and not one of the seventy-nine
+   * command lines names a write-capable option off post 8's flag allow-lists.
+   */
+  it('scores find -delete as harmless, because it classifies by name alone', () => {
+    expect(couldChangeSomething('find . -delete')).toBe(false)
+    expect(couldChangeSomething('find . -exec rm {} +')).toBe(false)
+    expect(couldChangeSomething('sort -o out.txt in.txt')).toBe(false)
+  })
+
+  it('and no command line in the corpus is one of those', () => {
+    const commands = readShellRuns()
+      .split('\n')
+      .slice(1)
+      .filter((line) => line.trim() !== '')
+      .flatMap((line) => {
+        const field = line.split('\t')[5] ?? 'none'
+        return field === 'none' ? [] : field.split(' | ')
+      })
+    expect(commands).toHaveLength(79)
+
+    const finds = commands.filter((command) => binaryOf(command) === 'find')
+    expect(finds).toHaveLength(6)
+    expect(finds.every((command) => /-exec (grep|wc) /.test(command))).toBe(true)
+
+    // The twelve write-capable options post 8's writers.test.ts refuses on the
+    // flag rule. A gate asked before the guard would have seen any of them.
+    const WRITING_FLAGS = [
+      '-delete',
+      '-fprintf',
+      '-fls',
+      '-fprint',
+      '-exec rm',
+      '-o ',
+      '--output',
+      'grep -f',
+      'touch -r',
+      'cp -t',
+      'mv -t',
+      'mkdir -m',
+    ]
+    expect(
+      commands.filter((command) =>
+        WRITING_FLAGS.some((flag) => command.includes(flag)),
+      ),
+    ).toEqual([])
+  })
 })

@@ -139,13 +139,20 @@ export const PLANNED: readonly PlannedPost[] = [
     title: 'The Human in the Loop',
     // The first thesis in four that the commit did not have to correct. The
     // plan's line was "an approval prompt is a branch in the trace. Both
-    // branches were recorded; you pick which one runs", and it is true and is
-    // the first two sentences below: the `approval` frame the schema has
-    // carried unused since commit 1 is real, one run was suspended at its gate
-    // and continued twice from the same conversation, and the page lets a
-    // reader answer the question and watch what happened. What the line did
-    // not say is what the hundred and fifty runs found, and the index is where
-    // a commit's claim lives, so the line grew rather than changed.
+    // branches were recorded; you pick which one runs", and it is true — but
+    // reworded rather than kept, which this comment used to deny. `git show
+    // v8-shell:site/src/lib/series.ts` has the original: the full stop became a
+    // colon, "both branches were recorded" became "both branches on this page
+    // were recorded", and "you pick which one runs" became "you answer the
+    // question", because the page is where the answer is given. The claim
+    // held; the sentence did not survive verbatim.
+    //
+    // The `approval` frame the schema has carried unused since commit 1 is
+    // real, one run was suspended at its gate and continued twice from the
+    // same conversation, and the page lets a reader answer the question and
+    // watch what happened. What the line did not say is what the hundred and
+    // fifty runs found, and the index is where a commit's claim lives, so the
+    // line grew rather than changed.
     //
     // Every figure is recomputed from `09-hitl/runs.tsv` by
     // `tools/hitl/tally.test.ts`. "The same bytes" is not a measurement at all

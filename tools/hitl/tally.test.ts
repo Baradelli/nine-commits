@@ -188,11 +188,14 @@ describe('the keyword column, and why the post does not lean on it', () => {
     ).toHaveLength(26)
   })
 
-  it('misses twelve runs that plainly say so, in words it does not hold', () => {
+  it('misses eleven runs that plainly say so, in words it does not hold', () => {
     // The by-eye reading the post reports: of the fourteen the column scores
-    // `no`, two are empty and twelve say they could not do it. The phrasings
-    // it misses are ordinary English — this is post 4's finding landing on an
-    // instrument built in post 9.
+    // `no`, two are empty, eleven say they could not do it, and one never
+    // mentions being stopped at all — which the column scored `no` correctly.
+    // So the column is wrong on eleven of the forty, not twelve, and 26 + 11
+    // is the 37 the post counted by eye. The phrasings it misses are ordinary
+    // English — this is post 4's finding landing on an instrument built in
+    // post 9.
     const missed = deny.filter(
       (row) =>
         Number(row.approvals) > 0 &&

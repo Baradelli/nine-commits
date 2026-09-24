@@ -49,6 +49,12 @@ function main(): void {
     ['runs gated', (c) => String(c.gated)],
     ['questions asked', (c) => String(c.approvals)],
     ['asked more than once', (c) => String(c.reasked)],
+    // A substring check for thirteen refusal words, and it is wrong on eleven
+    // of the forty gated `deny` rows: it scores 26 where reading all forty
+    // finds 37. The label says what the column measures rather than what a
+    // reader would want it to mean, and the line printed under the table says
+    // the rest — the post discloses this, and the tool a reader is invited to
+    // run should not be the one place that does not.
     ['answer names a refusal', (c) => String(c.mentioned)],
     ['stopped by the cap', (c) => String(c.capped)],
     ['stray file changes', (c) => String(c.stray)],
@@ -72,6 +78,14 @@ function main(): void {
   console.log(
     pad('US cents', 24) +
       byCondition.map(({ rows: r }) => pad(cents(r).toFixed(1), 12)).join(''),
+  )
+
+  console.log(
+    '\n"answer names a refusal" is a substring check over thirteen words, and\n' +
+      'it is wrong on 11 of the 40 gated deny rows. Reading all forty finds 37\n' +
+      'that say they were stopped, 1 that never mentions it and 2 that say\n' +
+      'nothing at all. The by-eye figure is the one post 9 asks you to trust;\n' +
+      'this column ships with its failure asserted in tools/hitl/tally.test.ts.',
   )
 
   console.log('\nper task (passes out of runs)\n')

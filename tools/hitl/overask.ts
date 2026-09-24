@@ -51,6 +51,23 @@ export function binaryOf(command: string): string {
  * the gate is asked first and cannot know that. So this over-counts the useful
  * questions and under-counts the wasted ones, which is the direction that
  * makes the finding harder to get rather than easier.
+ *
+ * **It classifies by binary name and nothing else, and that is a hole rather
+ * than a simplification.** `find . -delete` is `find`, which is on post 8's
+ * allow-list and not in `WRITERS`, so this answers `false` — *could not have
+ * changed a byte* — for a command line that deletes the workspace. The same
+ * goes for `sort -o`, `grep -f` and the other write-capable options post 8's
+ * `writers.test.ts` enumerates off the flag allow-lists. It is left this way
+ * on purpose: the alternative is a second flag-level allow-list over fifteen
+ * programs, which is the artefact post 8 spent a commit discovering it could
+ * not get right, and building one here to compute a number *about* that
+ * difficulty would be the joke answering itself.
+ *
+ * What the hole costs on this corpus is nothing: all six `find` invocations in
+ * `08-shell/runs.tsv` are `-exec grep` or `-exec wc`, and no line in the
+ * seventy-nine carries a write-capable flag. `overask.test.ts` asserts both —
+ * the blind spot, so nobody discovers it by being wrong in public, and its
+ * absence from the corpus, so the published number keeps its meaning.
  */
 export function couldChangeSomething(command: string): boolean {
   const binary = binaryOf(command)
