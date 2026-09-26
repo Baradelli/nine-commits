@@ -8,9 +8,25 @@ the decision was made rather than deferred, and recorded here.
 Every entry says what was decided, why, and what it costs if the call was wrong. They are in
 the order they were made. Nothing here was approved in advance.
 
-Six of them record an implementer pushing back on an instruction and being right.
+**69 decisions, and the record stops at `v2-hands`.**
 
-**56 decisions.**
+It was not kept up after commit 2. Commits 3 to 9 made many more rulings than these — three
+published theses rewritten by a review round, a sandbox guard with a hole in the part I was
+proudest of, a `/.dockerenv` check that was not a containment boundary, a `uniq` that writes
+files — and every one of those is in the post it belongs to rather than here. **This file is
+a snapshot of the first two commits, not an index of the series.** Read the posts for the
+rest; the retrospective is at the end of post 9.
+
+The count is checkable:
+
+    grep -c '^## ' DECISIONS.md
+
+Three entries here record an implementer's pushback beating my instruction, and they call
+themselves the second, the third and the fourth — the first is not written up as an entry of
+its own. The header used to claim six of them, and used to claim fifty-six decisions against
+a file holding sixty-nine. Both numbers were wrong about the file they sat on top of, which
+is a fair illustration of why the rest of the series stopped asserting a count it had not
+just recomputed.
 
 ---
 
