@@ -227,6 +227,37 @@ describe('claim one, from the published trace', () => {
     expect(page / (trace.tokens[3] ?? 1)).toBeGreaterThan(3.8)
     expect(page / (trace.tokens[3] ?? 1)).toBeLessThan(4)
   })
+
+  /*
+   * The defect this block exists for, and it is the one this whole file was
+   * supposed to make impossible.
+   *
+   * The assertion above pins 5,044 to `tokens[3]`. The post printed a ladder
+   * of three rows that did not include `tokens[3]`, so a reader subtracting
+   * the numbers on the page got 5,126 while the sentence under them said
+   * 5,044. Every figure was right and the page was still wrong, because the
+   * test read the trace and nothing read the block. So this one reads the
+   * block: post 8's `writers.test.ts` rule — derive the membership by running
+   * the code — applied to a code fence instead of to a sentence.
+   */
+  it('prints a ladder a reader can do the subtraction on', () => {
+    const post = readFileSync(join(POST, 'index.mdx'), 'utf8')
+    const fence = /```\n(708 {2,}[\s\S]*?)```/.exec(post)?.[1]
+    expect(fence, 'the token ladder is no longer in index.mdx').toBeDefined()
+
+    const printed = [...(fence ?? '').matchAll(/^([\d,]+)\s/gm)].map((match) =>
+      Number((match[1] ?? '').replace(/,/g, '')),
+    )
+    // Every row is a real entry from this trace's meter, in the order the run
+    // made them — not a subset chosen because it reads well.
+    expect(printed.length).toBeGreaterThanOrEqual(4)
+    for (const value of printed) expect(trace.tokens).toContain(value)
+    expect([...printed].sort((a, b) => a - b)).toEqual(printed)
+    // And both of the entries the figure is a difference of are on the page.
+    expect(printed).toContain(trace.tokens[3])
+    expect(printed).toContain(afterOneSearchAndRead)
+    expect(afterOneSearchAndRead - (trace.tokens[3] ?? 0)).toBe(5_044)
+  })
 })
 
 /*

@@ -59,17 +59,44 @@ billed, so bisecting downwards from a rejection is free. The wall is between
 those two numbers, and the program's default ceiling is the lower one — the
 largest context I have evidence the model will take.
 
+**Those three figures are the exception to the rule two paragraphs above, and
+saying so is the price of stating the rule.** Every other number on this page
+comes out of a file that ships beside it. These came out of a terminal. What is
+committed is the probe that produced them, `tools/window-probe.ts`, and the
+constant they were copied into, `MEASURED_MODEL_WINDOW` in
+`agent/src/context.ts`, which `tools/context/tally.test.ts` pins to 266,684 so
+the code and the prose cannot drift apart. Every other place the figure appears
+in this repository is a copy of the same terminal. That pins the constant to
+the sentence. It does not pin the sentence to a measurement, and nothing here does,
+because re-measuring means a billed request to a provider whose model will have
+moved under it. Every figure on this page you can check is one that came back
+with a file; this one came back with a run nobody else can see, and it is here
+because the alternative was to take the number off a model card, which is the
+thing the rule exists to stop.
+
 Against that, one search and one read of a page:
 
 ```
 708     the instruction, six tool definitions and the task
 1,226   after a web search comes back
-6,352   after one page of it is read
+1,308   after the model asks for one of the five pages it found
+6,352   after that page comes back
 ```
 
-The page alone is **5,044 tokens** — nearly four times the whole of the rest of
-the context at the moment it arrives. It is also 2% of the window. Both of
-those are true and only one of them is the thesis, so the thesis changed.
+Four entries from `trace-a-off.json`'s own token meter, in the order the run
+made them. The page alone is **5,044 tokens** — 6,352 minus the 1,308 it
+arrives into — nearly four times the whole of the rest of the context at that
+moment. It is also 2% of the window. Both of those are true and only one of
+them is the thesis, so the thesis changed.
+
+This block shipped with three rows and no 1,308 in it, so the subtraction a
+reader could make from what was printed came to 5,126 and the sentence under it
+said 5,044. The figure was right — `tools/context/tally.test.ts` has asserted
+it against the committed trace since the commit — and the ladder was missing
+the row it subtracts from. Found in a review of the published page: the test
+was written to assert the figure and not the ladder, so the ladder was the one
+part of the paragraph nothing was checking. `tools/context/tally.test.ts` now
+reads this block out of this file and checks every row in it against the trace.
 
 ## What I built
 

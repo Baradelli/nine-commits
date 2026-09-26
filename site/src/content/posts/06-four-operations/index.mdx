@@ -318,6 +318,17 @@ write_file:  THREW Error: ENOENT ...
 escapes recorded: 0
 ```
 
+**Those four lines are a transcript, not an artifact.** They came off a
+terminal running code that the next section deletes, against a root I removed
+by hand, so nothing in this repository can produce them again and no test
+asserts them. The *fixed* state is the opposite: `agent/src/tools/write.test.ts`
+deletes the root under a live tool set, calls all five tools, asserts each one
+returns `ok: false` rather than throwing, and asserts the escape counter holds
+one entry per call. So the broken state is my word and the fixed state is a
+test, which is the wrong way round from how it reads on the page. Post 7 marks
+the equivalent case — four lines from a batch it threw away — and this one went
+unmarked until a reader checking the page asked what was behind it.
+
 Nobody's file was at risk; no path outside the root is ever returned. What
 broke is two promises this page makes about itself. The sentence three screens
 up said every branch fails closed, and one did not. And `SandboxEscape`'s own

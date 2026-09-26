@@ -171,8 +171,9 @@ twenty-one runs I have full traces for hit that line.
 
 Post 2 did not miss this. That example string did not exist when post 2's runs
 were recorded. The traces were committed in `d56b181`, where `cli.ts` says only
-`TRACE_EXPECT="a,b"`; the worked example replaced the placeholder twenty-one
-minutes later in `0a28569`, the commit that shipped post 2's tally. So the line
+`TRACE_EXPECT="a,b"`; the worked example replaced the placeholder twenty
+minutes later in `0a28569` — 10:15:37 to 10:36:00 — the commit that shipped
+post 2's tally. So the line
 entered the corpus at the end of v2, after every run that could have found it
 had already happened, which is why it is a new finding rather than an old
 oversight. `git show d56b181:agent/src/cli.ts` if you want to check.
