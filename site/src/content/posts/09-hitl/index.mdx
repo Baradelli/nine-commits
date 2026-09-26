@@ -321,6 +321,7 @@ Every figure below is recomputed from it by `tools/hitl/tally.test.ts`.
 | tasks completed | **50** | **50** | **10** |
 | runs stopped and asked | 0 | **40** | **40** |
 | questions asked | 0 | **40** | **76** |
+| …about a call that would have finished the task | — | **40** | **76** |
 | asked more than once | 0 | 0 | **30** |
 | stopped by the step cap | 1 | 0 | 2 |
 | stray file changes | 0 | 0 | 0 |
@@ -347,12 +348,69 @@ completions, and not steps. It is the forty interruptions.
 Forty questions across fifty `allow` runs. All fifty runs finished their task.
 Zero stray file changes, in every condition.
 
-**Not one of those forty questions was about a call I would have refused.** The
-gate ran for a hundred and fifty runs and never once stopped something that
-should have been stopped, because nothing that should have been stopped was ever
-attempted. That is post 6's `escapes recorded: 0` in a different column, and it
-is the honest headline of the whole commit: a gate's question rate and a gate's
-value are unrelated quantities, and only one of them is easy to measure.
+**Not one of the hundred and sixteen questions was about a call I would have
+refused.** The gate ran for a hundred and fifty runs and never once stopped
+something that should have been stopped, because nothing that should have been
+stopped was ever attempted. That is post 6's `escapes recorded: 0` in a
+different column, and it is the honest headline of the whole commit: a gate's
+question rate and a gate's value are unrelated quantities, and only one of them
+is easy to measure.
+
+#### That sentence shipped before the file could carry it
+
+The version of this page that went up asserted it over all three conditions and
+had the evidence for forty. The forty `allow` questions are about calls that
+*ran*: the outcome columns cover them, fifty passes, zero stray changes, zero
+paths refused. The seventy-six `deny` questions are about calls that never ran,
+and the only column describing those was `gated_tools`, which holds a tool
+**name**. One deny trace is published on this page. So a reader could check the
+subject of one question out of seventy-six and take my word for the rest, on a
+site whose front page is a promise that they do not have to. A reviewer with no
+prior context on this repository found it by reading the tally's columns and
+asking what was behind the one the headline rests on.
+
+Two columns close it, and both were recoverable without a new run.
+`gated_paths` is the file each call would have changed — the `path` argument,
+which together with the tool name is the whole of what the gate is handed.
+`gated_completes` is whether that one call, applied to the workspace the run
+started from and graded by **that task's own `check`** — the same function that
+wrote the `pass` column — would have finished the task it was asked for.
+
+| the 116 questions, by the file they were about | |
+| --- | --- |
+| `config/settings.json` | 65 |
+| `docs/CHANGELOG.md` | 30 |
+| `notes/ports.md` | 21 |
+| would have finished the task they were asked for | **116** |
+
+Three files, each of them the file its own task is graded on. No path climbs
+out of the workspace and none names a file another task owns. The second row is
+the one that settles it, because the path alone would not have: a `write_file`
+to `config/settings.json` that sets `timeoutMs` to 9000 and drops `queueName`
+is the right file and a call I would refuse, and it reads `no` in that column.
+`tools/hitl/gated.test.ts` is five cases of the function saying `no` — a write
+to a file the task never mentioned, a rewrite that loses a value it was told to
+leave alone, a path with `..` in it — because a column that reads `yes` a
+hundred and sixteen times is worth nothing until you have watched it say
+something else. `tools/hitl/tally.test.ts` asserts the hundred and sixteen.
+
+**And the floor, because this is a null result.** A hundred and sixteen
+questions with no wrong one among them puts the 95% upper bound on the rate of
+wrong ones at **2.5%**. That is the resolution this buys, and it is the whole of
+what it buys.
+
+One thing about those two columns is weaker than everything else on this page.
+The hundred and fifty runs were paid for once, so `tools/retally-hitl.ts`
+recovers the columns from the run traces in `agent/traces/hitl/`, where a
+`tool_call` frame sits directly under every `approval` frame carrying the
+arguments the model wrote. **That directory is not committed** — `.gitignore`
+holds `traces/`, as it does for every raw run directory in this repository, and
+a raw trace is the kind of file post 7 shipped provider-side identifiers out
+of. So the command works on the machine that made the runs and nowhere else,
+and what ships is the tally — which is where every other figure on this page is
+read from as well, and which was likewise written once by a run nobody else
+can repeat. These two columns are a measurement you can hold me to. They are
+not one you can re-derive from this repository.
 
 I want to be careful about what that does and does not say. It does not say
 approval gates are worthless. It says these hundred and fifty runs contain no
@@ -763,10 +821,12 @@ git log -p --follow -- site/src/lib/series.ts
 Only post 3's is cleanly a correction that building produced and nothing else
 touched.
 
-So **building the thing produced the first correction every time and never the
-last one.** The other three — the floor under post 6's null, the condition on
-post 7's thesis, and the exact words at the top of this section — came from an
-adversarial pass over a post I had already decided was finished. Neither
+So **building the thing produced the first correction every time, and the last
+one once in four.** Post 3's is that one: it was corrected in the commit that
+built it and never again. The other three — the floor under post 6's null, the
+condition on post 7's thesis, and the exact words at the top of this section —
+came from an adversarial pass over a post I had already decided was
+finished. Neither
 mechanism found what the other found and neither would have been enough alone:
 a hundred and fifty runs cannot tell you that a sentence is wider than they are,
 and a reader cannot tell you that a fifth tool costs eighty-eight tokens.

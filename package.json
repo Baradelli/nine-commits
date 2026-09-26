@@ -32,7 +32,8 @@
     "shell:tally": "tsx tools/shell/report.ts",
     "hitl": "tsx --env-file=agent/.env tools/run-hitl.ts",
     "hitl:tally": "tsx tools/hitl/report.ts",
-    "fork": "tsx --env-file=agent/.env tools/run-fork.ts"
+    "fork": "tsx --env-file=agent/.env tools/run-fork.ts",
+    "hitl:retally": "tsx tools/retally-hitl.ts"
   },
   "devDependencies": {
     "@ai-sdk/openai": "^4.0.69",

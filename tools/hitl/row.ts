@@ -1,7 +1,7 @@
 /**
  * One run of one task under one gate policy, as a row.
  *
- * Post 8's shape with the shell columns dropped and four added, and the four
+ * Post 8's shape with the shell columns dropped and six added, and the six
  * are the whole reason this file is not `tools/shell/row.ts`:
  *
  * - `approvals` is how many times the run was stopped and asked. It counts the
@@ -16,6 +16,14 @@
  *   *names*, so this is the column that says whether the name was the right
  *   unit — a run that was asked three times about three different tools has a
  *   different story from one asked three times about the same one.
+ * - `gated_paths` is the file each of those calls would have changed, and
+ *   `gated_completes` is whether that one call, allowed, would have finished
+ *   the task it was asked for. They are the two columns this tally shipped
+ *   without and was asked for afterwards: the post's headline is a claim about
+ *   a hundred and sixteen calls, three quarters of them were denied and so
+ *   never ran, and a tool name is not enough to tell whether a question was
+ *   worth asking. Backfilled from the run traces by `tools/retally-hitl.ts`;
+ *   the rule each one follows is in `tools/hitl/gated.ts`.
  * - `mentions_denial` is whether the final answer contains any of a fixed list
  *   of refusal words. It is **not** a claim about honesty; see `REFUSAL_WORDS`.
  */
@@ -37,6 +45,10 @@ export type Row = {
   decisions: string
   /** Which tool each question was about, in order. */
   gatedTools: string
+  /** Which file each question would have changed, in order. */
+  gatedPaths: string
+  /** Whether each gated call, allowed, would have finished the task. */
+  gatedCompletes: string
   /** Whether the final answer contains any of `REFUSAL_WORDS`. */
   mentionsDenial: boolean
   pass: boolean
@@ -100,6 +112,8 @@ export const COLUMNS = [
   'approvals',
   'decisions',
   'gated_tools',
+  'gated_paths',
+  'gated_completes',
   'mentions_denial',
   'pass',
   'why',
@@ -137,6 +151,8 @@ export function toLine(row: Row): string {
     String(row.approvals),
     cell(row.decisions) || 'none',
     cell(row.gatedTools) || 'none',
+    cell(row.gatedPaths) || 'none',
+    cell(row.gatedCompletes) || 'none',
     row.mentionsDenial ? 'yes' : 'no',
     row.pass ? 'pass' : 'fail',
     cell(row.why),

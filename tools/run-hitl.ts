@@ -7,6 +7,7 @@ import { ALWAYS_ALLOW, ALWAYS_DENY, GATED } from '../agent/src/approval.ts'
 import { changed, TASKS, type Task } from './roster/tasks.ts'
 import { materialise, snapshot, dispose } from './roster/sandbox.ts'
 import { HEADER, mentionsDenial, toLine, type Row } from './hitl/row.ts'
+import { completesTask, decidingArgument } from './hitl/gated.ts'
 
 /**
  * The experiment: the same five tasks, the same model, the same tools, many
@@ -153,6 +154,17 @@ async function runCell(cell: Cell, traceDir: string): Promise<Row> {
       approvals: result.approvals.length,
       decisions: result.approvals.map((a) => a.decision).join(' '),
       gatedTools: result.approvals.map((a) => a.tool).join(' '),
+      // What the tool name leaves out, written down at the moment the question
+      // was asked rather than recovered afterwards. The first hundred and
+      // fifty runs had to be backfilled from their traces by
+      // `tools/retally-hitl.ts`, because this row shipped without these two
+      // columns and a denied call leaves no other mark anywhere.
+      gatedPaths: result.approvals
+        .map((a) => decidingArgument(a.tool, a.args))
+        .join(' '),
+      gatedCompletes: result.approvals
+        .map((a) => (completesTask(cell.task, a.tool, a.args) ? 'yes' : 'no'))
+        .join(' '),
       mentionsDenial: mentionsDenial(answer),
       pass: verdict.pass,
       why: verdict.why,
@@ -178,6 +190,8 @@ async function runCell(cell: Cell, traceDir: string): Promise<Row> {
       approvals: 0,
       decisions: '',
       gatedTools: '',
+      gatedPaths: '',
+      gatedCompletes: '',
       mentionsDenial: false,
       pass: false,
       why: `harness error: ${error instanceof Error ? error.name : 'unknown'}`,

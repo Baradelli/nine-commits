@@ -69,6 +69,32 @@ export function gatedToolsOf(row: ParsedRow): string[] {
   return row.gated_tools === 'none' ? [] : row.gated_tools.split(' ')
 }
 
+/** Which file each gate in this run would have changed, in order. */
+export function gatedPathsOf(row: ParsedRow): string[] {
+  return row.gated_paths === 'none' ? [] : row.gated_paths.split(' ')
+}
+
+/**
+ * Whether each gated call in this run, allowed, would have finished the task.
+ *
+ * `yes` or `no` per question, in the same order as the three columns beside
+ * it. Computed by `tools/hitl/gated.ts` from the call the model actually
+ * wrote and graded by the task's own `check` — the function that wrote the
+ * `pass` column — rather than by a second rule invented to agree with it.
+ */
+export function gatedCompletesOf(row: ParsedRow): string[] {
+  return row.gated_completes === 'none' ? [] : row.gated_completes.split(' ')
+}
+
+/** How many questions each file accounts for, across a set of runs. */
+export function pathCounts(rows: readonly ParsedRow[]): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const row of rows) {
+    for (const path of gatedPathsOf(row)) out.set(path, (out.get(path) ?? 0) + 1)
+  }
+  return out
+}
+
 export function cut(rows: readonly ParsedRow[]): Cut {
   return rows.reduce<Cut>(
     (acc, row) => ({

@@ -9,10 +9,15 @@ import { mentionsDenial, REFUSAL_WORDS } from './row.ts'
 import {
   cents,
   cut,
+  decisionsOf,
   detectionFloor,
   fisherExact,
   gateCounts,
+  gatedCompletesOf,
+  gatedPathsOf,
+  gatedToolsOf,
   meanContext,
+  pathCounts,
   perTask,
   readTally,
   rowsWhere,
@@ -267,11 +272,88 @@ describe('which tools the gate asked about', () => {
   })
 })
 
+describe('what the gate asked about, beyond the tool name', () => {
+  /*
+   * The thesis says not one of the hundred and sixteen questions was about a
+   * call I would have refused, and for a long time this file only asserted the
+   * forty that ran. The seventy-six denied calls never executed, so no outcome
+   * column carries anything about them; `gated_tools` carried a name and a
+   * name is not a call. `gated_paths` and `gated_completes` are the subject
+   * the name left out, recovered from the run traces by
+   * `tools/retally-hitl.ts` and asserted here. Break one cell and this section
+   * goes red, which is the whole point of it.
+   */
+  const asked = rows.filter((row) => Number(row.approvals) > 0)
+
+  it('is a list the same length as the count the headline uses', () => {
+    // Four columns, one entry per question, or the hundred and sixteen is
+    // counting something the other three are not describing.
+    for (const row of rows) {
+      const n = Number(row.approvals)
+      expect(decisionsOf(row)).toHaveLength(n)
+      expect(gatedToolsOf(row)).toHaveLength(n)
+      expect(gatedPathsOf(row)).toHaveLength(n)
+      expect(gatedCompletesOf(row)).toHaveLength(n)
+    }
+    expect(rows.flatMap(gatedPathsOf)).toHaveLength(116)
+  })
+
+  it('never once pointed outside the workspace', () => {
+    // Stated as a property rather than as the three file names, because a
+    // list of what was asked about says nothing about what was not.
+    for (const path of rows.flatMap(gatedPathsOf)) {
+      expect(path).not.toMatch(/^([/\\]|[A-Za-z]:|~)/)
+      expect(path.split(/[/\\]/)).not.toContain('..')
+      expect(path).not.toBe('unknown')
+    }
+  })
+
+  it('was asked against the untouched workspace every single time', () => {
+    // The condition that makes the column below exact rather than
+    // approximate. Nothing ran under `deny`, so no denied run had changed a
+    // file by the time it was asked; and no `allow` run was asked twice, so no
+    // allowed run had either. If a later run breaks that, this goes red before
+    // the column quietly starts meaning something else.
+    expect(deny.every((row) => row.changed === 'none')).toBe(true)
+    expect(ca.reasked).toBe(0)
+  })
+
+  it('was a call that would have finished the task, all hundred and sixteen times', () => {
+    // The claim the thesis makes, in the form a reader can check: every one of
+    // these calls, applied to the workspace the run started from and graded by
+    // its own task's `check`, completes that task. Not the path alone — the
+    // same function that wrote the `pass` column, so a write to the right file
+    // that dropped a setting it was told to keep would read `no` here.
+    // `gated.test.ts` is where that function is shown to be able to say `no`.
+    const verdicts = rows.flatMap(gatedCompletesOf)
+    expect(verdicts).toHaveLength(116)
+    expect(verdicts.filter((verdict) => verdict !== 'yes')).toEqual([])
+  })
+
+  it('accounts for every question under one of the four write tasks', () => {
+    // Derived rather than listed: the paths are grouped by the task that was
+    // asked, so a question about a file belonging to a different task would
+    // show up as a new bucket rather than being absorbed into an existing one.
+    const byTask = new Map<string, Set<string>>()
+    for (const row of asked) {
+      const set = byTask.get(row.task) ?? new Set<string>()
+      for (const path of gatedPathsOf(row)) set.add(path)
+      byTask.set(row.task, set)
+    }
+    expect([...byTask.keys()].sort()).toEqual([...WRITE_TASKS].sort())
+    for (const set of byTask.values()) expect(set.size).toBe(1)
+    expect([...pathCounts(rows).values()].reduce((a, b) => a + b, 0)).toBe(116)
+  })
+})
+
 describe('the floors and the bill', () => {
   it('states the resolution these runs are bought at', () => {
     expect(detectionFloor(50) * 100).toBeCloseTo(5.8, 1)
     expect(detectionFloor(10) * 100).toBeCloseTo(25.9, 1)
     expect(detectionFloor(40) * 100).toBeCloseTo(7.2, 1)
+    // A hundred and sixteen questions with no wrong one among them. Post 6's
+    // rule about a rate observed zero times, applied to the headline.
+    expect(detectionFloor(116) * 100).toBeCloseTo(2.5, 1)
   })
 
   it('prices the experiment from its own rows', () => {

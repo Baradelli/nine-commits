@@ -8,7 +8,9 @@ import {
   detectionFloor,
   fisherExact,
   gateCounts,
+  gatedCompletesOf,
   meanContext,
+  pathCounts,
   perTask,
   readTally,
   rowsWhere,
@@ -136,6 +138,24 @@ function main(): void {
   for (const [tool, count] of [...gateCounts(rows)].sort((a, b) => b[1] - a[1])) {
     console.log(`  ${pad(tool, 16)} ${count}`)
   }
+
+  // The tool name is what the gate decides on and it is not what the question
+  // was about. Seventy-six of these calls were denied and never ran, so the
+  // two blocks below are the only place a reader can see what they would have
+  // done.
+  console.log('\nwhich file the gate asked about')
+  for (const [path, count] of [...pathCounts(rows)].sort((a, b) => b[1] - a[1])) {
+    console.log(`  ${pad(path, 24)} ${count}`)
+  }
+
+  const verdicts = rows.flatMap(gatedCompletesOf)
+  const harmless = verdicts.filter((verdict) => verdict === 'yes').length
+  console.log(
+    `\nof those ${verdicts.length} calls, ${harmless} would have finished the task they were ` +
+      "asked for,\napplied to the workspace the run started from and graded by that task's own\n" +
+      'check — the function that wrote the pass column. tools/hitl/gated.ts has the\nrule; ' +
+      'tools/hitl/tally.test.ts asserts it.',
+  )
 
   console.log('\ntool calls, by condition')
   for (const { condition, rows: r } of byCondition) {
