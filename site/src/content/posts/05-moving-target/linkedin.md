@@ -1,7 +1,15 @@
 <!--
-Shipping copy for LinkedIn. Hook #19 Curiosity Gap. 1556 characters.
-Scored 75.2 PASS on the humanizer; treat the body below as final and paste it as-is.
-Numbers verified: 10 of 10, against judgements.tsv.
+Shipping copy for LinkedIn. Hook #19 Curiosity Gap. 1609 characters.
+Scored 73.8 PASS on the humanizer; treat the body below as final and paste it as-is.
+Fixed after a cold audit of the published series: "the whole experiment cost
+13 cents" dropped the post's "plus one agent run to record the trace above",
+which post 9 counts as one of the series' two unpriced extras.
+
+Every figure in the body is one the post publishes, and that is now a test
+rather than a promise — `tools/linkedin/copy.test.ts` reads this file and fails
+if a number in it is not on the page. The humanizer score is the one figure
+here nothing in the repository can check, because the humanizer lives outside
+it; it was recomputed on the body below.
 
 No link in the body, on purpose: LinkedIn suppresses the reach of posts that
 carry an outbound link. The post URL goes in the FIRST COMMENT instead, which
@@ -29,6 +37,6 @@ The confidence prices the label, not the question.
 
 Nine of the ten cases were unanimous across nine repeats. So it isn't noisy. It's consistent, and consistently reaching past what it can see, which is harder to catch than noise.
 
-The whole experiment cost 13 cents.
+The judging cost 13 cents. Plus one agent run to record the trace, which I never priced.
 
 Commit 5 of 9. Link in the comments.

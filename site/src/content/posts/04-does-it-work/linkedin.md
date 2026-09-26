@@ -1,7 +1,18 @@
 <!--
-Shipping copy for LinkedIn. Hook #10 The Receipt. 1471 characters.
-Scored 70.4 PASS on the humanizer; treat the body below as final and paste it as-is.
-Numbers verified: every figure, against the seven committed traces.
+Shipping copy for LinkedIn. Hook #10 The Receipt. 1553 characters.
+Scored 72.6 PASS on the humanizer; treat the body below as final and paste it as-is.
+Fixed after a cold audit of the published series: the copy listed four
+verdicts where the grader has five, and named one (`from-copy`) that none of
+the seven runs returned while omitting one (`ungradable`) that one of them
+did. Replaced with the property. Separately, the "86 bytes" this copy opens
+on was nowhere on the page — the post now prints it and
+`tools/eval/corpus.test.ts` asserts it.
+
+Every figure in the body is one the post publishes, and that is now a test
+rather than a promise — `tools/linkedin/copy.test.ts` reads this file and fails
+if a number in it is not on the page. The humanizer score is the one figure
+here nothing in the repository can check, because the humanizer lives outside
+it; it was recomputed on the body below.
 
 No link in the body, on purpose: LinkedIn suppresses the reach of posts that
 carry an outbound link. The post URL goes in the FIRST COMMENT instead, which
@@ -20,7 +31,7 @@ The old check was a substring match on the final text. Does it name agent/src/co
 
 So I wrote something that reads the trace: which tool got called, with what arguments, and what came back. list_files hands you a filename. search_files hands you a line out of a file. Not the same evidence, and a substring match can't tell them apart.
 
-I ran it over all 7 recorded runs in the repo. Four verdicts: grounded, undecidable, from-copy, unevidenced.
+I ran it over all 7 recorded runs in the repo. 5 possible verdicts, each about where the answer came from: the source file, a copy of it, both, neither, or a question no single line answers.
 
 Five runs ask the same question. Zero come back grounded.
 

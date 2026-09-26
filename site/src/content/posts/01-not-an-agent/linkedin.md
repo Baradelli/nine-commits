@@ -1,6 +1,17 @@
 <!--
-Shipping copy for LinkedIn. Scored 85.3 PASS on the humanizer; treat the body
-below as final and paste it as-is.
+Shipping copy for LinkedIn. 1549 characters. Scored 84.0 PASS on the
+humanizer; treat the body below as final and paste it as-is.
+
+Every figure in the body is one the post publishes. That is not a claim about
+my care any more: `tools/linkedin/copy.test.ts` reads this file, pulls every
+number out of it and fails if the post does not carry it.
+
+The score this header used to state was 85.3, and re-running the humanizer on
+the shipped body gave 84.9 before this round's edit. The copy was corrected
+after it was scored and the header was not. A score written in a committed file
+that nobody recomputed is exactly the defect this series is about, so: 84.0 is
+a figure I recomputed on the body below, and nothing in this repository can
+check it for me — the humanizer lives outside it.
 
 No link in the body, on purpose: LinkedIn suppresses the reach of posts that
 carry an outbound link. The post URL goes in the FIRST COMMENT instead, which
@@ -28,7 +39,7 @@ And signed off with "I'll tell you the number once you provide the output."
 
 So I ran it. I got 4,697 files back.
 
-4,660 of those are inside node_modules. The real answer is 37.
+4,660 of those are inside node_modules. The files anyone here actually wrote: 37 the day I ran it, 35 at the tag this post is pinned to. Both figures drift, which is its own small lesson.
 
 So the plan was wrong too. Correctly shaped, quietly useless, and here's the part that kept me up: the model would have taken 4,697 and handed it back as the answer. It can't look at a number it didn't produce and think "that can't be right."
 

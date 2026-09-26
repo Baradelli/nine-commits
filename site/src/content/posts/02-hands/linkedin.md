@@ -1,7 +1,15 @@
 <!--
-Shipping copy for LinkedIn. Hook #3 Mistake Confession. 1567 characters.
-Scored 76.8 PASS on the humanizer; treat the body below as final and paste it as-is.
-Numbers verified: 15 of 15, against trace-a, trace-b and runs.tsv.
+Shipping copy for LinkedIn. Hook #3 Mistake Confession. 1583 characters.
+Scored 75.7 PASS on the humanizer; treat the body below as final and paste it as-is.
+Fixed after a cold audit of the published series: "21 more times per side"
+implied 46 runs where the post says 21 a side including the two published
+traces, and the same copy then said 42.
+
+Every figure in the body is one the post publishes, and that is now a test
+rather than a promise — `tools/linkedin/copy.test.ts` reads this file and fails
+if a number in it is not on the page. The humanizer score is the one figure
+here nothing in the repository can check, because the humanizer lives outside
+it; it was recomputed on the body below.
 
 No link in the body, on purpose: LinkedIn suppresses the reach of posts that
 carry an outbound link. The post URL goes in the FIRST COMMENT instead, which
@@ -21,7 +29,7 @@ With thin descriptions it called search_files, the right one, and searched for m
 
 Both runs came out backwards from the post I'd half-drafted.
 
-So I ran it 21 more times per side. Precise reached the right tool 12 times out of 21 and answered in full 4 times. Thin reached it twice and answered zero.
+So I took it to 21 runs a side, those two included. Precise reached the right tool 12 times out of 21 and answered in full 4 times. Thin reached it twice and answered zero.
 
 The claim holds. But the two runs I'd recorded were the least likely outcome on both sides, and I had nearly published them as the demonstration.
 

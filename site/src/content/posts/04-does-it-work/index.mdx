@@ -173,7 +173,9 @@ for t in site/src/content/posts/03-the-loop/trace.json \
 done | sort -u | wc -l
 ```
 
-That prints `1`. Behind those three identical sentences are three different
+That prints `1`. What it prints is **86 bytes** of UTF-8 — eighty-four
+characters, one of them an em dash. Behind those three identical sentences are
+three different
 result sets, with one, sixteen and one copies of the answer in them. A grader
 reading the sentence has nothing to work with. It is looking at the same bytes
 each time, and it is right to give the same grade, and the grade is worthless.

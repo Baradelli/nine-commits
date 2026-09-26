@@ -1,7 +1,15 @@
 <!--
-Shipping copy for LinkedIn. Hook #2 Number Reveal. 1546 characters.
-Scored 82.7 PASS on the humanizer; treat the body below as final and paste it as-is.
-Numbers verified: 10 of 10, against trace.json, runs.tsv and corpus-reach.tsv.
+Shipping copy for LinkedIn. Hook #2 Number Reveal. 1557 characters.
+Scored 84.7 PASS on the humanizer; treat the body below as final and paste it as-is.
+Fixed after a cold audit of the published series: the answer key was
+described as being "in the tool itself, not in the source code". It is
+`agent/src/cli.ts:48`, which the post calls the agent's own source.
+
+Every figure in the body is one the post publishes, and that is now a test
+rather than a promise — `tools/linkedin/copy.test.ts` reads this file and fails
+if a number in it is not on the page. The humanizer score is the one figure
+here nothing in the repository can check, because the humanizer lives outside
+it; it was recomputed on the body below.
 
 No link in the body, on purpose: LinkedIn suppresses the reach of posts that
 carry an outbound link. The post URL goes in the FIRST COMMENT instead, which
@@ -25,7 +33,7 @@ But the number I trust is the smaller one. 16 runs opened by calling the wrong t
 
 That's what the loop buys. Not intelligence. A second try.
 
-Then I found something I wasn't looking for. The agent's own command-line help text contains an example that spells out the exact answer it was being graded on. Ten of my runs found it there, in the tool itself, not in the source code.
+Then I found something I wasn't looking for. The agent's own command-line help text contains an example that spells out the exact answer it was being graded on. Ten of my runs found it there, in the agent's own source, one line of a usage string.
 
 I corrected the claim on the site rather than the count. The commits are supposed to earn what the page promises, not the other way round.
 

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { parseTrace, type Trace } from '../trace/schema.ts'
 import { POSTS_DIR } from '../paths.ts'
 import { grade } from './grade.ts'
@@ -112,6 +114,34 @@ describe('the traces committed in this repository', () => {
 
     expect(verdicts.length).toBeGreaterThan(0)
     expect(verdicts).not.toContain('grounded')
+  })
+
+  /**
+   * The three identical answers, and the size the post prints for them.
+   *
+   * The post's own check is a shell pipeline that prints `1`. That proves the
+   * three are identical and says nothing about how long they are — and the
+   * byte count was in this post's LinkedIn copy before it was anywhere on the
+   * page, which is a figure stated where nothing could check it. This post is
+   * about grading the evidence rather than the sentence, so the figure is now
+   * on the page and the check is here.
+   */
+  it('is the same eighty-six bytes, three times', () => {
+    const answers = [
+      join(POSTS_DIR, '03-the-loop', 'trace.json'),
+      join(POSTS_DIR, '03-the-loop', 'trace2-corpus-hit.json'),
+      join(POSTS_DIR, '04-does-it-work', 'trace-a-model-name.json'),
+    ].map((file) => {
+      const trace = parseTrace(JSON.parse(readFileSync(file, 'utf8')))
+      const last = [...trace.frames]
+        .reverse()
+        .find((frame) => frame.type === 'assistant') as { content?: string } | undefined
+      return last?.content ?? ''
+    })
+
+    expect(new Set(answers).size).toBe(1)
+    expect(Buffer.byteLength(answers[0] ?? '', 'utf8')).toBe(86)
+    expect((answers[0] ?? '').length).toBe(84)
   })
 })
 
